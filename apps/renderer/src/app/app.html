@@ -1,8 +1,38 @@
-<mat-toolbar class="shell-toolbar" role="banner">
-  <mat-icon aria-hidden="true">developer_board</mat-icon>
-  <span>{{ title }}</span>
-</mat-toolbar>
+<mat-sidenav-container class="shell-container">
+  <mat-sidenav class="shell-sidenav" mode="side" [opened]="navOpen()">
+    <div class="sidenav-brand">
+      <mat-icon aria-hidden="true">developer_board</mat-icon>
+      <span>{{ title }}</span>
+    </div>
+    <mat-nav-list>
+      <a
+        mat-list-item
+        routerLink="/"
+        routerLinkActive="active-link"
+        [routerLinkActiveOptions]="{ exact: true }"
+      >
+        <mat-icon aria-hidden="true">home</mat-icon>
+        <span>Home</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
 
-<main class="shell-main" role="main">
-  <router-outlet />
-</main>
+  <mat-sidenav-content>
+    <mat-toolbar class="shell-toolbar" role="banner">
+      <button
+        mat-icon-button
+        type="button"
+        class="menu-toggle"
+        aria-label="Toggle navigation menu"
+        (click)="toggleNav()"
+      >
+        <mat-icon aria-hidden="true">menu</mat-icon>
+      </button>
+      <span class="shell-title">{{ title }}</span>
+    </mat-toolbar>
+
+    <main class="shell-main" role="main">
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

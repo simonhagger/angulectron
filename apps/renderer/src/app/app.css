@@ -1,20 +1,57 @@
 :host {
+  display: block;
   min-height: 100dvh;
-  display: grid;
-  grid-template-rows: auto 1fr;
   background:
     radial-gradient(circle at 12% 18%, rgb(255 209 102 / 28%), transparent 42%),
     radial-gradient(circle at 88% 6%, rgb(0 95 204 / 18%), transparent 34%),
     linear-gradient(140deg, #f8f7f1, #eef3f9);
 }
 
+.shell-container {
+  min-height: 100dvh;
+}
+
+.shell-sidenav {
+  width: 248px;
+  border-right: 1px solid rgb(0 0 0 / 9%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem 1rem 0.5rem;
+  font-weight: 600;
+}
+
 .shell-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
   gap: 0.65rem;
   border-bottom: 1px solid rgb(0 0 0 / 9%);
+  background: rgb(248 247 241 / 90%);
+  backdrop-filter: blur(6px);
+}
+
+.menu-toggle {
+  margin-left: -0.25rem;
+}
+
+.shell-title {
+  font-weight: 600;
+}
+
+.active-link {
+  background: rgb(0 95 204 / 12%);
+  border-radius: 8px;
 }
 
 .shell-main {
+  width: min(1280px, calc(100% - 2rem));
   margin: 0 auto;
-  width: min(1080px, calc(100% - 2rem));
   padding: 1rem 0 2rem;
 }
