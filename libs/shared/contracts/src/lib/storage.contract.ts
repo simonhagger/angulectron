@@ -12,6 +12,7 @@ export const storageSetRequestSchema = requestEnvelope(
       key: z.string().min(1).max(256),
       value: z.unknown(),
       classification: storageClassificationSchema.default('internal'),
+      ttlSeconds: z.number().int().min(1).max(2_592_000).optional(),
     })
     .strict(),
 );

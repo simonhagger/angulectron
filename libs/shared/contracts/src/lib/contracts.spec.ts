@@ -93,6 +93,7 @@ describe('storageSetRequestSchema', () => {
         key: 'theme.mode',
         value: 'light',
         classification: 'internal',
+        ttlSeconds: 60,
       },
     });
 
@@ -107,6 +108,21 @@ describe('storageSetRequestSchema', () => {
         domain: 'secret',
         key: 'k',
         value: 'v',
+      },
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects invalid ttl values', () => {
+    const parsed = storageSetRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-7',
+      payload: {
+        domain: 'cache',
+        key: 'k',
+        value: 'v',
+        ttlSeconds: 0,
       },
     });
 

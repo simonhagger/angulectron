@@ -36,6 +36,7 @@ export interface DesktopStorageApi {
     key: string,
     value: unknown,
     classification?: 'internal' | 'sensitive',
+    options?: { ttlSeconds?: number },
   ) => Promise<DesktopResult<{ updated: boolean }>>;
   getItem: (
     domain: 'settings' | 'cache',

@@ -25,7 +25,8 @@ const { DatabaseSync } = require('node:sqlite') as {
   DatabaseSync: new (path: string) => SqliteDatabase;
 };
 
-const STORAGE_SCHEMA_VERSION = 1;
+const STORAGE_SCHEMA_VERSION = 2;
+const DEFAULT_CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
 
 type StorageGatewayDeps = {
   dbPath: string;
@@ -37,6 +38,7 @@ type StoredRow = {
   value: string;
   is_encrypted: number;
   classification: StorageClassification;
+  expires_at: number | null;
 };
 
 export class StorageGateway {
@@ -59,14 +61,33 @@ export class StorageGateway {
       return serialized as DesktopResult<never>;
     }
 
+    const now = Date.now();
+    let expiresAt: number | null = null;
+    if (request.payload.ttlSeconds !== undefined) {
+      if (request.payload.domain !== 'cache') {
+        return asFailure(
+          'STORAGE/INVALID_TTL_DOMAIN',
+          'TTL can only be set for cache domain values.',
+          { domain: request.payload.domain },
+          false,
+          request.correlationId,
+        );
+      }
+
+      expiresAt = now + request.payload.ttlSeconds * 1000;
+    } else if (request.payload.domain === 'cache') {
+      expiresAt = now + DEFAULT_CACHE_TTL_SECONDS * 1000;
+    }
+
     this.db!.prepare(
       `
-      INSERT INTO kv_store (domain, key, value, is_encrypted, classification, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO kv_store (domain, key, value, is_encrypted, classification, expires_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(domain, key) DO UPDATE SET
         value = excluded.value,
         is_encrypted = excluded.is_encrypted,
         classification = excluded.classification,
+        expires_at = excluded.expires_at,
         updated_at = excluded.updated_at
       `,
     ).run(
@@ -75,7 +96,8 @@ export class StorageGateway {
       serialized.data.value,
       serialized.data.isEncrypted,
       request.payload.classification,
-      Date.now(),
+      expiresAt,
+      now,
     );
 
     return asSuccess({ updated: true });
@@ -92,10 +114,18 @@ export class StorageGateway {
     }
 
     const row = this.db!.prepare(
-      'SELECT value, is_encrypted, classification FROM kv_store WHERE domain = ? AND key = ?',
+      'SELECT value, is_encrypted, classification, expires_at FROM kv_store WHERE domain = ? AND key = ?',
     ).get(request.payload.domain, request.payload.key) as StoredRow | undefined;
 
     if (!row) {
+      return asSuccess({ found: false });
+    }
+
+    if (typeof row.expires_at === 'number' && row.expires_at <= Date.now()) {
+      this.db!.prepare('DELETE FROM kv_store WHERE domain = ? AND key = ?').run(
+        request.payload.domain,
+        request.payload.key,
+      );
       return asSuccess({ found: false });
     }
 
@@ -148,11 +178,12 @@ export class StorageGateway {
 
   private ensureReady(correlationId?: string): DesktopResult<never> | null {
     if (!this.db) {
-      const dbDir = path.dirname(this.deps.dbPath);
-      mkdirSync(dbDir, { recursive: true });
-      this.db = new DatabaseSync(this.deps.dbPath);
+      try {
+        const dbDir = path.dirname(this.deps.dbPath);
+        mkdirSync(dbDir, { recursive: true });
+        this.db = new DatabaseSync(this.deps.dbPath);
 
-      this.db.exec(`
+        this.db.exec(`
         CREATE TABLE IF NOT EXISTS metadata (
           key TEXT PRIMARY KEY,
           value TEXT NOT NULL
@@ -164,26 +195,62 @@ export class StorageGateway {
           value TEXT NOT NULL,
           is_encrypted INTEGER NOT NULL DEFAULT 0,
           classification TEXT NOT NULL,
+          expires_at INTEGER,
           updated_at INTEGER NOT NULL,
           PRIMARY KEY (domain, key)
         );
+
       `);
 
-      const versionRow = this.db
-        .prepare("SELECT value FROM metadata WHERE key = 'schema_version'")
-        .get() as { value: string } | undefined;
+        const versionRow = this.db
+          .prepare("SELECT value FROM metadata WHERE key = 'schema_version'")
+          .get() as { value: string } | undefined;
 
-      if (!versionRow) {
-        this.db
-          .prepare(
-            "INSERT INTO metadata (key, value) VALUES ('schema_version', ?)",
-          )
-          .run(String(STORAGE_SCHEMA_VERSION));
-      } else if (Number(versionRow.value) > STORAGE_SCHEMA_VERSION) {
+        const currentVersion = versionRow ? Number(versionRow.value) : 1;
+        if (!versionRow) {
+          this.db
+            .prepare(
+              "INSERT INTO metadata (key, value) VALUES ('schema_version', ?)",
+            )
+            .run(String(STORAGE_SCHEMA_VERSION));
+        } else if (currentVersion > STORAGE_SCHEMA_VERSION) {
+          return asFailure(
+            'STORAGE/INCOMPATIBLE_SCHEMA',
+            'Storage schema version is newer than this app supports.',
+            { schemaVersion: versionRow.value },
+            false,
+            correlationId,
+          );
+        } else if (currentVersion < STORAGE_SCHEMA_VERSION) {
+          const migrationFailure = this.applyMigrations(
+            currentVersion,
+            correlationId,
+          );
+          if (migrationFailure) {
+            return migrationFailure;
+          }
+        }
+
+        this.ensureExpiryIndex();
+
+        const integrityFailure = this.verifyIntegrity(correlationId);
+        if (integrityFailure) {
+          return integrityFailure;
+        }
+
+        this.pruneExpiredCacheEntries();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const code =
+          message.includes('file is not a database') ||
+          message.includes('database disk image is malformed')
+            ? 'STORAGE/CORRUPTED_DB'
+            : 'STORAGE/INITIALIZATION_FAILED';
+
         return asFailure(
-          'STORAGE/INCOMPATIBLE_SCHEMA',
-          'Storage schema version is newer than this app supports.',
-          { schemaVersion: versionRow.value },
+          code,
+          'Storage could not be initialized safely.',
+          { message },
           false,
           correlationId,
         );
@@ -191,6 +258,117 @@ export class StorageGateway {
     }
 
     return null;
+  }
+
+  private applyMigrations(
+    currentVersion: number,
+    correlationId?: string,
+  ): DesktopResult<never> | null {
+    if (!this.db) {
+      return asFailure(
+        'STORAGE/INITIALIZATION_FAILED',
+        'Storage is not initialized.',
+        undefined,
+        false,
+        correlationId,
+      );
+    }
+
+    try {
+      this.db.exec('BEGIN IMMEDIATE;');
+
+      if (currentVersion < 2) {
+        const tableDefinition = this.db
+          .prepare(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'kv_store'",
+          )
+          .get() as { sql?: string } | undefined;
+
+        const hasExpiresAtColumn = tableDefinition?.sql?.includes('expires_at');
+
+        if (!hasExpiresAtColumn) {
+          this.db.exec('ALTER TABLE kv_store ADD COLUMN expires_at INTEGER;');
+        }
+
+        this.db.exec(
+          'CREATE INDEX IF NOT EXISTS idx_kv_store_domain_expires ON kv_store(domain, expires_at);',
+        );
+      }
+
+      this.db
+        .prepare("UPDATE metadata SET value = ? WHERE key = 'schema_version'")
+        .run(String(STORAGE_SCHEMA_VERSION));
+      this.db.exec('COMMIT;');
+      return null;
+    } catch (error) {
+      this.db.exec('ROLLBACK;');
+      return asFailure(
+        'STORAGE/MIGRATION_FAILED',
+        'Storage schema migration failed.',
+        error,
+        false,
+        correlationId,
+      );
+    }
+  }
+
+  private ensureExpiryIndex() {
+    if (!this.db) {
+      return;
+    }
+
+    const tableDefinition = this.db
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'kv_store'",
+      )
+      .get() as { sql?: string } | undefined;
+
+    if (tableDefinition?.sql?.includes('expires_at')) {
+      this.db.exec(
+        'CREATE INDEX IF NOT EXISTS idx_kv_store_domain_expires ON kv_store(domain, expires_at);',
+      );
+    }
+  }
+
+  private verifyIntegrity(correlationId?: string): DesktopResult<never> | null {
+    if (!this.db) {
+      return asFailure(
+        'STORAGE/INITIALIZATION_FAILED',
+        'Storage is not initialized.',
+        undefined,
+        false,
+        correlationId,
+      );
+    }
+
+    const row = this.db.prepare('PRAGMA quick_check(1);').get() as
+      | Record<string, string>
+      | undefined;
+    const value = row ? String(Object.values(row)[0]) : 'unknown';
+
+    if (value !== 'ok') {
+      return asFailure(
+        'STORAGE/CORRUPTED_DB',
+        'Storage integrity check failed.',
+        { quickCheck: value },
+        false,
+        correlationId,
+      );
+    }
+
+    return null;
+  }
+
+  private pruneExpiredCacheEntries() {
+    if (!this.db) {
+      return;
+    }
+
+    this.db
+      .prepare(
+        'DELETE FROM kv_store WHERE domain = ? AND expires_at IS NOT NULL AND expires_at <= ?',
+      )
+      .run('cache', Date.now());
   }
 
   private serializeValue(
