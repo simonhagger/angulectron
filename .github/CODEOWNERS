@@ -1,0 +1,8 @@
+# Replace with real GitHub handles or teams before enabling required CODEOWNERS review.
+* @your-org/desktop-foundation-owners
+
+docs/ @your-org/desktop-foundation-owners
+apps/desktop-main/ @your-org/desktop-foundation-owners
+apps/desktop-preload/ @your-org/desktop-foundation-owners
+libs/shared/contracts/ @your-org/desktop-foundation-owners
+libs/platform/desktop-api/ @your-org/desktop-foundation-owners

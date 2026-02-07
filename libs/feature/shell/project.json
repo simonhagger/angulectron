@@ -1,0 +1,19 @@
+{
+  "name": "shell",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/feature/shell/src",
+  "projectType": "library",
+  "tags": ["type:feature", "scope:feature", "platform:renderer"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/feature/shell",
+        "main": "libs/feature/shell/src/index.ts",
+        "tsConfig": "libs/feature/shell/tsconfig.lib.json",
+        "assets": ["libs/feature/shell/*.md"]
+      }
+    }
+  }
+}

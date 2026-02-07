@@ -1,0 +1,68 @@
+<section *transloco="let t; read: 'home'" class="home-layout">
+  <ui-surface-card [title]="t('title')" [subtitle]="t('subtitle')">
+    <div class="status-grid">
+      <p>
+        <strong>{{ t('desktopBridge') }}:</strong>
+        <span>{{ t(statusTranslationKey()) }}</span>
+      </p>
+      <p>
+        <strong>{{ t('appVersion') }}:</strong>
+        <span>{{ appVersion() }}</span>
+      </p>
+      <p>
+        <strong>{{ t('contractVersion') }}:</strong>
+        <span>{{ contractVersion() }}</span>
+      </p>
+      <p>
+        <strong>{{ t('activeLanguage') }}:</strong>
+        <span>{{ language() }}</span>
+      </p>
+    </div>
+
+    <div class="actions" role="group" [attr.aria-label]="t('actions')">
+      <ui-primary-button
+        [label]="t('openFile')"
+        icon="description"
+        (pressed)="openFile()"
+      />
+      <ui-primary-button
+        [label]="t('checkUpdates')"
+        icon="system_update"
+        (pressed)="checkUpdates()"
+      />
+      <ui-primary-button
+        [label]="t('trackTelemetry')"
+        icon="analytics"
+        (pressed)="trackTelemetry()"
+      />
+      <ui-primary-button
+        [label]="t('useEnglish')"
+        icon="language"
+        (pressed)="setLanguage('en-US')"
+      />
+    </div>
+
+    @if (fileResult()) {
+    <p class="result-line">
+      <strong>{{ t('filePreview') }}:</strong>
+      <span>{{ fileResult() }}</span>
+    </p>
+    } @if (updateResult()) {
+    <p class="result-line">
+      <strong>{{ t('updateStatus') }}:</strong>
+      <span>{{ updateResult() }}</span>
+    </p>
+    } @if (telemetryResult()) {
+    <p class="result-line">
+      <strong>{{ t('telemetryStatus') }}:</strong>
+      <span>{{ telemetryResult() }}</span>
+    </p>
+    }
+  </ui-surface-card>
+
+  <ui-carbon-notice
+    [title]="t('governanceTitle')"
+    [body]="t('governanceBody')"
+    status="info"
+  />
+</section>

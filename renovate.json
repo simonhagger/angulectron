@@ -1,0 +1,26 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    ":separateMajorReleases",
+    ":timezone(America/New_York)"
+  ],
+  "schedule": ["after 2am and before 6am on monday"],
+  "labels": ["dependencies"],
+  "rangeStrategy": "replace",
+  "packageRules": [
+    {
+      "description": "Auto-merge safe dev patch updates after CI passes",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Never auto-merge majors",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}

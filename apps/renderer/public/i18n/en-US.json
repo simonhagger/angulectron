@@ -1,0 +1,22 @@
+{
+  "home": {
+    "title": "Desktop Foundation Shell",
+    "subtitle": "Angular 21 + Electron baseline with governed architecture boundaries.",
+    "desktopBridge": "Desktop bridge",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "appVersion": "App version",
+    "contractVersion": "Contract version",
+    "activeLanguage": "Active language",
+    "actions": "Desktop actions",
+    "openFile": "Open file",
+    "checkUpdates": "Check updates",
+    "trackTelemetry": "Track telemetry",
+    "useEnglish": "Use English",
+    "filePreview": "File preview",
+    "updateStatus": "Update status",
+    "telemetryStatus": "Telemetry status",
+    "governanceTitle": "UI Governance",
+    "governanceBody": "Material is primary. Tailwind handles layout. Carbon is allowed only through approved adapters."
+  }
+}

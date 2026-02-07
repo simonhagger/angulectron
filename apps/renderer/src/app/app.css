@@ -1,0 +1,20 @@
+:host {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background:
+    radial-gradient(circle at 12% 18%, rgb(255 209 102 / 28%), transparent 42%),
+    radial-gradient(circle at 88% 6%, rgb(0 95 204 / 18%), transparent 34%),
+    linear-gradient(140deg, #f8f7f1, #eef3f9);
+}
+
+.shell-toolbar {
+  gap: 0.65rem;
+  border-bottom: 1px solid rgb(0 0 0 / 9%);
+}
+
+.shell-main {
+  margin: 0 auto;
+  width: min(1080px, calc(100% - 2rem));
+  padding: 1rem 0 2rem;
+}

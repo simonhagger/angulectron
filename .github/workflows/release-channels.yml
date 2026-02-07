@@ -1,0 +1,67 @@
+name: Release Channels
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        options:
+          - dev
+          - beta
+          - stable
+      version_bump:
+        description: Changeset bump strategy
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  NX_DAEMON: 'false'
+  TMPDIR: /tmp
+  TMP: /tmp
+  TEMP: /tmp
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - name: Create release changeset
+        run: |
+          mkdir -p .changeset
+          cat > .changeset/auto-${{ github.run_id }}.md <<'MARKDOWN'
+          ---
+          "@electron-foundation/source": ${{ inputs.version_bump }}
+          ---
+
+          Automated ${{ inputs.channel }} channel release.
+          MARKDOWN
+      - run: pnpm version-packages
+      - run: pnpm build
+      - run: pnpm forge:make
+      - name: Commit release artifacts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "chore(release): promote ${{ inputs.channel }} channel" || echo "No release changes to commit"
+          git push

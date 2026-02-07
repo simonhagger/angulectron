@@ -1,0 +1,36 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2022",
+    "module": "esnext",
+    "lib": ["es2022", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@electron-foundation/material": ["libs/ui/material/src/index.ts"],
+      "@electron-foundation/carbon-adapters": [
+        "libs/ui/carbon-adapters/src/index.ts"
+      ],
+      "@electron-foundation/primitives": ["libs/ui/primitives/src/index.ts"],
+      "@electron-foundation/contracts": ["libs/shared/contracts/src/index.ts"],
+      "@electron-foundation/desktop-api": [
+        "libs/platform/desktop-api/src/index.ts"
+      ],
+      "@electron-foundation/core": ["libs/domain/core/src/index.ts"],
+      "@electron-foundation/repository": [
+        "libs/data-access/repository/src/index.ts"
+      ],
+      "@electron-foundation/shell": ["libs/feature/shell/src/index.ts"],
+      "@electron-foundation/common": ["libs/util/common/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

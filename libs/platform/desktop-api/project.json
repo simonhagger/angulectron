@@ -1,0 +1,19 @@
+{
+  "name": "desktop-api",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/platform/desktop-api/src",
+  "projectType": "library",
+  "tags": ["type:platform", "scope:platform", "platform:shared"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/platform/desktop-api",
+        "main": "libs/platform/desktop-api/src/index.ts",
+        "tsConfig": "libs/platform/desktop-api/tsconfig.lib.json",
+        "assets": ["libs/platform/desktop-api/*.md"]
+      }
+    }
+  }
+}

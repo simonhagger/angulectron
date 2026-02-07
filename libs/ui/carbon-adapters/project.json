@@ -1,0 +1,32 @@
+{
+  "name": "carbon-adapters",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/ui/carbon-adapters/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": ["type:ui", "scope:ui", "ui:carbon", "platform:renderer"],
+  "targets": {
+    "build": {
+      "executor": "@nx/angular:ng-packagr-lite",
+      "outputs": ["{workspaceRoot}/dist/{projectRoot}"],
+      "options": {
+        "project": "libs/ui/carbon-adapters/ng-package.json",
+        "tsConfig": "libs/ui/carbon-adapters/tsconfig.lib.json"
+      },
+      "configurations": {
+        "production": {
+          "tsConfig": "libs/ui/carbon-adapters/tsconfig.lib.prod.json"
+        },
+        "development": {}
+      },
+      "defaultConfiguration": "production"
+    },
+    "test": {
+      "executor": "@nx/angular:unit-test",
+      "options": {}
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

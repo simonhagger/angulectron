@@ -1,0 +1,26 @@
+:host {
+  display: block;
+}
+
+.surface-card {
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas 85%);
+  background: color-mix(in srgb, Canvas 94%, CanvasText 6%);
+  padding: 1rem;
+  box-shadow: 0 16px 40px -30px rgb(0 0 0 / 45%);
+}
+
+.surface-card h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.surface-card p {
+  margin: 0.25rem 0 0;
+  color: color-mix(in srgb, CanvasText 72%, Canvas 28%);
+  font-size: 0.9rem;
+}
+
+.surface-content {
+  margin-top: 0.75rem;
+}

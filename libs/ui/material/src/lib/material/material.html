@@ -1,0 +1,12 @@
+<button
+  mat-flat-button
+  type="button"
+  class="inline-flex items-center gap-2 rounded-md"
+  [disabled]="disabled()"
+  (click)="pressed.emit($event)"
+>
+  @if (icon()) {
+  <mat-icon aria-hidden="true">{{ icon() }}</mat-icon>
+  }
+  <span>{{ label() }}</span>
+</button>

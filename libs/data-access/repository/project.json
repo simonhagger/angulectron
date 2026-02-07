@@ -1,0 +1,19 @@
+{
+  "name": "repository",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/data-access/repository/src",
+  "projectType": "library",
+  "tags": ["type:data-access", "scope:data-access", "platform:shared"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/libs/data-access/repository",
+        "main": "libs/data-access/repository/src/index.ts",
+        "tsConfig": "libs/data-access/repository/tsconfig.lib.json",
+        "assets": ["libs/data-access/repository/*.md"]
+      }
+    }
+  }
+}

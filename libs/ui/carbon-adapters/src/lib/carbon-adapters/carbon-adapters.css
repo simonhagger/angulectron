@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+.carbon-notice {
+  border-inline-start: 0.35rem solid var(--cds-border-subtle, #c6c6c6);
+  background: var(--cds-layer, #f4f4f4);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.carbon-notice h3 {
+  margin: 0;
+  color: var(--cds-text-primary, #161616);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.carbon-notice p {
+  margin: 0.35rem 0 0;
+  color: var(--cds-text-secondary, #525252);
+  font-size: 0.9rem;
+}
+
+.carbon-notice[data-status='success'] {
+  border-inline-start-color: var(--cds-support-success, #24a148);
+}
+
+.carbon-notice[data-status='warning'] {
+  border-inline-start-color: var(--cds-support-warning, #f1c21b);
+}
