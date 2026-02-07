@@ -37,7 +37,11 @@ pnpm e2e-smoke
 
 ## Engineering Docs
 
+- Docs index: `docs/docs-index.md`
 - Onboarding guide: `docs/03-engineering/onboarding-guide.md`
+- Performance standards: `docs/03-engineering/performance-standards.md`
+- Observability & diagnostics: `docs/03-engineering/observability-and-diagnostics.md`
+- Security review workflow: `docs/03-engineering/security-review-workflow.md`
 - Charter: `docs/01-charter/product-engineering-charter.md`
 - Architecture: `docs/02-architecture/*`
 - Engineering rules: `docs/03-engineering/*`
