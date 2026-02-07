@@ -4,7 +4,7 @@ import { requestEnvelope, emptyPayloadSchema } from './request-envelope';
 export const updatesCheckRequestSchema = requestEnvelope(emptyPayloadSchema);
 
 export const updatesCheckResponseSchema = z.object({
-  status: z.enum(['checking', 'available', 'not-available', 'error']),
+  status: z.enum(['available', 'not-available', 'error']),
   message: z.string().optional(),
 });
 

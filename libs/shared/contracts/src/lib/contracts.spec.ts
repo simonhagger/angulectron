@@ -21,8 +21,13 @@ describe('parseOrFailure', () => {
       { name: 10 },
       'BAD',
       'bad',
+      { correlationId: 'corr-x', retryable: true },
     );
     expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.correlationId).toBe('corr-x');
+      expect(result.error.retryable).toBe(true);
+    }
   });
 });
 

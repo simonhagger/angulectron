@@ -6,11 +6,18 @@ export const parseOrFailure = <T>(
   payload: unknown,
   code: string,
   message: string,
+  options?: { correlationId?: string; retryable?: boolean },
 ): DesktopResult<T> => {
   const parsed = schema.safeParse(payload);
 
   if (!parsed.success) {
-    return asFailure(code, message, parsed.error.flatten(), false);
+    return asFailure(
+      code,
+      message,
+      parsed.error.flatten(),
+      options?.retryable ?? false,
+      options?.correlationId,
+    );
   }
 
   return { ok: true, data: parsed.data };

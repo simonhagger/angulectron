@@ -24,7 +24,7 @@ export interface DesktopFsApi {
 export interface DesktopUpdatesApi {
   check: () => Promise<
     DesktopResult<{
-      status: 'checking' | 'available' | 'not-available' | 'error';
+      status: 'available' | 'not-available' | 'error';
       message?: string;
     }>
   >;

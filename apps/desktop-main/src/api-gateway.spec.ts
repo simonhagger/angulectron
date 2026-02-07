@@ -122,6 +122,25 @@ describe('invokeApiOperation', () => {
     }
   });
 
+  it('rejects successful non-json responses', async () => {
+    const operations: Record<string, ApiOperation> = {
+      test: { method: 'GET', url: 'https://api.example.com/text' },
+    };
+    const fetchFn: typeof fetch = async () =>
+      new Response('ok', {
+        status: 200,
+        headers: { 'content-type': 'text/plain' },
+      });
+
+    const result = await invokeApiOperation(baseRequest('test'), {
+      operations,
+      fetchFn,
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/UNSUPPORTED_CONTENT_TYPE');
+  });
+
   it('returns auth-required classification for 401 responses', async () => {
     const operations: Record<string, ApiOperation> = {
       test: { method: 'GET', url: 'https://api.example.com/protected' },

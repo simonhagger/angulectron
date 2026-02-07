@@ -226,32 +226,16 @@ const invokeSingleAttempt = async (
 
     if (response.status >= 300 && response.status < 400) {
       const location = response.headers.get('location');
-      if (!location) {
-        return asFailure(
-          'API/REDIRECT_BLOCKED',
-          'External API redirect was blocked.',
-          { operationId: request.payload.operationId },
-          false,
-          correlationId,
-        );
-      }
-
-      const redirectedUrl = new URL(location, operationUrl);
-      if (
-        redirectedUrl.protocol !== 'https:' ||
-        redirectedUrl.host !== operationUrl.host
-      ) {
-        return asFailure(
-          'API/REDIRECT_BLOCKED',
-          'External API redirect destination is not allowed.',
-          {
-            operationId: request.payload.operationId,
-            redirectHost: redirectedUrl.host,
-          },
-          false,
-          correlationId,
-        );
-      }
+      return asFailure(
+        'API/REDIRECT_BLOCKED',
+        'External API redirects are blocked by policy.',
+        {
+          operationId: request.payload.operationId,
+          location: location ?? null,
+        },
+        false,
+        correlationId,
+      );
     }
 
     const contentLengthHeader = response.headers.get('content-length');
@@ -284,28 +268,6 @@ const invokeSingleAttempt = async (
         false,
         correlationId,
       );
-    }
-
-    const contentType = response.headers.get('content-type') ?? undefined;
-    let responseData: unknown = responseText;
-    if (contentType && contentType.includes('application/json')) {
-      try {
-        responseData = JSON.parse(responseText);
-      } catch (error) {
-        return asFailure(
-          'API/RESPONSE_PARSE_FAILED',
-          'External API returned invalid JSON.',
-          {
-            operationId: request.payload.operationId,
-            error:
-              error instanceof Error
-                ? { name: error.name, message: error.message }
-                : String(error),
-          },
-          false,
-          correlationId,
-        );
-      }
     }
 
     if (!response.ok) {
@@ -353,6 +315,39 @@ const invokeSingleAttempt = async (
         'API/CLIENT_ERROR',
         'External API returned a client error response.',
         { operationId: request.payload.operationId, status: response.status },
+        false,
+        correlationId,
+      );
+    }
+
+    const contentType = response.headers.get('content-type') ?? undefined;
+    const isJsonContentType =
+      typeof contentType === 'string' &&
+      /^application\/([a-z0-9.+-]+\+)?json/i.test(contentType);
+    if (!isJsonContentType) {
+      return asFailure(
+        'API/UNSUPPORTED_CONTENT_TYPE',
+        'External API response content type is not allowed.',
+        { operationId: request.payload.operationId, contentType },
+        false,
+        correlationId,
+      );
+    }
+
+    let responseData: unknown;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (error) {
+      return asFailure(
+        'API/RESPONSE_PARSE_FAILED',
+        'External API returned invalid JSON.',
+        {
+          operationId: request.payload.operationId,
+          error:
+            error instanceof Error
+              ? { name: error.name, message: error.message }
+              : String(error),
+        },
         false,
         correlationId,
       );

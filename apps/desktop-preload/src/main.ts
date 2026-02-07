@@ -30,6 +30,7 @@ import {
   telemetryTrackResponseSchema,
   updatesCheckRequestSchema,
   updatesCheckResponseSchema,
+  type IpcChannel,
   type DesktopResult,
 } from '@electron-foundation/contracts';
 
@@ -48,6 +49,8 @@ const logPreloadError = (
   });
   console.error(line);
 };
+
+const ipcInvokeTimeoutMs = 10_000;
 
 const resultSchema = <TPayload>(payloadSchema: ZodType<TPayload>) =>
   z.union([
@@ -68,13 +71,22 @@ const resultSchema = <TPayload>(payloadSchema: ZodType<TPayload>) =>
   ]);
 
 const invoke = async <TResponse>(
-  channel: string,
+  channel: IpcChannel,
   request: unknown,
   correlationId: string,
   responsePayloadSchema: ZodType<TResponse>,
 ): Promise<DesktopResult<TResponse>> => {
   try {
-    const response = await ipcRenderer.invoke(channel, request);
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      setTimeout(
+        () => reject(new Error('IPC invoke timed out')),
+        ipcInvokeTimeoutMs,
+      );
+    });
+    const response = await Promise.race([
+      ipcRenderer.invoke(channel, request),
+      timeoutPromise,
+    ]);
     const parsed = resultSchema(responsePayloadSchema).safeParse(response);
 
     if (!parsed.success) {
@@ -92,6 +104,20 @@ const invoke = async <TResponse>(
 
     return parsed.data;
   } catch (error) {
+    if (error instanceof Error && error.message === 'IPC invoke timed out') {
+      logPreloadError('ipc.invoke_timeout', correlationId, {
+        channel,
+        timeoutMs: ipcInvokeTimeoutMs,
+      });
+      return asFailure(
+        'IPC/TIMEOUT',
+        `IPC invoke timed out for channel: ${channel}`,
+        { timeoutMs: ipcInvokeTimeoutMs },
+        true,
+        correlationId,
+      );
+    }
+
     logPreloadError('ipc.invoke_failed', correlationId, {
       channel,
       message: error instanceof Error ? error.message : String(error),

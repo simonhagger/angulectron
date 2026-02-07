@@ -1,4 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  safeStorage,
+  session,
+  type WebContents,
+} from 'electron';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -26,7 +34,18 @@ import { toStructuredLogLine } from '@electron-foundation/common';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
-const selectedFileTokens = new Map<string, string>();
+const fileTokenTtlMs = 5 * 60 * 1000;
+const fileTokenCleanupIntervalMs = 60 * 1000;
+const allowedDevHosts = new Set(['localhost', '127.0.0.1']);
+
+type FileSelectionToken = {
+  filePath: string;
+  expiresAt: number;
+  windowId: number;
+};
+
+const selectedFileTokens = new Map<string, FileSelectionToken>();
+let tokenCleanupTimer: NodeJS.Timeout | null = null;
 let storageGateway: StorageGateway | null = null;
 const APP_VERSION = app.getVersion();
 
@@ -58,6 +77,77 @@ const logEvent = (
   console.info(line);
 };
 
+const resolveRendererDevUrl = (): URL => {
+  const parsed = new URL(rendererDevUrl);
+  if (parsed.protocol !== 'http:' || !allowedDevHosts.has(parsed.hostname)) {
+    throw new Error(
+      `RENDERER_DEV_URL must use http://localhost or http://127.0.0.1. Received: ${rendererDevUrl}`,
+    );
+  }
+
+  return parsed;
+};
+
+const isAllowedNavigation = (targetUrl: string): boolean => {
+  try {
+    const parsed = new URL(targetUrl);
+    if (isDevelopment) {
+      const allowedDevUrl = resolveRendererDevUrl();
+      return parsed.origin === allowedDevUrl.origin;
+    }
+
+    return parsed.protocol === 'file:';
+  } catch {
+    return false;
+  }
+};
+
+const hardenWebContents = (contents: WebContents) => {
+  contents.setWindowOpenHandler(({ url }) => {
+    logEvent('warn', 'security.window_open_blocked', undefined, { url });
+    return { action: 'deny' };
+  });
+
+  contents.on('will-navigate', (event, url) => {
+    if (!isAllowedNavigation(url)) {
+      event.preventDefault();
+      logEvent('warn', 'security.navigation_blocked', undefined, { url });
+    }
+  });
+};
+
+const startFileTokenCleanup = () => {
+  if (tokenCleanupTimer) {
+    return;
+  }
+
+  tokenCleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [token, value] of selectedFileTokens) {
+      if (value.expiresAt <= now) {
+        selectedFileTokens.delete(token);
+      }
+    }
+  }, fileTokenCleanupIntervalMs);
+};
+
+const stopFileTokenCleanup = () => {
+  if (!tokenCleanupTimer) {
+    return;
+  }
+
+  clearInterval(tokenCleanupTimer);
+  tokenCleanupTimer = null;
+};
+
+const clearFileTokensForWindow = (windowId: number) => {
+  for (const [token, value] of selectedFileTokens) {
+    if (value.windowId === windowId) {
+      selectedFileTokens.delete(token);
+    }
+  }
+};
+
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const mainWindow = new BrowserWindow({
     width: 1440,
@@ -74,12 +164,18 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
+  hardenWebContents(mainWindow.webContents);
+
+  mainWindow.on('closed', () => {
+    clearFileTokensForWindow(mainWindow.id);
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
   if (isDevelopment) {
-    await mainWindow.loadURL(rendererDevUrl);
+    await mainWindow.loadURL(resolveRendererDevUrl().toString());
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     await mainWindow.loadFile(
@@ -136,7 +232,7 @@ const registerIpcHandlers = () => {
     return asSuccess({ version: app.getVersion() });
   });
 
-  ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (event, payload) => {
     const correlationId = getCorrelationId(payload);
     const parsed = openFileDialogRequestSchema.safeParse(payload);
     if (!parsed.success) {
@@ -160,8 +256,23 @@ const registerIpcHandlers = () => {
       return asSuccess({ canceled: true });
     }
 
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id;
+    if (!windowId) {
+      return asFailure(
+        'FS/TOKEN_CREATION_FAILED',
+        'Unable to associate selected file with a window context.',
+        undefined,
+        false,
+        parsed.data.correlationId,
+      );
+    }
+
     const fileToken = randomUUID();
-    selectedFileTokens.set(fileToken, selectedPath);
+    selectedFileTokens.set(fileToken, {
+      filePath: selectedPath,
+      windowId,
+      expiresAt: Date.now() + fileTokenTtlMs,
+    });
 
     return asSuccess({
       canceled: false,
@@ -184,12 +295,11 @@ const registerIpcHandlers = () => {
     }
 
     try {
-      const selectedPath = selectedFileTokens.get(
-        parsed.data.payload.fileToken,
-      );
-      if (!selectedPath) {
+      const selected = selectedFileTokens.get(parsed.data.payload.fileToken);
+      if (!selected || selected.expiresAt <= Date.now()) {
+        selectedFileTokens.delete(parsed.data.payload.fileToken);
         return asFailure(
-          'FS_INVALID_TOKEN',
+          'FS/INVALID_TOKEN',
           'The selected file token is invalid or expired.',
           undefined,
           false,
@@ -200,14 +310,14 @@ const registerIpcHandlers = () => {
       // Tokens are single-use to reduce replay risk from compromised renderers.
       selectedFileTokens.delete(parsed.data.payload.fileToken);
 
-      const content = await fs.readFile(selectedPath, {
+      const content = await fs.readFile(selected.filePath, {
         encoding: parsed.data.payload.encoding,
       });
 
       return asSuccess({ content });
     } catch (error) {
       return asFailure(
-        'FS_READ_FAILED',
+        'FS/READ_FAILED',
         'Unable to read requested file.',
         error,
         false,
@@ -310,12 +420,17 @@ const registerIpcHandlers = () => {
 
     try {
       const updateCheck = await autoUpdater.checkForUpdates();
-      const hasUpdate = Boolean(updateCheck?.updateInfo?.version);
+      const candidateVersion = updateCheck?.updateInfo?.version;
+      const currentVersion = app.getVersion();
+      const hasUpdate =
+        typeof candidateVersion === 'string' &&
+        candidateVersion.length > 0 &&
+        candidateVersion !== currentVersion;
 
       if (hasUpdate) {
         return asSuccess({
           status: 'available' as const,
-          message: `Update ${updateCheck?.updateInfo?.version} is available.`,
+          message: `Update ${candidateVersion} is available.`,
         });
       }
 
@@ -353,6 +468,14 @@ const registerIpcHandlers = () => {
 
 const bootstrap = async () => {
   await app.whenReady();
+  startFileTokenCleanup();
+
+  session.defaultSession.setPermissionRequestHandler(
+    (_webContents, _permission, callback) => {
+      callback(false);
+    },
+  );
+
   storageGateway = new StorageGateway({
     dbPath: path.join(app.getPath('userData'), 'storage', 'app-storage.sqlite'),
     encryptString: safeStorage.isEncryptionAvailable()
@@ -374,6 +497,8 @@ const bootstrap = async () => {
 };
 
 app.on('window-all-closed', () => {
+  selectedFileTokens.clear();
+  stopFileTokenCleanup();
   storageGateway?.close();
   if (process.platform !== 'darwin') {
     app.quit();
