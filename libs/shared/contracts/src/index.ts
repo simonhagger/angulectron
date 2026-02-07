@@ -7,5 +7,6 @@ export * from './lib/app.contract';
 export * from './lib/api.contract';
 export * from './lib/dialog.contract';
 export * from './lib/fs.contract';
+export * from './lib/storage.contract';
 export * from './lib/telemetry.contract';
 export * from './lib/updates.contract';

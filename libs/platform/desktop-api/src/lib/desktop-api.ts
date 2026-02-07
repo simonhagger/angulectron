@@ -30,6 +30,32 @@ export interface DesktopUpdatesApi {
   >;
 }
 
+export interface DesktopStorageApi {
+  setItem: (
+    domain: 'settings' | 'cache',
+    key: string,
+    value: unknown,
+    classification?: 'internal' | 'sensitive',
+  ) => Promise<DesktopResult<{ updated: boolean }>>;
+  getItem: (
+    domain: 'settings' | 'cache',
+    key: string,
+  ) => Promise<
+    DesktopResult<{
+      found: boolean;
+      value?: unknown;
+      classification?: 'internal' | 'sensitive';
+    }>
+  >;
+  deleteItem: (
+    domain: 'settings' | 'cache',
+    key: string,
+  ) => Promise<DesktopResult<{ deleted: boolean }>>;
+  clearDomain: (
+    domain: 'settings' | 'cache',
+  ) => Promise<DesktopResult<{ cleared: number }>>;
+}
+
 export interface DesktopExternalApi {
   invoke: (
     operationId: string,
@@ -48,6 +74,7 @@ export interface DesktopApi {
   app: DesktopAppApi;
   dialog: DesktopDialogApi;
   fs: DesktopFsApi;
+  storage: DesktopStorageApi;
   api: DesktopExternalApi;
   updates: DesktopUpdatesApi;
   telemetry: DesktopTelemetryApi;

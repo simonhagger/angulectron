@@ -1,9 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import { invokeApiOperation } from './api-gateway';
+import { StorageGateway } from './storage-gateway';
 import {
   apiInvokeRequestSchema,
   appVersionRequestSchema,
@@ -14,6 +15,10 @@ import {
   IPC_CHANNELS,
   openFileDialogRequestSchema,
   readTextFileRequestSchema,
+  storageClearDomainRequestSchema,
+  storageDeleteRequestSchema,
+  storageGetRequestSchema,
+  storageSetRequestSchema,
   telemetryTrackRequestSchema,
   updatesCheckRequestSchema,
 } from '@electron-foundation/contracts';
@@ -21,6 +26,7 @@ import {
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const selectedFileTokens = new Map<string, string>();
+let storageGateway: StorageGateway | null = null;
 
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const mainWindow = new BrowserWindow({
@@ -195,6 +201,70 @@ const registerIpcHandlers = () => {
     return invokeApiOperation(parsed.data);
   });
 
+  ipcMain.handle(IPC_CHANNELS.storageSetItem, (_event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const parsed = storageSetRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return storageGateway!.setItem(parsed.data);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.storageGetItem, (_event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const parsed = storageGetRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return storageGateway!.getItem(parsed.data);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.storageDeleteItem, (_event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const parsed = storageDeleteRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return storageGateway!.deleteItem(parsed.data);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.storageClearDomain, (_event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const parsed = storageClearDomainRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return storageGateway!.clearDomain(parsed.data);
+  });
+
   ipcMain.handle(IPC_CHANNELS.updatesCheck, async (_event, payload) => {
     const correlationId = getCorrelationId(payload);
     const parsed = updatesCheckRequestSchema.safeParse(payload);
@@ -254,9 +324,17 @@ const registerIpcHandlers = () => {
 };
 
 const bootstrap = async () => {
-  registerIpcHandlers();
-
   await app.whenReady();
+  storageGateway = new StorageGateway({
+    dbPath: path.join(app.getPath('userData'), 'storage', 'app-storage.sqlite'),
+    encryptString: safeStorage.isEncryptionAvailable()
+      ? (plainText) => safeStorage.encryptString(plainText)
+      : undefined,
+    decryptString: safeStorage.isEncryptionAvailable()
+      ? (cipherText) => safeStorage.decryptString(cipherText)
+      : undefined,
+  });
+  registerIpcHandlers();
   await createMainWindow();
 
   app.on('activate', async () => {
@@ -267,6 +345,7 @@ const bootstrap = async () => {
 };
 
 app.on('window-all-closed', () => {
+  storageGateway?.close();
   if (process.platform !== 'darwin') {
     app.quit();
   }

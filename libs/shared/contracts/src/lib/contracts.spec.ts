@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { parseOrFailure } from './contracts';
 import { apiInvokeRequestSchema } from './api.contract';
 import { readTextFileRequestSchema } from './fs.contract';
+import { storageSetRequestSchema } from './storage.contract';
 
 describe('parseOrFailure', () => {
   it('should parse valid values', () => {
@@ -75,6 +76,37 @@ describe('apiInvokeRequestSchema', () => {
       correlationId: 'corr-4',
       payload: {
         operationId: '',
+      },
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe('storageSetRequestSchema', () => {
+  it('accepts typed domain/classification payloads', () => {
+    const parsed = storageSetRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-5',
+      payload: {
+        domain: 'settings',
+        key: 'theme.mode',
+        value: 'light',
+        classification: 'internal',
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects unknown storage domains', () => {
+    const parsed = storageSetRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-6',
+      payload: {
+        domain: 'secret',
+        key: 'k',
+        value: 'v',
       },
     });
 

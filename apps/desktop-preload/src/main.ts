@@ -17,6 +17,14 @@ import {
   openFileDialogResponseSchema,
   readTextFileRequestSchema,
   readTextFileResponseSchema,
+  storageClearDomainRequestSchema,
+  storageClearDomainResponseSchema,
+  storageDeleteRequestSchema,
+  storageDeleteResponseSchema,
+  storageGetRequestSchema,
+  storageGetResponseSchema,
+  storageSetRequestSchema,
+  storageSetResponseSchema,
   telemetryTrackRequestSchema,
   telemetryTrackResponseSchema,
   updatesCheckRequestSchema,
@@ -157,6 +165,68 @@ const desktopApi: DesktopApi = {
       );
 
       return mapResult(result, (value) => value.content);
+    },
+  },
+  storage: {
+    async setItem(domain, key, value, classification = 'internal') {
+      const correlationId = randomUUID();
+      const request = storageSetRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: { domain, key, value, classification },
+      });
+
+      return invoke(
+        IPC_CHANNELS.storageSetItem,
+        request,
+        correlationId,
+        storageSetResponseSchema,
+      );
+    },
+    async getItem(domain, key) {
+      const correlationId = randomUUID();
+      const request = storageGetRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: { domain, key },
+      });
+
+      return invoke(
+        IPC_CHANNELS.storageGetItem,
+        request,
+        correlationId,
+        storageGetResponseSchema,
+      );
+    },
+    async deleteItem(domain, key) {
+      const correlationId = randomUUID();
+      const request = storageDeleteRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: { domain, key },
+      });
+
+      return invoke(
+        IPC_CHANNELS.storageDeleteItem,
+        request,
+        correlationId,
+        storageDeleteResponseSchema,
+      );
+    },
+    async clearDomain(domain) {
+      const correlationId = randomUUID();
+      const request = storageClearDomainRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: { domain },
+      });
+
+      return invoke(
+        IPC_CHANNELS.storageClearDomain,
+        request,
+        correlationId,
+        storageClearDomainResponseSchema,
+      );
     },
   },
   api: {
