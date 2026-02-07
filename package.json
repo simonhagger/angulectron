@@ -8,7 +8,7 @@
     "format": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx format:write",
     "format:check": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx format:check",
     "lint": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx run-many -t lint --all",
-    "typecheck": "tsc -p tsconfig.base.json --noEmit",
+    "typecheck": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx run-many -t build --all --exclude=renderer-e2e",
     "unit-test": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx run-many -t test --all --exclude=renderer-e2e",
     "integration-test": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx run-many -t test --projects=contracts,desktop-api,core,repository,shell,common",
     "e2e-smoke": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx e2e renderer-e2e",
