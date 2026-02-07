@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type {
   ApiInvokeRequest,
+  ApiOperationId,
   DesktopResult,
 } from '@electron-foundation/contracts';
 import { invokeApiOperation, type ApiOperation } from './api-gateway';
 
 const baseRequest = (
-  operationId: string,
+  operationId: ApiOperationId,
   correlationId = 'corr-test',
 ): ApiInvokeRequest => ({
   contractVersion: '1.0.0',
@@ -32,9 +33,18 @@ const expectFailure = (
 
 describe('invokeApiOperation', () => {
   it('rejects unknown operations', async () => {
-    const result = await invokeApiOperation(baseRequest('unknown.op'), {
-      operations: {},
-    });
+    const result = await invokeApiOperation(
+      {
+        contractVersion: '1.0.0',
+        correlationId: 'corr-test',
+        payload: {
+          operationId: 'unknown.op' as unknown as ApiOperationId,
+        },
+      },
+      {
+        operations: {},
+      },
+    );
 
     const error = expectFailure(result);
     expect(error.code).toBe('API/OPERATION_NOT_ALLOWED');
@@ -42,10 +52,10 @@ describe('invokeApiOperation', () => {
   });
 
   it('rejects insecure destinations', async () => {
-    const operations: Record<string, ApiOperation> = {
-      insecure: { method: 'GET', url: 'http://example.com' },
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': { method: 'GET', url: 'http://example.com' },
     };
-    const result = await invokeApiOperation(baseRequest('insecure'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
     });
 
@@ -54,8 +64,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('blocks redirects to other hosts', async () => {
-    const operations: Record<string, ApiOperation> = {
-      test: { method: 'GET', url: 'https://api.example.com/data' },
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': { method: 'GET', url: 'https://api.example.com/data' },
     };
     const fetchFn: typeof fetch = async () =>
       new Response('', {
@@ -65,7 +75,7 @@ describe('invokeApiOperation', () => {
         },
       });
 
-    const result = await invokeApiOperation(baseRequest('test'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });
@@ -75,8 +85,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('returns timeout for aborted requests', async () => {
-    const operations: Record<string, ApiOperation> = {
-      test: {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
         method: 'GET',
         url: 'https://api.example.com/slow',
         timeoutMs: 5,
@@ -89,7 +99,7 @@ describe('invokeApiOperation', () => {
         });
       });
 
-    const result = await invokeApiOperation(baseRequest('test'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });
@@ -99,8 +109,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('returns parsed json data for successful responses', async () => {
-    const operations: Record<string, ApiOperation> = {
-      test: { method: 'GET', url: 'https://api.example.com/ok' },
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': { method: 'GET', url: 'https://api.example.com/ok' },
     };
     const fetchFn: typeof fetch = async () =>
       new Response(JSON.stringify({ hello: 'world' }), {
@@ -110,7 +120,7 @@ describe('invokeApiOperation', () => {
         },
       });
 
-    const result = await invokeApiOperation(baseRequest('test'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });
@@ -123,8 +133,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('rejects successful non-json responses', async () => {
-    const operations: Record<string, ApiOperation> = {
-      test: { method: 'GET', url: 'https://api.example.com/text' },
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': { method: 'GET', url: 'https://api.example.com/text' },
     };
     const fetchFn: typeof fetch = async () =>
       new Response('ok', {
@@ -132,7 +142,7 @@ describe('invokeApiOperation', () => {
         headers: { 'content-type': 'text/plain' },
       });
 
-    const result = await invokeApiOperation(baseRequest('test'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });
@@ -142,15 +152,18 @@ describe('invokeApiOperation', () => {
   });
 
   it('returns auth-required classification for 401 responses', async () => {
-    const operations: Record<string, ApiOperation> = {
-      test: { method: 'GET', url: 'https://api.example.com/protected' },
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
+        method: 'GET',
+        url: 'https://api.example.com/protected',
+      },
     };
     const fetchFn: typeof fetch = async () =>
       new Response('nope', {
         status: 401,
       });
 
-    const result = await invokeApiOperation(baseRequest('test'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });
@@ -160,8 +173,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('rejects bearer-auth operations when credentials are missing', async () => {
-    const operations: Record<string, ApiOperation> = {
-      secure: {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
         method: 'GET',
         url: 'https://api.example.com/secure',
         auth: {
@@ -173,7 +186,7 @@ describe('invokeApiOperation', () => {
 
     delete process.env.ELECTRON_API_TOKEN_TEST;
 
-    const result = await invokeApiOperation(baseRequest('secure'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
     });
 
@@ -182,8 +195,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('retries GET requests for retryable errors', async () => {
-    const operations: Record<string, ApiOperation> = {
-      retryable: {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
         method: 'GET',
         url: 'https://api.example.com/retry',
         retry: { maxAttempts: 2, baseDelayMs: 1 },
@@ -202,7 +215,7 @@ describe('invokeApiOperation', () => {
       });
     };
 
-    const result = await invokeApiOperation(baseRequest('retryable'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });
@@ -212,8 +225,8 @@ describe('invokeApiOperation', () => {
   });
 
   it('does not retry non-idempotent POST requests', async () => {
-    const operations: Record<string, ApiOperation> = {
-      write: {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
         method: 'POST',
         url: 'https://api.example.com/write',
         retry: { maxAttempts: 3, baseDelayMs: 1 },
@@ -225,7 +238,7 @@ describe('invokeApiOperation', () => {
       throw new TypeError('network is unreachable');
     };
 
-    const result = await invokeApiOperation(baseRequest('write'), {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
       operations,
       fetchFn,
     });

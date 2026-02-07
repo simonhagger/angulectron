@@ -1,4 +1,5 @@
 import type {
+  ApiOperationId,
   ContractVersion,
   DesktopResult,
 } from '@electron-foundation/contracts';
@@ -59,7 +60,7 @@ export interface DesktopStorageApi {
 
 export interface DesktopExternalApi {
   invoke: (
-    operationId: string,
+    operationId: ApiOperationId,
     params?: Record<string, string | number | boolean | null>,
   ) => Promise<DesktopResult<{ status: number; data: unknown }>>;
 }

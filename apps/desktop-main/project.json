@@ -81,6 +81,22 @@
         }
       }
     },
+    "serve-all": {
+      "executor": "nx:run-commands",
+      "options": {
+        "parallel": true,
+        "commands": [
+          "pnpm nx run renderer:serve",
+          "pnpm wait-on http://localhost:4200 && cross-env NODE_ENV=development RENDERER_DEV_URL=http://localhost:4200 pnpm nx run desktop-main:serve:development"
+        ]
+      }
+    },
+    "integration": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm nx run-many -t build --projects=renderer,desktop-preload,desktop-main && node tools/scripts/smoke-desktop-artifacts.mjs"
+      }
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {

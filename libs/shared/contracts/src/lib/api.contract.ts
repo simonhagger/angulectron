@@ -8,10 +8,14 @@ const apiParamValueSchema = z.union([
   z.null(),
 ]);
 
+export const API_OPERATION_IDS = ['status.github'] as const;
+export const apiOperationIdSchema = z.enum(API_OPERATION_IDS);
+export type ApiOperationId = z.infer<typeof apiOperationIdSchema>;
+
 export const apiInvokeRequestSchema = requestEnvelope(
   z
     .object({
-      operationId: z.string().min(1).max(128),
+      operationId: apiOperationIdSchema,
       params: z.record(z.string(), apiParamValueSchema).optional(),
     })
     .strict(),

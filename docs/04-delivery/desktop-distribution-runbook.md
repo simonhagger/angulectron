@@ -4,11 +4,20 @@
 
 - Build renderer + desktop main + desktop preload.
 - Package via Electron Forge makers.
+- Verify artifact smoke set:
+  - `dist/apps/desktop-main/main.js`
+  - `dist/apps/desktop-preload/main.js`
+  - `dist/apps/renderer/browser/index.html`
 
 ## Signing Readiness
 
 - Keep signing cert secrets in CI secret storage.
 - Validate signature in pre-release smoke tests.
+- macOS signing/notarization env vars:
+  - `APPLE_CODESIGN_IDENTITY`
+  - `APPLE_TEAM_ID`
+  - `APPLE_ID`
+  - `APPLE_APP_SPECIFIC_PASSWORD`
 
 ## Validation Checklist
 

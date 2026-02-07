@@ -1,6 +1,7 @@
 import {
   asFailure,
   asSuccess,
+  type ApiOperationId,
   type ApiInvokeRequest,
   type DesktopResult,
 } from '@electron-foundation/contracts';
@@ -32,7 +33,7 @@ export type ApiOperation = {
   };
 };
 
-export const defaultApiOperations: Record<string, ApiOperation> = {
+export const defaultApiOperations: Record<ApiOperationId, ApiOperation> = {
   'status.github': {
     method: 'GET',
     url: 'https://api.github.com/rate_limit',
@@ -46,7 +47,7 @@ export const defaultApiOperations: Record<string, ApiOperation> = {
 
 type InvokeApiDeps = {
   fetchFn?: typeof fetch;
-  operations?: Record<string, ApiOperation>;
+  operations?: Partial<Record<ApiOperationId, ApiOperation>>;
 };
 
 type ApiSuccess = {
