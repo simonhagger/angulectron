@@ -49,3 +49,4 @@ __screenshots__/
 vitest.config.*.timestamp*
 
 FILE_INDEX.txt
+FEEDBACK.md

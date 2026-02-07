@@ -10,3 +10,8 @@
 - [ ] I18n impact reviewed
 - [ ] IPC contract changes documented
 - [ ] ADR added/updated for architecture-level decisions
+
+## Security (Required For Sensitive Changes)
+
+- [ ] Security review completed
+- [ ] Threat model updated or N/A explained

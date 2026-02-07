@@ -20,6 +20,27 @@ env:
   TEMP: /tmp
 
 jobs:
+  security-checklist-gate:
+    name: security-checklist-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm security-checklist:gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   format-check:
     name: format:check
     runs-on: ubuntu-latest
@@ -202,11 +223,32 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm license-compliance
 
+  perf-check:
+    name: perf-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm perf:check
+      - name: Upload perf report
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report-${{ github.sha }}
+          path: tmp/perf/perf-check.json
+
   artifact-publish:
     name: artifact-publish
     runs-on: windows-latest
     needs:
       - format-check
+      - security-checklist-gate
       - lint
       - typecheck
       - unit-test
@@ -218,6 +260,7 @@ jobs:
       - build-desktop
       - dependency-audit
       - license-compliance
+      - perf-check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     env:
       RELEASE_CHANNEL: dev

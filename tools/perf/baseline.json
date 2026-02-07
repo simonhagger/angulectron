@@ -1,0 +1,5 @@
+{
+  "desktopMainBuildMs": 180000,
+  "desktopPreloadBuildMs": 120000,
+  "contractsTestMs": 120000
+}
