@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { z, type ZodType } from 'zod';
 import type { DesktopApi } from '@electron-foundation/desktop-api';
+import { toStructuredLogLine } from '@electron-foundation/common';
 import {
   apiInvokeRequestSchema,
   apiInvokeResponseSchema,
@@ -32,6 +33,22 @@ import {
   type DesktopResult,
 } from '@electron-foundation/contracts';
 
+const logPreloadError = (
+  event: string,
+  correlationId: string,
+  details?: Record<string, unknown>,
+) => {
+  const line = toStructuredLogLine({
+    level: 'error',
+    component: 'desktop-preload',
+    event,
+    version: CONTRACT_VERSION,
+    correlationId,
+    details,
+  });
+  console.error(line);
+};
+
 const resultSchema = <TPayload>(payloadSchema: ZodType<TPayload>) =>
   z.union([
     z.object({
@@ -61,6 +78,9 @@ const invoke = async <TResponse>(
     const parsed = resultSchema(responsePayloadSchema).safeParse(response);
 
     if (!parsed.success) {
+      logPreloadError('ipc.malformed_response', correlationId, {
+        channel,
+      });
       return asFailure(
         'IPC_MALFORMED_RESPONSE',
         `Received malformed response from channel: ${channel}`,
@@ -72,6 +92,10 @@ const invoke = async <TResponse>(
 
     return parsed.data;
   } catch (error) {
+    logPreloadError('ipc.invoke_failed', correlationId, {
+      channel,
+      message: error instanceof Error ? error.message : String(error),
+    });
     return asFailure(
       'IPC_INVOKE_FAILED',
       `IPC invoke failed for channel: ${channel}`,
@@ -168,12 +192,24 @@ const desktopApi: DesktopApi = {
     },
   },
   storage: {
-    async setItem(domain, key, value, classification = 'internal') {
+    async setItem(
+      domain,
+      key,
+      value,
+      classification = 'internal',
+      options = {},
+    ) {
       const correlationId = randomUUID();
       const request = storageSetRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
-        payload: { domain, key, value, classification },
+        payload: {
+          domain,
+          key,
+          value,
+          classification,
+          ttlSeconds: options.ttlSeconds,
+        },
       });
 
       return invoke(

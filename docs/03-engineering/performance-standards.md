@@ -22,8 +22,17 @@ Last reviewed: 2026-02-07
 - CI compares benchmark outputs against the baseline artifact.
 - Regression threshold: >10% on any p95 metric fails CI.
 - Performance artifacts are retained for at least 30 days.
+- CI enforcement: `.github/workflows/ci.yml` (`perf-check` job) via `pnpm perf:check`.
 
 ## Local Profiling Scripts
 
-- `pnpm nx run desktop-main:build` and `pnpm desktop:dev:win` for reproducible local startup runs.
+- `pnpm perf:start` to capture desktop build/startup proxy timings.
+- `pnpm perf:ipc` to capture IPC-facing test timing.
+- `pnpm perf:memory` to capture local memory samples.
 - Local profiling scripts should emit both JSON and a concise console summary.
+
+## Related Standards
+
+- Definition of Done: `docs/05-governance/definition-of-done.md`
+- CI checks: `.github/workflows/ci.yml`
+- Observability diagnostics: `docs/03-engineering/observability-and-diagnostics.md`

@@ -22,11 +22,41 @@ import {
   telemetryTrackRequestSchema,
   updatesCheckRequestSchema,
 } from '@electron-foundation/contracts';
+import { toStructuredLogLine } from '@electron-foundation/common';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const selectedFileTokens = new Map<string, string>();
 let storageGateway: StorageGateway | null = null;
+const APP_VERSION = app.getVersion();
+
+const logEvent = (
+  level: 'debug' | 'info' | 'warn' | 'error',
+  event: string,
+  correlationId?: string,
+  details?: Record<string, unknown>,
+) => {
+  const line = toStructuredLogLine({
+    level,
+    component: 'desktop-main',
+    event,
+    version: APP_VERSION,
+    correlationId,
+    details,
+  });
+
+  if (level === 'error') {
+    console.error(line);
+    return;
+  }
+
+  if (level === 'warn') {
+    console.warn(line);
+    return;
+  }
+
+  console.info(line);
+};
 
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const mainWindow = new BrowserWindow({
@@ -312,12 +342,10 @@ const registerIpcHandlers = () => {
       );
     }
 
-    console.info(
-      '[telemetry]',
-      parsed.data.correlationId,
-      parsed.data.payload.eventName,
-      parsed.data.payload.properties ?? {},
-    );
+    logEvent('info', 'telemetry.track', parsed.data.correlationId, {
+      eventName: parsed.data.payload.eventName,
+      properties: parsed.data.payload.properties ?? {},
+    });
 
     return asSuccess({ accepted: true });
   });
@@ -336,6 +364,7 @@ const bootstrap = async () => {
   });
   registerIpcHandlers();
   await createMainWindow();
+  logEvent('info', 'app.bootstrapped');
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -352,6 +381,8 @@ app.on('window-all-closed', () => {
 });
 
 bootstrap().catch((error) => {
-  console.error('Failed to bootstrap desktop app.', error);
+  logEvent('error', 'app.bootstrap_failed', undefined, {
+    message: error instanceof Error ? error.message : String(error),
+  });
   app.exit(1);
 });

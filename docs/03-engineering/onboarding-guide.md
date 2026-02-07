@@ -38,6 +38,14 @@ Desktop app review on Windows:
 pnpm desktop:dev:win
 ```
 
+Local performance checks:
+
+```bash
+pnpm perf:start
+pnpm perf:ipc
+pnpm perf:memory
+```
+
 ## Repository At A Glance
 
 Top-level:
@@ -193,6 +201,7 @@ Working expectations:
 - Do not use destructive git operations
 - Do not revert unrelated user changes
 - Keep security model intact (renderer untrusted, privileged access via contracts)
+- For security-sensitive changes, complete PR security checklist items
 
 When adding new capability:
 
