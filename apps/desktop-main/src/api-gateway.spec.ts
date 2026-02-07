@@ -121,4 +121,98 @@ describe('invokeApiOperation', () => {
       expect(result.data.data).toEqual({ hello: 'world' });
     }
   });
+
+  it('returns auth-required classification for 401 responses', async () => {
+    const operations: Record<string, ApiOperation> = {
+      test: { method: 'GET', url: 'https://api.example.com/protected' },
+    };
+    const fetchFn: typeof fetch = async () =>
+      new Response('nope', {
+        status: 401,
+      });
+
+    const result = await invokeApiOperation(baseRequest('test'), {
+      operations,
+      fetchFn,
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/AUTH_REQUIRED');
+  });
+
+  it('rejects bearer-auth operations when credentials are missing', async () => {
+    const operations: Record<string, ApiOperation> = {
+      secure: {
+        method: 'GET',
+        url: 'https://api.example.com/secure',
+        auth: {
+          type: 'bearer',
+          tokenEnvVar: 'ELECTRON_API_TOKEN_TEST',
+        },
+      },
+    };
+
+    delete process.env.ELECTRON_API_TOKEN_TEST;
+
+    const result = await invokeApiOperation(baseRequest('secure'), {
+      operations,
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/CREDENTIALS_UNAVAILABLE');
+  });
+
+  it('retries GET requests for retryable errors', async () => {
+    const operations: Record<string, ApiOperation> = {
+      retryable: {
+        method: 'GET',
+        url: 'https://api.example.com/retry',
+        retry: { maxAttempts: 2, baseDelayMs: 1 },
+      },
+    };
+    let attempts = 0;
+    const fetchFn: typeof fetch = async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new TypeError('network is unreachable');
+      }
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const result = await invokeApiOperation(baseRequest('retryable'), {
+      operations,
+      fetchFn,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(attempts).toBe(2);
+  });
+
+  it('does not retry non-idempotent POST requests', async () => {
+    const operations: Record<string, ApiOperation> = {
+      write: {
+        method: 'POST',
+        url: 'https://api.example.com/write',
+        retry: { maxAttempts: 3, baseDelayMs: 1 },
+      },
+    };
+    let attempts = 0;
+    const fetchFn: typeof fetch = async () => {
+      attempts += 1;
+      throw new TypeError('network is unreachable');
+    };
+
+    const result = await invokeApiOperation(baseRequest('write'), {
+      operations,
+      fetchFn,
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/OFFLINE');
+    expect(attempts).toBe(1);
+  });
 });

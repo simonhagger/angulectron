@@ -7,12 +7,29 @@ import {
 
 const API_DEFAULT_TIMEOUT_MS = 8_000;
 const API_DEFAULT_MAX_RESPONSE_BYTES = 1_000_000;
+const API_DEFAULT_CONCURRENCY_LIMIT = 4;
+const API_DEFAULT_RETRY_ATTEMPTS = 2;
+const API_DEFAULT_RETRY_BASE_DELAY_MS = 200;
 
 export type ApiOperation = {
   method: 'GET' | 'POST';
   url: string;
   timeoutMs?: number;
   maxResponseBytes?: number;
+  concurrencyLimit?: number;
+  minIntervalMs?: number;
+  auth?:
+    | {
+        type: 'bearer';
+        tokenEnvVar: string;
+      }
+    | {
+        type: 'none';
+      };
+  retry?: {
+    maxAttempts?: number;
+    baseDelayMs?: number;
+  };
 };
 
 export const defaultApiOperations: Record<string, ApiOperation> = {
@@ -21,6 +38,9 @@ export const defaultApiOperations: Record<string, ApiOperation> = {
     url: 'https://api.github.com/rate_limit',
     timeoutMs: 8_000,
     maxResponseBytes: 256_000,
+    concurrencyLimit: 2,
+    minIntervalMs: 300,
+    auth: { type: 'none' },
   },
 };
 
@@ -29,31 +49,115 @@ type InvokeApiDeps = {
   operations?: Record<string, ApiOperation>;
 };
 
-export const invokeApiOperation = async (
-  request: ApiInvokeRequest,
-  deps: InvokeApiDeps = {},
-): Promise<
-  DesktopResult<{
-    status: number;
-    data: unknown;
-    contentType?: string;
-  }>
-> => {
-  const operations = deps.operations ?? defaultApiOperations;
-  const fetchFn = deps.fetchFn ?? fetch;
-  const correlationId = request.correlationId;
+type ApiSuccess = {
+  status: number;
+  data: unknown;
+  contentType?: string;
+};
 
-  const operation = operations[request.payload.operationId];
-  if (!operation) {
+type OperationRuntimeState = {
+  inFlight: number;
+  lastStartedAt: number;
+};
+
+const operationRuntimeState = new Map<string, OperationRuntimeState>();
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const classifyTransportError = (
+  operationId: string,
+  correlationId: string,
+  error: unknown,
+): DesktopResult<never> => {
+  const message =
+    error instanceof Error
+      ? `${error.name}: ${error.message}`
+      : String(error ?? 'Unknown network error');
+  const lowered = message.toLowerCase();
+
+  if (
+    lowered.includes('enotfound') ||
+    lowered.includes('eai_again') ||
+    lowered.includes('dns')
+  ) {
     return asFailure(
-      'API/OPERATION_NOT_ALLOWED',
-      'Requested API operation is not allowed.',
-      { operationId: request.payload.operationId },
+      'API/DNS_ERROR',
+      'External API request failed due to DNS resolution issues.',
+      { operationId, message },
+      true,
+      correlationId,
+    );
+  }
+
+  if (
+    lowered.includes('enetunreach') ||
+    lowered.includes('network is unreachable') ||
+    lowered.includes('offline') ||
+    lowered.includes('failed to fetch')
+  ) {
+    return asFailure(
+      'API/OFFLINE',
+      'External API request failed because the system appears offline.',
+      { operationId, message },
+      true,
+      correlationId,
+    );
+  }
+
+  if (lowered.includes('proxy') || lowered.includes('tunnel')) {
+    return asFailure(
+      'API/PROXY_ERROR',
+      'External API request failed due to proxy/network policy.',
+      { operationId, message },
+      true,
+      correlationId,
+    );
+  }
+
+  if (
+    lowered.includes('certificate') ||
+    lowered.includes('cert_') ||
+    lowered.includes('tls') ||
+    lowered.includes('self signed')
+  ) {
+    return asFailure(
+      'API/TLS_ERROR',
+      'External API request failed due to TLS/certificate validation.',
+      { operationId, message },
       false,
       correlationId,
     );
   }
 
+  return asFailure(
+    'API/NETWORK_ERROR',
+    'External API request failed.',
+    { operationId, message },
+    true,
+    correlationId,
+  );
+};
+
+const isRetryableFailure = (code: string) =>
+  [
+    'API/TIMEOUT',
+    'API/NETWORK_ERROR',
+    'API/OFFLINE',
+    'API/DNS_ERROR',
+    'API/PROXY_ERROR',
+    'API/SERVER_ERROR',
+    'API/RATE_LIMITED',
+  ].includes(code);
+
+const invokeSingleAttempt = async (
+  request: ApiInvokeRequest,
+  operation: ApiOperation,
+  fetchFn: typeof fetch,
+): Promise<DesktopResult<ApiSuccess>> => {
+  const correlationId = request.correlationId;
   let operationUrl: URL;
   try {
     operationUrl = new URL(operation.url);
@@ -87,15 +191,35 @@ export const invokeApiOperation = async (
     }
   }
 
+  const headers = new Headers();
+  headers.set('Accept', 'application/json');
+
+  const auth = operation.auth ?? { type: 'none' as const };
+  if (auth.type === 'bearer') {
+    const token = process.env[auth.tokenEnvVar]?.trim();
+    if (!token) {
+      return asFailure(
+        'API/CREDENTIALS_UNAVAILABLE',
+        'Required API credentials are not available.',
+        {
+          operationId: request.payload.operationId,
+          tokenEnvVar: auth.tokenEnvVar,
+        },
+        false,
+        correlationId,
+      );
+    }
+
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const abortController = new AbortController();
   const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
 
   try {
     const response = await fetchFn(requestUrl, {
       method: operation.method,
-      headers: {
-        Accept: 'application/json',
-      },
+      headers,
       redirect: 'manual',
       signal: abortController.signal,
     });
@@ -185,15 +309,51 @@ export const invokeApiOperation = async (
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        return asFailure(
+          'API/AUTH_REQUIRED',
+          'External API requires authentication.',
+          { operationId: request.payload.operationId, status: response.status },
+          false,
+          correlationId,
+        );
+      }
+
+      if (response.status === 403) {
+        return asFailure(
+          'API/FORBIDDEN',
+          'External API request is forbidden by policy or credentials.',
+          { operationId: request.payload.operationId, status: response.status },
+          false,
+          correlationId,
+        );
+      }
+
+      if (response.status === 429) {
+        return asFailure(
+          'API/RATE_LIMITED',
+          'External API rate limit was exceeded.',
+          { operationId: request.payload.operationId, status: response.status },
+          true,
+          correlationId,
+        );
+      }
+
+      if (response.status >= 500) {
+        return asFailure(
+          'API/SERVER_ERROR',
+          'External API returned a server error response.',
+          { operationId: request.payload.operationId, status: response.status },
+          true,
+          correlationId,
+        );
+      }
+
       return asFailure(
-        'API/HTTP_ERROR',
-        'External API returned an error response.',
-        {
-          operationId: request.payload.operationId,
-          status: response.status,
-          bodyPreview: responseText.slice(0, 200),
-        },
-        response.status >= 500,
+        'API/CLIENT_ERROR',
+        'External API returned a client error response.',
+        { operationId: request.payload.operationId, status: response.status },
+        false,
         correlationId,
       );
     }
@@ -214,20 +374,115 @@ export const invokeApiOperation = async (
       );
     }
 
+    return classifyTransportError(
+      request.payload.operationId,
+      correlationId,
+      error,
+    );
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+};
+
+const getOperationState = (operationId: string): OperationRuntimeState => {
+  const existing = operationRuntimeState.get(operationId);
+  if (existing) {
+    return existing;
+  }
+
+  const initial = { inFlight: 0, lastStartedAt: 0 };
+  operationRuntimeState.set(operationId, initial);
+  return initial;
+};
+
+export const invokeApiOperation = async (
+  request: ApiInvokeRequest,
+  deps: InvokeApiDeps = {},
+): Promise<DesktopResult<ApiSuccess>> => {
+  const operations = deps.operations ?? defaultApiOperations;
+  const fetchFn = deps.fetchFn ?? fetch;
+  const correlationId = request.correlationId;
+
+  const operation = operations[request.payload.operationId];
+  if (!operation) {
     return asFailure(
-      'API/NETWORK_ERROR',
-      'External API request failed.',
+      'API/OPERATION_NOT_ALLOWED',
+      'Requested API operation is not allowed.',
+      { operationId: request.payload.operationId },
+      false,
+      correlationId,
+    );
+  }
+
+  const state = getOperationState(request.payload.operationId);
+  const concurrencyLimit =
+    operation.concurrencyLimit ?? API_DEFAULT_CONCURRENCY_LIMIT;
+
+  if (state.inFlight >= concurrencyLimit) {
+    return asFailure(
+      'API/THROTTLED',
+      'Too many concurrent API requests for this operation.',
+      { operationId: request.payload.operationId, concurrencyLimit },
+      true,
+      correlationId,
+    );
+  }
+
+  const minIntervalMs = operation.minIntervalMs ?? 0;
+  const elapsedSinceLast = Date.now() - state.lastStartedAt;
+  if (minIntervalMs > 0 && elapsedSinceLast < minIntervalMs) {
+    return asFailure(
+      'API/RATE_LIMITED',
+      'API operation is temporarily rate-limited.',
       {
         operationId: request.payload.operationId,
-        error:
-          error instanceof Error
-            ? { name: error.name, message: error.message }
-            : String(error),
+        retryAfterMs: minIntervalMs - elapsedSinceLast,
       },
       true,
       correlationId,
     );
+  }
+
+  state.inFlight += 1;
+  state.lastStartedAt = Date.now();
+
+  try {
+    const retryAttempts =
+      operation.method === 'GET'
+        ? Math.max(
+            1,
+            operation.retry?.maxAttempts ?? API_DEFAULT_RETRY_ATTEMPTS,
+          )
+        : 1;
+
+    const retryBaseDelayMs =
+      operation.retry?.baseDelayMs ?? API_DEFAULT_RETRY_BASE_DELAY_MS;
+
+    for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
+      const result = await invokeSingleAttempt(request, operation, fetchFn);
+      if (!result.ok) {
+        const failure = result as Extract<typeof result, { ok: false }>;
+        const errorCode = failure.error.code;
+        if (attempt >= retryAttempts || !isRetryableFailure(errorCode)) {
+          return failure;
+        }
+
+        const jitterMs = Math.floor(Math.random() * 50);
+        await sleep(retryBaseDelayMs * attempt + jitterMs);
+        continue;
+      }
+      return result;
+    }
+
+    return asFailure(
+      'API/UNKNOWN_FAILURE',
+      'External API operation failed.',
+      { operationId: request.payload.operationId },
+      false,
+      correlationId,
+    );
   } finally {
-    clearTimeout(timeoutHandle);
+    const latest = getOperationState(request.payload.operationId);
+    latest.inFlight = Math.max(0, latest.inFlight - 1);
   }
 };
