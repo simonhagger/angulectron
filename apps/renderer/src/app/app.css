@@ -15,6 +15,13 @@
   width: 248px;
   border-right: 1px solid rgb(0 0 0 / 9%);
   background: rgb(255 255 255 / 78%);
+  border-radius: 0;
+}
+
+:host ::ng-deep .shell-container .mat-drawer,
+:host ::ng-deep .shell-container .mat-drawer-content,
+:host ::ng-deep .shell-container .mat-drawer-inner-container {
+  border-radius: 0 !important;
 }
 
 .shell-sidenav .mat-mdc-nav-list .mat-mdc-list-item {

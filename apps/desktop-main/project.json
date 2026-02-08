@@ -87,7 +87,7 @@
         "parallel": true,
         "commands": [
           "pnpm nx run renderer:serve",
-          "pnpm wait-on http://localhost:4200 && cross-env NODE_ENV=development RENDERER_DEV_URL=http://localhost:4200 pnpm nx run desktop-main:serve:development"
+          "pnpm nx run-many -t build --projects=desktop-preload,desktop-main && pnpm wait-on http://localhost:4200 && cross-env NODE_ENV=development RENDERER_DEV_URL=http://localhost:4200 pnpm exec electron dist/apps/desktop-main/main.js"
         ]
       }
     },

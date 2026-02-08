@@ -1,0 +1,84 @@
+<section class="carbon-showcase">
+  <header class="hero">
+    <p class="eyebrow">IBM Carbon</p>
+    <h1>Carbon Showcase</h1>
+    <p class="intro">
+      A quick reference page for Carbon visual language, spacing, and
+      interaction patterns.
+    </p>
+  </header>
+
+  <ui-carbon-notice
+    title="Adapter component"
+    body="This notice is rendered through our local carbon-adapters library and uses Carbon design tokens."
+    status="success"
+  />
+
+  <section class="panel cds--layer">
+    <h2>Buttons</h2>
+    <div class="button-row">
+      <button class="cds--btn cds--btn--primary" type="button">
+        Primary action
+      </button>
+      <button class="cds--btn cds--btn--secondary" type="button">
+        Secondary action
+      </button>
+      <button class="cds--btn cds--btn--tertiary" type="button">
+        Tertiary action
+      </button>
+      <button class="cds--btn cds--btn--ghost" type="button">
+        Ghost action
+      </button>
+    </div>
+  </section>
+
+  <section class="panel cds--layer">
+    <h2>Form fields</h2>
+    <div class="field-grid">
+      <div class="cds--form-item">
+        <label class="cds--label" for="workspaceName">Workspace name</label>
+        <div class="cds--text-input__field-wrapper">
+          <input
+            id="workspaceName"
+            class="cds--text-input"
+            type="text"
+            value="Electron Workbench"
+          />
+        </div>
+      </div>
+
+      <div class="cds--form-item">
+        <label class="cds--label" for="environment">Environment</label>
+        <div class="cds--select">
+          <select id="environment" class="cds--select-input">
+            <option>Development</option>
+            <option>Staging</option>
+            <option>Production</option>
+          </select>
+          <svg
+            focusable="false"
+            preserveAspectRatio="xMidYMid meet"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="currentColor"
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+            class="cds--select__arrow"
+          >
+            <path d="M8 11L3 6h10z"></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel cds--layer">
+    <h2>Tags</h2>
+    <div class="tag-row">
+      @for (tag of tags; track tag) {
+      <span class="cds--tag cds--tag--blue">{{ tag }}</span>
+      }
+    </div>
+  </section>
+</section>

@@ -1,0 +1,106 @@
+<section class="storage-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Storage Explorer</mat-card-title>
+      <mat-card-subtitle
+        >Inspect and modify values in settings/cache domains.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="status warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <div class="field-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Domain</mat-label>
+          <mat-select
+            [ngModel]="domain()"
+            (ngModelChange)="domain.set($event)"
+            name="domain"
+          >
+            <mat-option value="settings">settings</mat-option>
+            <mat-option value="cache">cache</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Classification</mat-label>
+          <mat-select
+            [ngModel]="classification()"
+            (ngModelChange)="classification.set($event)"
+            name="classification"
+          >
+            <mat-option value="internal">internal</mat-option>
+            <mat-option value="sensitive">sensitive</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>TTL seconds (cache only)</mat-label>
+          <input
+            matInput
+            [ngModel]="ttlSeconds()"
+            (ngModelChange)="ttlSeconds.set($event)"
+            name="ttlSeconds"
+            placeholder="e.g. 300"
+          />
+        </mat-form-field>
+      </div>
+
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Key</mat-label>
+        <input
+          matInput
+          [ngModel]="key()"
+          (ngModelChange)="key.set($event)"
+          name="key"
+        />
+      </mat-form-field>
+
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Value (JSON or text)</mat-label>
+        <textarea
+          matInput
+          rows="5"
+          [ngModel]="valueText()"
+          (ngModelChange)="valueText.set($event)"
+          name="valueText"
+        ></textarea>
+      </mat-form-field>
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="setItem()"
+        >
+          <mat-icon aria-hidden="true">save</mat-icon>
+          Set
+        </button>
+        <button mat-stroked-button type="button" (click)="getItem()">
+          <mat-icon aria-hidden="true">search</mat-icon>
+          Get
+        </button>
+        <button mat-stroked-button type="button" (click)="deleteItem()">
+          <mat-icon aria-hidden="true">delete</mat-icon>
+          Delete
+        </button>
+        <button mat-button type="button" (click)="clearDomain()">
+          Clear Domain
+        </button>
+      </div>
+
+      <p class="status">{{ result() }}</p>
+
+      @if (fetchedValue()) {
+      <section class="output">
+        <h3>Fetched Value</h3>
+        <pre>{{ fetchedValue() }}</pre>
+      </section>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>

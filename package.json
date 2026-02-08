@@ -24,6 +24,7 @@
     "desktop:integration": "pnpm nx run desktop-main:integration",
     "desktop:dev": "pnpm run build-desktop && (pnpm renderer:serve & pnpm wait-on http://localhost:4200 && cross-env NODE_ENV=development RENDERER_DEV_URL=http://localhost:4200 electron dist/apps/desktop-main/main.js)",
     "desktop:dev:win": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tools/scripts/desktop-dev-win.ps1",
+    "workspace:refresh:win": "powershell -NoProfile -ExecutionPolicy Bypass -File ./tools/scripts/workspace-refresh-win.ps1",
     "perf:start": "node ./tools/scripts/perf-start.mjs",
     "perf:ipc": "node ./tools/scripts/perf-ipc.mjs",
     "perf:memory": "node ./tools/scripts/perf-memory.mjs",
