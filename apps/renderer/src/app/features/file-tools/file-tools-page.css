@@ -1,0 +1,41 @@
+:host {
+  display: block;
+}
+
+.file-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+.warning {
+  margin: 0 0 0.75rem;
+  color: #9a3412;
+}
+
+.status,
+.meta {
+  margin: 0 0 0.5rem;
+}
+
+.preview {
+  border: 1px solid rgb(0 0 0 / 12%);
+  padding: 0.75rem;
+}
+
+.preview h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -34,4 +34,32 @@ export const appRoutes: Route[] = [
         (m) => m.ApiPlaygroundPage,
       ),
   },
+  {
+    path: 'updates-release',
+    loadComponent: () =>
+      import('./features/updates-release/updates-release-page').then(
+        (m) => m.UpdatesReleasePage,
+      ),
+  },
+  {
+    path: 'telemetry-console',
+    loadComponent: () =>
+      import('./features/telemetry-console/telemetry-console-page').then(
+        (m) => m.TelemetryConsolePage,
+      ),
+  },
+  {
+    path: 'ipc-diagnostics',
+    loadComponent: () =>
+      import('./features/ipc-diagnostics/ipc-diagnostics-page').then(
+        (m) => m.IpcDiagnosticsPage,
+      ),
+  },
+  {
+    path: 'file-tools',
+    loadComponent: () =>
+      import('./features/file-tools/file-tools-page').then(
+        (m) => m.FileToolsPage,
+      ),
+  },
 ];

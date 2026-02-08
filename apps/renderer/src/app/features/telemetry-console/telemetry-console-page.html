@@ -1,0 +1,70 @@
+<section class="telemetry-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Telemetry Console</mat-card-title>
+      <mat-card-subtitle
+        >Send test telemetry events and inspect local send
+        history.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Event Name</mat-label>
+        <input
+          matInput
+          [ngModel]="eventName()"
+          (ngModelChange)="eventName.set($event)"
+          name="eventName"
+        />
+      </mat-form-field>
+
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Properties JSON</mat-label>
+        <textarea
+          matInput
+          rows="6"
+          [ngModel]="propertiesText()"
+          (ngModelChange)="propertiesText.set($event)"
+          name="propertiesText"
+        ></textarea>
+      </mat-form-field>
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="trackEvent()"
+        >
+          <mat-icon aria-hidden="true">send</mat-icon>
+          Track Event
+        </button>
+        <button mat-button type="button" (click)="clearLog()">Clear Log</button>
+      </div>
+
+      <p class="status">{{ status() }}</p>
+
+      <section class="log-panel">
+        <h3>Recent Events</h3>
+        @if (logs().length === 0) {
+        <p class="muted">No events yet.</p>
+        } @else {
+        <ul>
+          @for (log of logs(); track log.timestamp + log.eventName) {
+          <li>
+            <span>{{ log.timestamp }}</span>
+            <strong>{{ log.eventName }}</strong>
+            <em>{{ log.status }}</em>
+          </li>
+          }
+        </ul>
+        }
+      </section>
+    </mat-card-content>
+  </mat-card>
+</section>

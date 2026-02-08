@@ -1,0 +1,44 @@
+<section class="file-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>File Tools</mat-card-title>
+      <mat-card-subtitle
+        >Demonstrates secure file pick + tokenized read through desktop
+        APIs.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="chooseFile()"
+        >
+          <mat-icon aria-hidden="true">folder_open</mat-icon>
+          Choose File
+        </button>
+        <button mat-stroked-button type="button" (click)="loadPreview()">
+          <mat-icon aria-hidden="true">description</mat-icon>
+          Load Preview
+        </button>
+      </div>
+
+      <p class="status">{{ status() }}</p>
+
+      @if (selectedFileName()) {
+      <p class="meta"><strong>Selected:</strong> {{ selectedFileName() }}</p>
+      } @if (preview()) {
+      <section class="preview">
+        <h3>Preview (first 2000 chars)</h3>
+        <pre>{{ preview() }}</pre>
+      </section>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>

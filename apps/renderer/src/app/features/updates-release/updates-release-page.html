@@ -1,0 +1,36 @@
+<section class="updates-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Updates & Release</mat-card-title>
+      <mat-card-subtitle
+        >Versioning and release signal checks for desktop
+        builds.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <div class="meta-grid">
+        <p><strong>App Version:</strong> {{ appVersion() }}</p>
+        <p><strong>Contract Version:</strong> {{ contractVersion() }}</p>
+      </div>
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="checkForUpdates()"
+        >
+          <mat-icon aria-hidden="true">system_update</mat-icon>
+          Check For Updates
+        </button>
+      </div>
+
+      <p class="status">{{ updateState() }}</p>
+    </mat-card-content>
+  </mat-card>
+</section>

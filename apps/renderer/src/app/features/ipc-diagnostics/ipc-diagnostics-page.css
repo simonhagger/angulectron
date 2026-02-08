@@ -1,0 +1,51 @@
+:host {
+  display: block;
+}
+
+.diag-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.actions {
+  margin-bottom: 0.75rem;
+}
+
+.status {
+  margin: 0 0 0.75rem;
+}
+
+.warning {
+  margin: 0 0 0.75rem;
+  color: #9a3412;
+}
+
+.results {
+  border: 1px solid rgb(0 0 0 / 12%);
+  padding: 0.75rem;
+}
+
+.results ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.results li {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid rgb(0 0 0 / 10%);
+}
+
+.results li.failed {
+  border-color: #dc2626;
+}
+
+.results p {
+  margin: 0.2rem 0 0;
+}

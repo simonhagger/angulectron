@@ -1,0 +1,47 @@
+<section class="diag-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>IPC Diagnostics</mat-card-title>
+      <mat-card-subtitle
+        >Quick health checks against core desktop bridge
+        channels.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="runDiagnostics()"
+        >
+          <mat-icon aria-hidden="true">play_arrow</mat-icon>
+          Run Diagnostics
+        </button>
+      </div>
+
+      <p class="status">{{ status() }}</p>
+
+      @if (probes().length > 0) {
+      <section class="results">
+        <ul>
+          @for (probe of probes(); track probe.name) {
+          <li [class.failed]="!probe.ok">
+            <div>
+              <strong>{{ probe.name }}</strong>
+              <p>{{ probe.detail }}</p>
+            </div>
+            <span>{{ probe.durationMs }} ms</span>
+          </li>
+          }
+        </ul>
+      </section>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>
