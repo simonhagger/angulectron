@@ -14,11 +14,13 @@
         "platform": "node",
         "outputPath": "dist/apps/desktop-preload",
         "format": ["cjs"],
-        "bundle": false,
+        "bundle": true,
+        "thirdParty": true,
         "main": "apps/desktop-preload/src/main.ts",
         "tsConfig": "apps/desktop-preload/tsconfig.app.json",
         "assets": ["apps/desktop-preload/src/assets"],
         "generatePackageJson": true,
+        "external": ["electron"],
         "esbuildOptions": {
           "sourcemap": true,
           "outExtension": {

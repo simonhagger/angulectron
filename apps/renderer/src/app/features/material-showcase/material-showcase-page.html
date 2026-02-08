@@ -1,0 +1,95 @@
+<section class="showcase-layout" [class.compact]="compactMode()">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Angular Material Showcase</mat-card-title>
+      <mat-card-subtitle>
+        Baseline component and styling patterns for upcoming pages
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="chip-row">
+        <mat-chip-set>
+          <mat-chip selected>
+            <mat-icon matChipAvatar aria-hidden="true">check_circle</mat-icon>
+            Ready
+          </mat-chip>
+          <mat-chip>Experimental</mat-chip>
+          <mat-chip highlighted>Draft</mat-chip>
+        </mat-chip-set>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Display Name</mat-label>
+          <input matInput value="Workbench" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Theme Tone</mat-label>
+          <mat-select [value]="selectedTone()" (valueChange)="setTone($event)">
+            @for (tone of tones; track tone) {
+            <mat-option [value]="tone">{{ tone }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="toggle-row">
+        <mat-slide-toggle
+          [checked]="compactMode()"
+          (change)="toggleCompact($event.checked)"
+        >
+          Compact Layout
+        </mat-slide-toggle>
+      </div>
+
+      <div class="progress-row">
+        <div class="progress-label">
+          <span>Readiness</span>
+          <strong>{{ completion() }}%</strong>
+        </div>
+        <mat-progress-bar [value]="completion()" mode="determinate" />
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="advanceProgress()"
+      >
+        Advance
+      </button>
+      <button mat-stroked-button type="button">Secondary</button>
+      <button mat-button type="button">Tertiary</button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Tabbed Panels</mat-card-title>
+    </mat-card-header>
+
+    <mat-card-content>
+      <mat-tab-group>
+        <mat-tab label="Overview">
+          <mat-list>
+            <mat-list-item>Signals-driven component state</mat-list-item>
+            <mat-list-item>Material form controls</mat-list-item>
+            <mat-list-item>Sidenav-compatible responsive spacing</mat-list-item>
+          </mat-list>
+        </mat-tab>
+        <mat-tab label="Notes">
+          <p class="tab-copy">
+            Use this page as a visual baseline while building route-specific
+            functionality.
+          </p>
+        </mat-tab>
+      </mat-tab-group>
+    </mat-card-content>
+  </mat-card>
+</section>

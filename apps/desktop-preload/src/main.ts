@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { randomUUID } from 'node:crypto';
 import { z, type ZodType } from 'zod';
 import type { DesktopApi } from '@electron-foundation/desktop-api';
 import { toStructuredLogLine } from '@electron-foundation/common';
@@ -51,6 +50,22 @@ const logPreloadError = (
 };
 
 const ipcInvokeTimeoutMs = 10_000;
+
+const createCorrelationId = (): string => {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  // RFC4122 v4 fallback using Web Crypto random values.
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex
+    .slice(6, 8)
+    .join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`;
+};
 
 const resultSchema = <TPayload>(payloadSchema: ZodType<TPayload>) =>
   z.union([
@@ -146,7 +161,7 @@ const mapResult = <TFrom, TTo>(
 const desktopApi: DesktopApi = {
   app: {
     async getContractVersion() {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = handshakeRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -162,7 +177,7 @@ const desktopApi: DesktopApi = {
       return mapResult(result, (value) => value.contractVersion);
     },
     async getVersion() {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = appVersionRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -180,7 +195,7 @@ const desktopApi: DesktopApi = {
   },
   dialog: {
     async openFile(request = {}) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const payload = openFileDialogRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -197,7 +212,7 @@ const desktopApi: DesktopApi = {
   },
   fs: {
     async readTextFile(fileToken) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = readTextFileRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -225,7 +240,7 @@ const desktopApi: DesktopApi = {
       classification = 'internal',
       options = {},
     ) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = storageSetRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -246,7 +261,7 @@ const desktopApi: DesktopApi = {
       );
     },
     async getItem(domain, key) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = storageGetRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -261,7 +276,7 @@ const desktopApi: DesktopApi = {
       );
     },
     async deleteItem(domain, key) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = storageDeleteRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -276,7 +291,7 @@ const desktopApi: DesktopApi = {
       );
     },
     async clearDomain(domain) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = storageClearDomainRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -293,7 +308,7 @@ const desktopApi: DesktopApi = {
   },
   api: {
     async invoke(operationId, params) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = apiInvokeRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -313,7 +328,7 @@ const desktopApi: DesktopApi = {
   },
   updates: {
     async check() {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = updatesCheckRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,
@@ -329,7 +344,7 @@ const desktopApi: DesktopApi = {
   },
   telemetry: {
     async track(eventName, properties) {
-      const correlationId = randomUUID();
+      const correlationId = createCorrelationId();
       const request = telemetryTrackRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
         correlationId,

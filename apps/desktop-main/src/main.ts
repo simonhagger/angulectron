@@ -8,6 +8,7 @@ import {
   type WebContents,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
@@ -37,6 +38,44 @@ const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const fileTokenTtlMs = 5 * 60 * 1000;
 const fileTokenCleanupIntervalMs = 60 * 1000;
 const allowedDevHosts = new Set(['localhost', '127.0.0.1']);
+
+const resolveExistingPath = (
+  description: string,
+  candidates: string[],
+): string => {
+  for (const candidate of candidates) {
+    const absolutePath = path.resolve(__dirname, candidate);
+    if (existsSync(absolutePath)) {
+      return absolutePath;
+    }
+  }
+
+  throw new Error(
+    `Unable to resolve ${description}. Checked: ${candidates
+      .map((candidate) => path.resolve(__dirname, candidate))
+      .join(', ')}`,
+  );
+};
+
+const resolvePreloadPath = (): string =>
+  resolveExistingPath('preload script', [
+    '../desktop-preload/main.js',
+    '../apps/desktop-preload/main.js',
+    '../../desktop-preload/main.js',
+    '../../../desktop-preload/main.js',
+    '../../../../desktop-preload/main.js',
+    '../desktop-preload/src/main.js',
+    '../apps/desktop-preload/src/main.js',
+    '../../desktop-preload/src/main.js',
+    '../../../desktop-preload/src/main.js',
+  ]);
+
+const resolveRendererIndexPath = (): string =>
+  resolveExistingPath('renderer index', [
+    '../renderer/browser/index.html',
+    '../../renderer/browser/index.html',
+    '../../../renderer/browser/index.html',
+  ]);
 
 type FileSelectionToken = {
   filePath: string;
@@ -157,7 +196,7 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     show: false,
     backgroundColor: '#f8f7f1',
     webPreferences: {
-      preload: path.join(__dirname, '../desktop-preload/main.js'),
+      preload: resolvePreloadPath(),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -178,9 +217,7 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     await mainWindow.loadURL(resolveRendererDevUrl().toString());
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    await mainWindow.loadFile(
-      path.join(__dirname, '../renderer/browser/index.html'),
-    );
+    await mainWindow.loadFile(resolveRendererIndexPath());
   }
 
   return mainWindow;

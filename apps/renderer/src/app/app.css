@@ -17,6 +17,21 @@
   background: rgb(255 255 255 / 78%);
 }
 
+.shell-sidenav .mat-mdc-nav-list .mat-mdc-list-item {
+  --mdc-list-list-item-leading-icon-start-space: 0.25rem;
+  --mdc-list-list-item-leading-icon-end-space: 0.75rem;
+  border-radius: 0;
+}
+
+.shell-sidenav .mat-mdc-nav-list .mat-mdc-list-item .mdc-list-item__content {
+  display: flex;
+  align-items: center;
+}
+
+.shell-sidenav .mat-mdc-nav-list .mat-mdc-list-item .mat-icon {
+  align-self: center;
+}
+
 .sidenav-brand {
   display: flex;
   align-items: center;
@@ -47,7 +62,7 @@
 
 .active-link {
   background: rgb(0 95 204 / 12%);
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .shell-main {

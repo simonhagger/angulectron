@@ -11,8 +11,16 @@
         routerLinkActive="active-link"
         [routerLinkActiveOptions]="{ exact: true }"
       >
-        <mat-icon aria-hidden="true">home</mat-icon>
-        <span>Home</span>
+        <mat-icon matListItemIcon aria-hidden="true">home</mat-icon>
+        <span matListItemTitle>Home</span>
+      </a>
+      <a
+        mat-list-item
+        routerLink="/material-showcase"
+        routerLinkActive="active-link"
+      >
+        <mat-icon matListItemIcon aria-hidden="true">palette</mat-icon>
+        <span matListItemTitle>Material Showcase</span>
       </a>
     </mat-nav-list>
   </mat-sidenav>
