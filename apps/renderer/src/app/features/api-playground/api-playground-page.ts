@@ -1,0 +1,117 @@
+import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import {
+  API_OPERATION_IDS,
+  type ApiOperationId,
+} from '@electron-foundation/contracts';
+import { getDesktopApi } from '@electron-foundation/desktop-api';
+
+@Component({
+  selector: 'app-api-playground-page',
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatButtonModule,
+    MatIconModule,
+  ],
+  templateUrl: './api-playground-page.html',
+  styleUrl: './api-playground-page.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class ApiPlaygroundPage {
+  readonly desktopAvailable = signal(!!getDesktopApi());
+  readonly operations = API_OPERATION_IDS;
+  readonly operation = signal<ApiOperationId>(API_OPERATION_IDS[0]);
+  readonly paramsText = signal(
+    '{\n  "owner": "simonhagger",\n  "repo": "angulectron"\n}',
+  );
+  readonly requestState = signal('Idle.');
+  readonly responseStatus = signal<number | null>(null);
+  readonly responseBody = signal('');
+
+  async invokeOperation() {
+    const desktop = getDesktopApi();
+    if (!desktop) {
+      this.requestState.set('Desktop bridge unavailable in browser mode.');
+      return;
+    }
+
+    const parsedParams = this.parseParams(this.paramsText());
+    if (parsedParams === 'invalid') {
+      this.requestState.set(
+        'Params must be a JSON object with primitive values.',
+      );
+      return;
+    }
+
+    this.requestState.set('Calling operation...');
+    this.responseStatus.set(null);
+    this.responseBody.set('');
+
+    const response = await desktop.api.invoke(this.operation(), parsedParams);
+    if (!response.ok) {
+      this.requestState.set(response.error.message);
+      return;
+    }
+
+    this.requestState.set('Request completed.');
+    this.responseStatus.set(response.data.status);
+    this.responseBody.set(this.pretty(response.data.data));
+  }
+
+  private parseParams(
+    text: string,
+  ): Record<string, string | number | boolean | null> | undefined | 'invalid' {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      return 'invalid';
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return 'invalid';
+    }
+
+    const result: Record<string, string | number | boolean | null> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean' ||
+        value === null
+      ) {
+        result[key] = value;
+        continue;
+      }
+
+      return 'invalid';
+    }
+
+    return result;
+  }
+
+  private pretty(value: unknown): string {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  }
+}

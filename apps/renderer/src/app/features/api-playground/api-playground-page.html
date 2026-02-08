@@ -1,0 +1,66 @@
+<section class="api-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>API Playground</mat-card-title>
+      <mat-card-subtitle
+        >Invoke contract-backed operations through the desktop
+        bridge.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="status warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Operation</mat-label>
+        <mat-select
+          [ngModel]="operation()"
+          (ngModelChange)="operation.set($event)"
+          name="operation"
+        >
+          @for (operationId of operations; track operationId) {
+          <mat-option [value]="operationId">{{ operationId }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Params JSON</mat-label>
+        <textarea
+          matInput
+          rows="8"
+          [ngModel]="paramsText()"
+          (ngModelChange)="paramsText.set($event)"
+          name="paramsText"
+        ></textarea>
+      </mat-form-field>
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="invokeOperation()"
+        >
+          <mat-icon aria-hidden="true">send</mat-icon>
+          Invoke
+        </button>
+      </div>
+
+      <p class="status">{{ requestState() }}</p>
+
+      @if (responseStatus() !== null || responseBody()) {
+      <section class="output">
+        @if (responseStatus() !== null) {
+        <p><strong>Status:</strong> {{ responseStatus() }}</p>
+        } @if (responseBody()) {
+        <h3>Response Body</h3>
+        <pre>{{ responseBody() }}</pre>
+        }
+      </section>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>

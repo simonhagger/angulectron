@@ -13,4 +13,25 @@ export const appRoutes: Route[] = [
         (m) => m.MaterialShowcasePage,
       ),
   },
+  {
+    path: 'carbon-showcase',
+    loadComponent: () =>
+      import('./features/carbon-showcase/carbon-showcase-page').then(
+        (m) => m.CarbonShowcasePage,
+      ),
+  },
+  {
+    path: 'storage-explorer',
+    loadComponent: () =>
+      import('./features/storage-explorer/storage-explorer-page').then(
+        (m) => m.StorageExplorerPage,
+      ),
+  },
+  {
+    path: 'api-playground',
+    loadComponent: () =>
+      import('./features/api-playground/api-playground-page').then(
+        (m) => m.ApiPlaygroundPage,
+      ),
+  },
 ];
