@@ -1,0 +1,55 @@
+<section class="table-workbench">
+  <mat-card appearance="outlined">
+    <h1>Data Table Workbench</h1>
+    <p>Material table demo with filtering, sorting, and pagination.</p>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Filter rows</mat-label>
+      <input
+        matInput
+        [ngModel]="filterText"
+        (ngModelChange)="applyFilter($event)"
+      />
+    </mat-form-field>
+
+    <div class="table-shell">
+      <table mat-table [dataSource]="dataSource" matSort>
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>ID</th>
+          <td mat-cell *matCellDef="let row">{{ row.id }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Name</th>
+          <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="category">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Category</th>
+          <td mat-cell *matCellDef="let row">{{ row.category }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <td mat-cell *matCellDef="let row">{{ row.status }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="owner">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Owner</th>
+          <td mat-cell *matCellDef="let row">{{ row.owner }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+
+    <mat-paginator
+      [pageSize]="5"
+      [pageSizeOptions]="[5,10]"
+      showFirstLastButtons
+    ></mat-paginator>
+  </mat-card>
+</section>

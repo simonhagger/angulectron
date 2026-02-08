@@ -1,0 +1,40 @@
+<section class="retry-sim">
+  <mat-card appearance="outlined">
+    <h1>Offline + Retry Simulator</h1>
+    <p>Visualize retry policy behavior for common failure classes.</p>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <mat-form-field appearance="outline">
+      <mat-label>Failure class</mat-label>
+      <mat-select [value]="selectedClass()" (valueChange)="setClass($event)">
+        @for (kind of classes; track kind) {
+        <mat-option [value]="kind">{{ kind }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <div class="actions">
+      <button
+        mat-flat-button
+        type="button"
+        (click)="simulate()"
+        [disabled]="busy()"
+      >
+        {{ busy() ? 'Running...' : 'Run Simulation' }}
+      </button>
+      <button mat-stroked-button type="button" (click)="clearTimeline()">
+        Clear
+      </button>
+    </div>
+
+    <p>Status: {{ status() }}</p>
+    <p>Retries attempted: {{ retryCount() }}</p>
+
+    <pre class="timeline">
+@for (line of timeline(); track line) {
+{{ line }}
+}</pre
+    >
+  </mat-card>
+</section>

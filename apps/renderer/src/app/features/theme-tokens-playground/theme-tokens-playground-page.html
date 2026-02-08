@@ -1,0 +1,40 @@
+<section
+  class="theme-playground"
+  [class]="presetClass()"
+  [class.dense]="dense()"
+>
+  <mat-card appearance="outlined" class="intro">
+    <h1>Theme Tokens Playground</h1>
+    <p>
+      Preview token presets while keeping Material component behavior unchanged.
+    </p>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="controls">
+    <mat-form-field appearance="outline">
+      <mat-label>Preset</mat-label>
+      <mat-select [value]="preset()" (valueChange)="setPreset($event)">
+        <mat-option value="material">Material Baseline</mat-option>
+        <mat-option value="carbonish">Carbon-ish</mat-option>
+        <mat-option value="sunrise">Sunrise</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <div class="actions">
+      <button mat-flat-button type="button" (click)="toggleDensity()">
+        {{ dense() ? 'Switch to Comfortable Density' : 'Switch to Dense Density'
+        }}
+      </button>
+      <button mat-stroked-button type="button">Secondary Action</button>
+      <button mat-button type="button">Tertiary Action</button>
+    </div>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="sample">
+    <h2>Sample Surface</h2>
+    <p>
+      This page scopes token overrides to demonstrate theming direction before
+      adopting anything globally.
+    </p>
+  </mat-card>
+</section>

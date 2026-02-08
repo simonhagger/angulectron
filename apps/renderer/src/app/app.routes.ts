@@ -42,6 +42,41 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'async-validation-lab',
+    loadComponent: () =>
+      import('./features/async-validation-lab/async-validation-lab-page').then(
+        (m) => m.AsyncValidationLabPage,
+      ),
+  },
+  {
+    path: 'data-table-workbench',
+    loadComponent: () =>
+      import('./features/data-table-workbench/data-table-workbench-page').then(
+        (m) => m.DataTableWorkbenchPage,
+      ),
+  },
+  {
+    path: 'theme-tokens-playground',
+    loadComponent: () =>
+      import(
+        './features/theme-tokens-playground/theme-tokens-playground-page'
+      ).then((m) => m.ThemeTokensPlaygroundPage),
+  },
+  {
+    path: 'offline-retry-simulator',
+    loadComponent: () =>
+      import(
+        './features/offline-retry-simulator/offline-retry-simulator-page'
+      ).then((m) => m.OfflineRetrySimulatorPage),
+  },
+  {
+    path: 'file-workflow-studio',
+    loadComponent: () =>
+      import('./features/file-workflow-studio/file-workflow-studio-page').then(
+        (m) => m.FileWorkflowStudioPage,
+      ),
+  },
+  {
     path: 'storage-explorer',
     loadComponent: () =>
       import('./features/storage-explorer/storage-explorer-page').then(

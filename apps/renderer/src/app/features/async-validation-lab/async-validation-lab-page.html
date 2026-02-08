@@ -1,0 +1,54 @@
+<section class="async-lab">
+  <mat-card appearance="outlined">
+    <h1>Async Validation Lab</h1>
+    <p>
+      Demonstrates Angular Signal Forms with asynchronous username availability
+      checks and submit flow.
+    </p>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <form (submit)="onSubmit($event)" novalidate>
+      <div class="fields">
+        <mat-form-field appearance="outline">
+          <mat-label>Username</mat-label>
+          <input matInput [formField]="demoForm.username" />
+          @if (demoForm.username().touched() && usernameError()) {
+          <mat-error>{{ usernameError() }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput [formField]="demoForm.emailAddress" type="email" />
+          @if (demoForm.emailAddress().touched() && emailError()) {
+          <mat-error>{{ emailError() }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <div class="actions">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="checkUsername()"
+          [disabled]="checkingUsername()"
+        >
+          {{ checkingUsername() ? 'Checking...' : 'Check Username Availability'
+          }}
+        </button>
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="isSubmitting()"
+        >
+          {{ isSubmitting() ? 'Submitting...' : 'Submit' }}
+        </button>
+      </div>
+
+      <p class="hint">{{ usernameHint() }}</p>
+      <p class="hint">Submit status: {{ submitMessage() }}</p>
+    </form>
+  </mat-card>
+</section>

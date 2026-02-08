@@ -1,0 +1,31 @@
+:host {
+  display: block;
+}
+
+.async-lab {
+  display: grid;
+  gap: 1rem;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 0.8rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.hint {
+  margin: 0.5rem 0 0;
+  color: #44546c;
+}
+
+@media (max-width: 900px) {
+  .fields {
+    grid-template-columns: 1fr;
+  }
+}

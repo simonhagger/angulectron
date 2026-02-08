@@ -1,0 +1,21 @@
+:host {
+  display: block;
+}
+.retry-sim {
+  display: grid;
+  gap: 1rem;
+}
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0;
+}
+.timeline {
+  margin-top: 0.75rem;
+  padding: 0.8rem;
+  border: 1px solid #d9e0ea;
+  background: #f8fafc;
+  min-height: 120px;
+  white-space: pre-wrap;
+}

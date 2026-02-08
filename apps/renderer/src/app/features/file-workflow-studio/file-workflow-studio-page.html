@@ -1,0 +1,41 @@
+<section class="file-workflow-studio">
+  <mat-card appearance="outlined">
+    <h1>File Workflow Studio</h1>
+    <p>Simulates open -> read -> parse -> summary with timeline diagnostics.</p>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    @if (!desktopAvailable()) {
+    <p class="warning">Desktop bridge unavailable in browser mode.</p>
+    }
+
+    <div class="actions">
+      <button
+        mat-flat-button
+        type="button"
+        (click)="runWorkflow()"
+        [disabled]="!desktopAvailable()"
+      >
+        Run Workflow
+      </button>
+    </div>
+
+    <p>Status: {{ status() }}</p>
+    @if (fileName()) {
+    <p>File: <strong>{{ fileName() }}</strong></p>
+    }
+    <p>{{ parsedSummary() }}</p>
+
+    @if (preview()) {
+    <h3>Preview</h3>
+    <pre>{{ preview() }}</pre>
+    }
+
+    <h3>Timeline</h3>
+    <pre class="timeline">
+@for (line of timeline(); track line) {
+{{ line }}
+}</pre
+    >
+  </mat-card>
+</section>
