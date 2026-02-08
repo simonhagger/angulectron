@@ -1,0 +1,82 @@
+<section class="form-lab">
+  <mat-card appearance="outlined" class="intro-card">
+    <p class="eyebrow">Current Angular API</p>
+    <h1>Signal Forms Validation Lab</h1>
+    <p>
+      This page uses <code>@angular/forms/signals</code> with
+      <code>form()</code>, field validators, <code>[formField]</code> bindings,
+      and <code>submit()</code>.
+    </p>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="form-card">
+    <form (submit)="onSubmit($event)" novalidate>
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Full name</mat-label>
+          <input matInput [formField]="demoForm.fullName" />
+          @if (demoForm.fullName().touched() && fullNameError()) {
+          <mat-error>{{ fullNameError() }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Email address</mat-label>
+          <input matInput type="email" [formField]="demoForm.emailAddress" />
+          @if (demoForm.emailAddress().touched() && emailError()) {
+          <mat-error>{{ emailError() }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Preferred theme</mat-label>
+          <mat-select [formField]="demoForm.preferredTheme">
+            @for (theme of themes; track theme.value) {
+            <mat-option [value]="theme.value">{{ theme.label }}</mat-option>
+            }
+          </mat-select>
+          @if (demoForm.preferredTheme().touched() && themeError()) {
+          <mat-error>{{ themeError() }}</mat-error>
+          }
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="notes-field">
+          <mat-label>Notes</mat-label>
+          <textarea matInput rows="4" [formField]="demoForm.notes"></textarea>
+          @if (demoForm.notes().touched() && notesError()) {
+          <mat-error>{{ notesError() }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <mat-checkbox [formField]="demoForm.acceptTerms">
+        I accept terms for this demo workflow.
+      </mat-checkbox>
+      @if (demoForm.acceptTerms().touched() && termsError()) {
+      <p class="terms-error">{{ termsError() }}</p>
+      }
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="submit"
+          [disabled]="isSubmitting()"
+        >
+          Submit
+        </button>
+        <button mat-stroked-button type="button" (click)="resetForm()">
+          Reset
+        </button>
+      </div>
+    </form>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="status-card">
+    <h2>Status</h2>
+    <p>{{ submitMessage() }}</p>
+    @if (lastSubmitted(); as payload) {
+    <pre>{{ payload | json }}</pre>
+    }
+  </mat-card>
+</section>

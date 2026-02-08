@@ -14,10 +14,66 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'material-carbon-lab',
+    loadComponent: () =>
+      import('./features/material-carbon-lab/material-carbon-lab-page').then(
+        (m) => m.MaterialCarbonLabPage,
+      ),
+  },
+  {
     path: 'carbon-showcase',
     loadComponent: () =>
       import('./features/carbon-showcase/carbon-showcase-page').then(
         (m) => m.CarbonShowcasePage,
+      ),
+  },
+  {
+    path: 'tailwind-showcase',
+    loadComponent: () =>
+      import('./features/tailwind-showcase/tailwind-showcase-page').then(
+        (m) => m.TailwindShowcasePage,
+      ),
+  },
+  {
+    path: 'form-validation-lab',
+    loadComponent: () =>
+      import('./features/form-validation-lab/form-validation-lab-page').then(
+        (m) => m.FormValidationLabPage,
+      ),
+  },
+  {
+    path: 'async-validation-lab',
+    loadComponent: () =>
+      import('./features/async-validation-lab/async-validation-lab-page').then(
+        (m) => m.AsyncValidationLabPage,
+      ),
+  },
+  {
+    path: 'data-table-workbench',
+    loadComponent: () =>
+      import('./features/data-table-workbench/data-table-workbench-page').then(
+        (m) => m.DataTableWorkbenchPage,
+      ),
+  },
+  {
+    path: 'theme-tokens-playground',
+    loadComponent: () =>
+      import(
+        './features/theme-tokens-playground/theme-tokens-playground-page'
+      ).then((m) => m.ThemeTokensPlaygroundPage),
+  },
+  {
+    path: 'offline-retry-simulator',
+    loadComponent: () =>
+      import(
+        './features/offline-retry-simulator/offline-retry-simulator-page'
+      ).then((m) => m.OfflineRetrySimulatorPage),
+  },
+  {
+    path: 'file-workflow-studio',
+    loadComponent: () =>
+      import('./features/file-workflow-studio/file-workflow-studio-page').then(
+        (m) => m.FileWorkflowStudioPage,
       ),
   },
   {

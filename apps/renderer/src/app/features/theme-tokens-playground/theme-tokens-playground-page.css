@@ -1,0 +1,66 @@
+:host {
+  display: block;
+}
+
+.theme-playground {
+  --demo-bg: #f7f8fa;
+  --demo-surface: #fff;
+  --demo-border: #d6dde8;
+  --demo-text: #1b2535;
+  --demo-subtle: #4b5f7a;
+  --demo-primary: #1565c0;
+
+  display: grid;
+  gap: 1rem;
+  color: var(--demo-text);
+}
+
+.theme-playground.preset-carbonish {
+  --demo-bg: #f4f4f4;
+  --demo-surface: #fff;
+  --demo-border: #c6c6c6;
+  --demo-text: #161616;
+  --demo-subtle: #525252;
+  --demo-primary: #0f62fe;
+}
+
+.theme-playground.preset-sunrise {
+  --demo-bg: #fff8ec;
+  --demo-surface: #fffdf7;
+  --demo-border: #f0d6ad;
+  --demo-text: #402a0a;
+  --demo-subtle: #7d5a29;
+  --demo-primary: #d06f00;
+}
+
+:host ::ng-deep .theme-playground .mat-mdc-card {
+  background: var(--demo-surface);
+  border-color: var(--demo-border);
+}
+
+:host ::ng-deep .theme-playground .mat-mdc-unelevated-button:not(:disabled) {
+  background: var(--demo-primary);
+  color: #fff;
+}
+
+.intro,
+.controls,
+.sample {
+  padding: 1rem;
+  background: var(--demo-bg);
+}
+.sample p,
+.intro p {
+  color: var(--demo-subtle);
+}
+.actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.dense .intro,
+.dense .controls,
+.dense .sample {
+  padding: 0.7rem;
+}

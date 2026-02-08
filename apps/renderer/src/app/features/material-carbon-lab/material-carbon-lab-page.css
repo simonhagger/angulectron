@@ -1,0 +1,188 @@
+:host {
+  display: block;
+}
+
+.carbon-lab {
+  --carbon-bg: #f4f4f4;
+  --carbon-surface: #ffffff;
+  --carbon-text: #161616;
+  --carbon-subtext: #525252;
+  --carbon-border: #c6c6c6;
+  --carbon-focus: #0f62fe;
+  --carbon-primary: #0f62fe;
+  --carbon-primary-ink: #ffffff;
+  --carbon-secondary: #393939;
+
+  display: grid;
+  gap: 1rem;
+  color: var(--carbon-text);
+}
+
+.hero {
+  background: linear-gradient(180deg, #fff, var(--carbon-bg));
+}
+
+:host ::ng-deep .carbon-lab .hero .mat-mdc-card-content {
+  padding: 1rem;
+}
+
+.hero .eyebrow {
+  margin: 0;
+  color: #6f6f6f;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 0.25rem 0 0.45rem;
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--carbon-subtext);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.85rem;
+}
+
+.status-row {
+  margin-top: 0.85rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.label {
+  margin: 0 0 0.15rem;
+  color: #6f6f6f;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card {
+  border-radius: 0;
+  border: 1px solid var(--carbon-border);
+  box-shadow: none;
+  background: var(--carbon-surface);
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card-header {
+  padding: 1rem 1rem 0.5rem;
+  margin: 0;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card-header .mat-mdc-card-header-text {
+  margin: 0;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card-subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--carbon-subtext);
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card-content {
+  padding: 0.5rem 1rem 1rem;
+  margin: 0;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-card-actions {
+  padding: 0.75rem 1rem 1rem;
+  margin: 0;
+  gap: 0.5rem;
+}
+
+:host ::ng-deep .carbon-lab .mdc-text-field--filled,
+:host ::ng-deep .carbon-lab .mdc-text-field--outlined {
+  border-radius: 0;
+}
+
+:host
+  ::ng-deep
+  .carbon-lab
+  .mdc-text-field--outlined
+  .mdc-notched-outline__leading,
+:host
+  ::ng-deep
+  .carbon-lab
+  .mdc-text-field--outlined
+  .mdc-notched-outline__trailing,
+:host
+  ::ng-deep
+  .carbon-lab
+  .mdc-text-field--outlined
+  .mdc-notched-outline__notch {
+  border-color: var(--carbon-border);
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-form-field-focus-overlay {
+  border-radius: 0;
+}
+
+:host ::ng-deep .carbon-lab .mdc-checkbox__background {
+  border-radius: 0;
+}
+
+:host ::ng-deep .carbon-lab .mdc-button {
+  border-radius: 0;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-unelevated-button:not(:disabled) {
+  background: var(--carbon-primary);
+  color: var(--carbon-primary-ink);
+}
+
+:host ::ng-deep .carbon-lab .mat-mdc-outlined-button:not(:disabled) {
+  border-color: var(--carbon-secondary);
+  color: var(--carbon-secondary);
+}
+
+:host
+  ::ng-deep
+  .carbon-lab
+  .mdc-text-field--focused
+  .mdc-notched-outline__leading,
+:host
+  ::ng-deep
+  .carbon-lab
+  .mdc-text-field--focused
+  .mdc-notched-outline__trailing,
+:host
+  ::ng-deep
+  .carbon-lab
+  .mdc-text-field--focused
+  .mdc-notched-outline__notch {
+  border-color: var(--carbon-focus) !important;
+}
+
+.compact
+  :is(.mat-mdc-card-content, .mat-mdc-card-header, .mat-mdc-card-actions) {
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+}
+
+@media (max-width: 900px) {
+  .grid,
+  .status-row {
+    grid-template-columns: 1fr;
+  }
+}
