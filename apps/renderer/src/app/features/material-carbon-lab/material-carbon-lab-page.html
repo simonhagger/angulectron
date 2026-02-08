@@ -1,0 +1,59 @@
+<section class="carbon-lab" [class.compact]="density() === 'compact'">
+  <mat-card appearance="outlined" class="hero">
+    <mat-card-content>
+      <p class="eyebrow">Design Experiment</p>
+      <h1>Material + Carbon Styling Lab</h1>
+      <p>
+        This route keeps Angular Material component behavior while applying
+        local IBM Carbon-inspired styling overrides for visual language testing.
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Controls</mat-card-title>
+      <mat-card-subtitle>Local token and shape testbed</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <div class="grid">
+        <mat-form-field>
+          <mat-label>Workspace Name</mat-label>
+          <input matInput value="Angulectron Lab" />
+        </mat-form-field>
+
+        <mat-form-field>
+          <mat-label>Density</mat-label>
+          <mat-select [value]="density()" (valueChange)="setDensity($event)">
+            <mat-option value="comfortable">Comfortable</mat-option>
+            <mat-option value="compact">Compact</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <mat-checkbox [checked]="featureOn()" (change)="toggleFeature()">
+        Enable progressive disclosure panel
+      </mat-checkbox>
+
+      <mat-divider />
+
+      <div class="status-row">
+        <div>
+          <p class="label">Current density</p>
+          <strong>{{ density() }}</strong>
+        </div>
+        <div>
+          <p class="label">Feature flag</p>
+          <strong>{{ featureOn() ? 'Enabled' : 'Disabled' }}</strong>
+        </div>
+      </div>
+    </mat-card-content>
+
+    <mat-card-actions>
+      <button mat-flat-button type="button">Primary</button>
+      <button mat-stroked-button type="button">Secondary</button>
+      <button mat-button type="button">Ghost</button>
+    </mat-card-actions>
+  </mat-card>
+</section>

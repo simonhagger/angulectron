@@ -14,10 +14,31 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'material-carbon-lab',
+    loadComponent: () =>
+      import('./features/material-carbon-lab/material-carbon-lab-page').then(
+        (m) => m.MaterialCarbonLabPage,
+      ),
+  },
+  {
     path: 'carbon-showcase',
     loadComponent: () =>
       import('./features/carbon-showcase/carbon-showcase-page').then(
         (m) => m.CarbonShowcasePage,
+      ),
+  },
+  {
+    path: 'tailwind-showcase',
+    loadComponent: () =>
+      import('./features/tailwind-showcase/tailwind-showcase-page').then(
+        (m) => m.TailwindShowcasePage,
+      ),
+  },
+  {
+    path: 'form-validation-lab',
+    loadComponent: () =>
+      import('./features/form-validation-lab/form-validation-lab-page').then(
+        (m) => m.FormValidationLabPage,
       ),
   },
   {
