@@ -41,7 +41,8 @@
     "release": "changeset publish",
     "dependency-audit": "pnpm audit --prod",
     "license-compliance": "license-checker --summary",
-    "commitlint": "commitlint --edit"
+    "commitlint": "commitlint --edit",
+    "ci:local": "pnpm nx format:check --all && pnpm lint && pnpm typecheck && pnpm unit-test && pnpm integration-test && pnpm e2e-smoke && pnpm a11y-e2e && pnpm i18n-check && pnpm build-renderer && pnpm build-desktop && pnpm dependency-audit --audit-level=high && pnpm license-compliance && pnpm perf:check"
   },
   "private": true,
   "packageManager": "pnpm@10.14.0",

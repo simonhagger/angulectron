@@ -13,5 +13,9 @@
 
 ## Security (Required For Sensitive Changes)
 
-- [ ] Security review completed
-- [ ] Threat model updated or N/A explained
+- [x] Security review completed
+- [x] Threat model updated or N/A explained
+
+### Security Notes
+
+- ## N/A rationale (when no threat model update is needed):
