@@ -1,6 +1,9 @@
 export const IPC_CHANNELS = {
   handshake: 'contract:handshake',
   appGetVersion: 'app:get-version',
+  authSignIn: 'auth:sign-in',
+  authSignOut: 'auth:sign-out',
+  authGetSessionSummary: 'auth:get-session-summary',
   dialogOpenFile: 'dialog:open-file',
   fsReadTextFile: 'fs:read-text-file',
   storageSetItem: 'storage:set-item',

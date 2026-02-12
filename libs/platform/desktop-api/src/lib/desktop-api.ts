@@ -1,5 +1,6 @@
 import type {
   ApiOperationId,
+  AuthSessionSummary,
   ContractVersion,
   DesktopResult,
 } from '@electron-foundation/contracts';
@@ -16,6 +17,12 @@ export interface DesktopDialogApi {
   }) => Promise<
     DesktopResult<{ canceled: boolean; fileName?: string; fileToken?: string }>
   >;
+}
+
+export interface DesktopAuthApi {
+  signIn: () => Promise<DesktopResult<{ initiated: boolean }>>;
+  signOut: () => Promise<DesktopResult<{ signedOut: boolean }>>;
+  getSessionSummary: () => Promise<DesktopResult<AuthSessionSummary>>;
 }
 
 export interface DesktopFsApi {
@@ -74,6 +81,7 @@ export interface DesktopTelemetryApi {
 
 export interface DesktopApi {
   app: DesktopAppApi;
+  auth: DesktopAuthApi;
   dialog: DesktopDialogApi;
   fs: DesktopFsApi;
   storage: DesktopStorageApi;

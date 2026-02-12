@@ -17,6 +17,9 @@ import { invokeApiOperation } from './api-gateway';
 import { StorageGateway } from './storage-gateway';
 import {
   apiInvokeRequestSchema,
+  authGetSessionSummaryRequestSchema,
+  authSignInRequestSchema,
+  authSignOutRequestSchema,
   appVersionRequestSchema,
   asFailure,
   asSuccess,
@@ -404,6 +407,85 @@ const registerIpcHandlers = () => {
     }
 
     return asSuccess({ version: app.getVersion() });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authSignIn, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authSignInRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return asFailure(
+      'AUTH/NOT_IMPLEMENTED',
+      'Auth sign-in flow is not implemented yet.',
+      { operation: 'auth.signIn' },
+      false,
+      parsed.data.correlationId,
+    );
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authSignOut, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authSignOutRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return asFailure(
+      'AUTH/NOT_IMPLEMENTED',
+      'Auth sign-out flow is not implemented yet.',
+      { operation: 'auth.signOut' },
+      false,
+      parsed.data.correlationId,
+    );
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authGetSessionSummary, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authGetSessionSummaryRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return asSuccess({
+      state: 'signed-out' as const,
+      scopes: [],
+      entitlements: [],
+    });
   });
 
   ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (event, payload) => {

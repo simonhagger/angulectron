@@ -5,6 +5,12 @@ import { toStructuredLogLine } from '@electron-foundation/common';
 import {
   apiInvokeRequestSchema,
   apiInvokeResponseSchema,
+  authGetSessionSummaryRequestSchema,
+  authGetSessionSummaryResponseSchema,
+  authSignInRequestSchema,
+  authSignInResponseSchema,
+  authSignOutRequestSchema,
+  authSignOutResponseSchema,
   appVersionRequestSchema,
   appVersionResponseSchema,
   asFailure,
@@ -191,6 +197,53 @@ const desktopApi: DesktopApi = {
       );
 
       return mapResult(result, (value) => value.version);
+    },
+  },
+  auth: {
+    async signIn() {
+      const correlationId = createCorrelationId();
+      const request = authSignInRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authSignIn,
+        request,
+        correlationId,
+        authSignInResponseSchema,
+      );
+    },
+    async signOut() {
+      const correlationId = createCorrelationId();
+      const request = authSignOutRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authSignOut,
+        request,
+        correlationId,
+        authSignOutResponseSchema,
+      );
+    },
+    async getSessionSummary() {
+      const correlationId = createCorrelationId();
+      const request = authGetSessionSummaryRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authGetSessionSummary,
+        request,
+        correlationId,
+        authGetSessionSummaryResponseSchema,
+      );
     },
   },
   dialog: {
