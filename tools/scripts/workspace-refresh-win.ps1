@@ -15,11 +15,13 @@ try {
 
 # 2) Stop node/electron processes tied to this workspace.
 $repoPattern = [Regex]::Escape($repoRoot)
+$mcpProcessPattern = 'nx-mcp|@playwright/mcp|server-filesystem|mcp gateway|\bmcp\b'
 $nodeTargets = Get-CimInstance Win32_Process -Filter "name = 'node.exe'" |
   Where-Object {
     $_.CommandLine -and
     $_.CommandLine -match $repoPattern -and
-    $_.CommandLine -match 'nx|electron|ng\.js|vite|vitest|wait-on|playwright'
+    $_.CommandLine -match 'nx|electron|ng\.js|vite|vitest|wait-on|playwright' -and
+    $_.CommandLine -notmatch $mcpProcessPattern
   }
 
 if ($nodeTargets) {
@@ -30,6 +32,18 @@ if ($nodeTargets) {
   Write-Host ("Stopped workspace Node processes: " + ($targetPids -join ', '))
 } else {
   Write-Host 'No workspace Node processes found.'
+}
+
+$mcpTargets = Get-CimInstance Win32_Process -Filter "name = 'node.exe'" |
+  Where-Object {
+    $_.CommandLine -and
+    $_.CommandLine -match $repoPattern -and
+    $_.CommandLine -match $mcpProcessPattern
+  }
+
+if ($mcpTargets) {
+  $mcpPids = @($mcpTargets | Select-Object -ExpandProperty ProcessId)
+  Write-Host ("Preserved MCP Node processes: " + ($mcpPids -join ', '))
 }
 
 $electronTargets = Get-CimInstance Win32_Process -Filter "name = 'electron.exe'" |

@@ -36,6 +36,8 @@
     "forge:clean": "node ./tools/scripts/clean-forge-output.mjs",
     "forge:start": "pnpm run build-desktop && electron-forge start",
     "forge:make": "pnpm run forge:clean && pnpm run build && electron-forge make",
+    "forge:make:staging": "pnpm run forge:clean && cross-env APP_ENV=staging DESKTOP_ENABLE_DEVTOOLS=1 pnpm run build && cross-env APP_ENV=staging DESKTOP_ENABLE_DEVTOOLS=1 electron-forge make",
+    "forge:make:production": "pnpm run forge:clean && cross-env APP_ENV=production DESKTOP_ENABLE_DEVTOOLS=0 pnpm run build && cross-env APP_ENV=production DESKTOP_ENABLE_DEVTOOLS=0 electron-forge make",
     "forge:publish": "electron-forge publish",
     "changeset": "changeset",
     "version-packages": "changeset version",

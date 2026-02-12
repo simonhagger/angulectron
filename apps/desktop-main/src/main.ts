@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   safeStorage,
   session,
   shell,
@@ -45,6 +46,59 @@ import { toStructuredLogLine } from '@electron-foundation/common';
 
 const runtimeSmokeEnabled = process.env.RUNTIME_SMOKE === '1';
 const isDevelopment = !app.isPackaged && !runtimeSmokeEnabled;
+const resolveAppEnvironment = (): 'development' | 'staging' | 'production' => {
+  const envValue = process.env.APP_ENV?.trim().toLowerCase();
+  if (
+    envValue === 'development' ||
+    envValue === 'staging' ||
+    envValue === 'production'
+  ) {
+    return envValue;
+  }
+
+  const packageJsonCandidates = [
+    '../../../../package.json',
+    '../../../package.json',
+    '../../package.json',
+    '../package.json',
+  ];
+
+  for (const candidate of packageJsonCandidates) {
+    try {
+      const absolutePath = path.resolve(__dirname, candidate);
+      if (!existsSync(absolutePath)) {
+        continue;
+      }
+
+      const raw = require(absolutePath) as { appEnv?: unknown };
+      if (
+        raw.appEnv === 'development' ||
+        raw.appEnv === 'staging' ||
+        raw.appEnv === 'production'
+      ) {
+        return raw.appEnv;
+      }
+    } catch {
+      // Ignore and continue fallback chain.
+    }
+  }
+
+  return app.isPackaged ? 'production' : 'development';
+};
+
+const resolveIsStagingExecutable = (): boolean => {
+  const executableName = path.basename(process.execPath).toLowerCase();
+  return executableName.includes('staging');
+};
+
+const appEnvironment = resolveAppEnvironment();
+const packagedDevToolsOverride = process.env.DESKTOP_ENABLE_DEVTOOLS;
+const allowPackagedDevTools =
+  app.isPackaged &&
+  (appEnvironment === 'staging' || resolveIsStagingExecutable()) &&
+  packagedDevToolsOverride !== '0';
+const shouldOpenDevTools =
+  !runtimeSmokeEnabled && (isDevelopment || allowPackagedDevTools);
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const fileTokenTtlMs = 5 * 60 * 1000;
 const fileTokenCleanupIntervalMs = 60 * 1000;
@@ -121,6 +175,31 @@ const resolveRendererIndexPath = (): string =>
     '../../renderer/browser/index.html',
     '../../../renderer/browser/index.html',
   ]);
+
+const resolveWindowIconPath = (): string | undefined => {
+  const appPath = app.getAppPath();
+  const candidates = [
+    path.resolve(process.cwd(), 'build/icon.ico'),
+    path.resolve(process.cwd(), 'apps/renderer/public/favicon.ico'),
+    path.resolve(appPath, 'build/icon.ico'),
+    path.resolve(appPath, 'apps/renderer/public/favicon.ico'),
+    path.resolve(__dirname, '../../../../../build/icon.ico'),
+    path.resolve(__dirname, '../../../../../../build/icon.ico'),
+    path.resolve(__dirname, '../../../../../apps/renderer/public/favicon.ico'),
+    path.resolve(
+      __dirname,
+      '../../../../../../apps/renderer/public/favicon.ico',
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+};
 
 type FileSelectionToken = {
   filePath: string;
@@ -302,6 +381,7 @@ const enableRuntimeSmokeMode = (window: BrowserWindow) => {
 };
 
 const createMainWindow = async (): Promise<BrowserWindow> => {
+  const windowIconPath = resolveWindowIconPath();
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -309,6 +389,8 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     minHeight: 680,
     show: false,
     backgroundColor: '#f8f7f1',
+    autoHideMenuBar: true,
+    ...(windowIconPath ? { icon: windowIconPath } : {}),
     webPreferences: {
       preload: resolvePreloadPath(),
       contextIsolation: true,
@@ -319,6 +401,8 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
       experimentalFeatures: false,
     },
   });
+
+  window.setMenuBarVisibility(false);
 
   hardenWebContents(window.webContents);
   if (runtimeSmokeEnabled) {
@@ -338,11 +422,12 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
 
   if (isDevelopment) {
     await window.loadURL(resolveRendererDevUrl().toString());
-    if (!runtimeSmokeEnabled) {
-      window.webContents.openDevTools({ mode: 'detach' });
-    }
   } else {
     await window.loadFile(resolveRendererIndexPath());
+  }
+
+  if (shouldOpenDevTools) {
+    window.webContents.openDevTools({ mode: 'detach' });
   }
 
   return window;
@@ -905,6 +990,17 @@ const registerIpcHandlers = () => {
 const bootstrap = async () => {
   await app.whenReady();
   startFileTokenCleanup();
+
+  logEvent('info', 'app.environment', undefined, {
+    appEnvironment,
+    isPackaged: app.isPackaged,
+    executable: path.basename(process.execPath),
+    shouldOpenDevTools,
+  });
+
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+  }
 
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => {

@@ -5,6 +5,10 @@ const {
 
 const APP_NAME = 'Angulectron';
 const APP_BUNDLE_ID = 'com.simonhagger.angulectron';
+const BUILD_ENV = (process.env.APP_ENV ?? 'production').toLowerCase();
+const isStagingBuild = BUILD_ENV === 'staging';
+const PRODUCT_NAME = isStagingBuild ? `${APP_NAME} Staging` : APP_NAME;
+const EXECUTABLE_NAME = isStagingBuild ? `${APP_NAME}-Staging` : APP_NAME;
 
 const hasAppleSigningConfig =
   Boolean(process.env.APPLE_CODESIGN_IDENTITY) &&
@@ -15,15 +19,19 @@ module.exports = {
   packagerConfig: {
     asar: true,
     derefSymlinks: true,
-    executableName: APP_NAME,
+    icon: './build/icon',
+    executableName: EXECUTABLE_NAME,
     appBundleId: APP_BUNDLE_ID,
     appCategoryType: 'public.app-category.developer-tools',
+    extraMetadata: {
+      appEnv: BUILD_ENV,
+    },
     win32metadata: {
       CompanyName: 'Angulectron',
       FileDescription: 'Angulectron Desktop Application',
-      ProductName: APP_NAME,
-      InternalName: APP_NAME,
-      OriginalFilename: `${APP_NAME}.exe`,
+      ProductName: PRODUCT_NAME,
+      InternalName: EXECUTABLE_NAME,
+      OriginalFilename: `${EXECUTABLE_NAME}.exe`,
     },
     osxSign: hasAppleSigningConfig
       ? {
