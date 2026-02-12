@@ -69,6 +69,38 @@ const resolveExistingPath = (
   );
 };
 
+const resolveAppMetadataVersion = (): string => {
+  const envVersion = process.env.npm_package_version?.trim();
+  if (envVersion) {
+    return envVersion;
+  }
+
+  const packageJsonCandidates = [
+    '../../../../package.json',
+    '../../../package.json',
+    '../../package.json',
+    '../package.json',
+  ];
+
+  for (const candidate of packageJsonCandidates) {
+    try {
+      const absolutePath = path.resolve(__dirname, candidate);
+      if (!existsSync(absolutePath)) {
+        continue;
+      }
+
+      const raw = require(absolutePath) as { version?: unknown };
+      if (typeof raw.version === 'string' && raw.version.trim().length > 0) {
+        return raw.version.trim();
+      }
+    } catch {
+      // Ignore and continue fallback chain.
+    }
+  }
+
+  return app.getVersion();
+};
+
 const resolvePreloadPath = (): string =>
   resolveExistingPath('preload script', [
     '../desktop-preload/main.js',
@@ -101,7 +133,7 @@ let tokenCleanupTimer: NodeJS.Timeout | null = null;
 let storageGateway: StorageGateway | null = null;
 let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
-const APP_VERSION = app.getVersion();
+const APP_VERSION = resolveAppMetadataVersion();
 
 const logEvent = (
   level: 'debug' | 'info' | 'warn' | 'error',
@@ -413,7 +445,7 @@ const registerIpcHandlers = () => {
       );
     }
 
-    return asSuccess({ version: app.getVersion() });
+    return asSuccess({ version: APP_VERSION });
   });
 
   ipcMain.handle(IPC_CHANNELS.appGetRuntimeVersions, (event, payload) => {
