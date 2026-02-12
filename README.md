@@ -119,6 +119,14 @@ Runtime behavior:
 - Renderer can only call `desktop.auth.signIn()`, `desktop.auth.signOut()`, and `desktop.auth.getSessionSummary()`.
 - Access token attachment for secured API operations occurs in main process only.
 
+Temporary compatibility note:
+
+- Current Clerk OAuth flow may issue JWT access tokens without API `aud` claim in this tenant.
+- AWS JWT authorizer is temporarily configured to accept both:
+  - API audience (`YOUR_API_AUDIENCE`)
+  - OAuth client id (`YOUR_OAUTH_CLIENT_ID`)
+- This is tracked for removal in `docs/05-governance/backlog.md` (`BL-014`) and `docs/05-governance/oidc-auth-backlog.md`.
+
 ## Repository Layout
 
 Top-level:
