@@ -89,6 +89,28 @@ Then relaunch desktop dev:
 pnpm desktop:dev:win
 ```
 
+## OIDC Authentication (Desktop)
+
+OIDC support is implemented in main/preload with Authorization Code + PKCE.
+
+Required environment variables:
+
+- `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_REDIRECT_URI` (loopback URI, for example `http://127.0.0.1:42813/callback`)
+- `OIDC_SCOPES` (must include `openid`)
+
+Optional:
+
+- `OIDC_AUDIENCE`
+- `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1` (development-only fallback when OS secure storage is unavailable)
+
+Runtime behavior:
+
+- Refresh tokens are stored in OS secure storage on Windows (`keytar`) with encrypted file fallback.
+- Renderer can only call `desktop.auth.signIn()`, `desktop.auth.signOut()`, and `desktop.auth.getSessionSummary()`.
+- Access token attachment for secured API operations occurs in main process only.
+
 ## Repository Layout
 
 Top-level:
