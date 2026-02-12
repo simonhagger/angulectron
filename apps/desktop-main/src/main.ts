@@ -34,10 +34,12 @@ import {
 } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 
-const isDevelopment = !app.isPackaged;
+const runtimeSmokeEnabled = process.env.RUNTIME_SMOKE === '1';
+const isDevelopment = !app.isPackaged && !runtimeSmokeEnabled;
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const fileTokenTtlMs = 5 * 60 * 1000;
 const fileTokenCleanupIntervalMs = 60 * 1000;
+const runtimeSmokeSettleMs = 4_000;
 const allowedDevHosts = new Set(['localhost', '127.0.0.1']);
 
 const resolveExistingPath = (
@@ -190,6 +192,73 @@ const clearFileTokensForWindow = (windowId: number) => {
   }
 };
 
+const enableRuntimeSmokeMode = (window: BrowserWindow) => {
+  const diagnostics: string[] = [];
+  const pushDiagnostic = (message: string) => {
+    diagnostics.push(message);
+  };
+
+  window.webContents.on('console-message', (details) => {
+    if (details.level === 'warning' || details.level === 'error') {
+      const label = details.level === 'warning' ? 'warn' : 'error';
+      pushDiagnostic(
+        `${label} ${details.sourceId}:${details.lineNumber} ${details.message}`,
+      );
+    }
+  });
+
+  window.webContents.on('render-process-gone', (_event, details) => {
+    pushDiagnostic(`render-process-gone: ${details.reason}`);
+  });
+
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    pushDiagnostic(`did-fail-load: ${code} ${description} ${url}`);
+  });
+
+  window.webContents.once('did-finish-load', () => {
+    setTimeout(async () => {
+      try {
+        await window.webContents.executeJavaScript(`
+          (() => {
+            const labels = ['Material', 'Carbon', 'Tailwind'];
+            let delay = 150;
+            for (const label of labels) {
+              setTimeout(() => {
+                const candidates = [...document.querySelectorAll('a,[role="link"],button')];
+                const target = candidates.find((el) =>
+                  (el.textContent || '').toLowerCase().includes(label.toLowerCase())
+                );
+                target?.click();
+              }, delay);
+              delay += 250;
+            }
+          })();
+        `);
+      } catch (error) {
+        pushDiagnostic(
+          `route-probe-failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      setTimeout(() => {
+        if (diagnostics.length > 0) {
+          console.error('Runtime smoke failed due to renderer diagnostics.');
+          for (const message of diagnostics) {
+            console.error(`- ${message}`);
+          }
+          app.exit(1);
+          return;
+        }
+
+        console.info('Runtime smoke passed: no renderer warnings or errors.');
+        app.exit(0);
+      }, runtimeSmokeSettleMs);
+    }, 250);
+  });
+};
+
 const createMainWindow = async (): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
     width: 1440,
@@ -210,6 +279,9 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
   });
 
   hardenWebContents(window.webContents);
+  if (runtimeSmokeEnabled) {
+    enableRuntimeSmokeMode(window);
+  }
 
   window.on('closed', () => {
     clearFileTokensForWindow(window.id);
@@ -224,7 +296,9 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
 
   if (isDevelopment) {
     await window.loadURL(resolveRendererDevUrl().toString());
-    window.webContents.openDevTools({ mode: 'detach' });
+    if (!runtimeSmokeEnabled) {
+      window.webContents.openDevTools({ mode: 'detach' });
+    }
   } else {
     await window.loadFile(resolveRendererIndexPath());
   }
