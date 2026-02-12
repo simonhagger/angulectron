@@ -61,6 +61,22 @@ Desktop dev (Windows one-command flow):
 pnpm desktop:dev:win
 ```
 
+Windows packaging (deterministic clean + make):
+
+```bash
+pnpm forge:make
+```
+
+Packaging notes:
+
+- `forge:make` now runs `forge:clean` first to remove stale outputs from `out/`.
+- Windows distributable is ZIP-based (no interactive installer prompts).
+- Output ZIP location:
+  - `out/make/zip/win32/x64/`
+  - filename pattern: `@electron-foundation-source-win32-x64-<version>.zip`
+- Extract the ZIP, then run:
+  - `Angulectron.exe`
+
 If local Nx state gets stuck/locked on Windows:
 
 ```bash

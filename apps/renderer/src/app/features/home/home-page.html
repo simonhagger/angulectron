@@ -1,68 +1,66 @@
-<section *transloco="let t; read: 'home'" class="home-layout">
-  <ui-surface-card [title]="t('title')" [subtitle]="t('subtitle')">
+<section class="home-layout">
+  <section class="home-surface" role="region">
+    <header class="home-surface-header">
+      <h2>{{ labels.title }}</h2>
+      <p>{{ labels.subtitle }}</p>
+    </header>
     <div class="status-grid">
       <p>
-        <strong>{{ t('desktopBridge') }}:</strong>
-        <span>{{ t(statusTranslationKey()) }}</span>
+        <strong>{{ labels.desktopBridge }}:</strong>
+        <span
+          >{{ statusBadge().label === 'Connected' ? labels.connected :
+          labels.disconnected }}</span
+        >
       </p>
       <p>
-        <strong>{{ t('appVersion') }}:</strong>
+        <strong>{{ labels.appVersion }}:</strong>
         <span>{{ appVersion() }}</span>
       </p>
       <p>
-        <strong>{{ t('contractVersion') }}:</strong>
+        <strong>{{ labels.contractVersion }}:</strong>
         <span>{{ contractVersion() }}</span>
       </p>
       <p>
-        <strong>{{ t('activeLanguage') }}:</strong>
+        <strong>{{ labels.activeLanguage }}:</strong>
         <span>{{ language() }}</span>
       </p>
     </div>
 
-    <div class="actions" role="group" [attr.aria-label]="t('actions')">
-      <ui-primary-button
-        [label]="t('openFile')"
-        icon="description"
-        (pressed)="openFile()"
-      />
-      <ui-primary-button
-        [label]="t('checkUpdates')"
-        icon="system_update"
-        (pressed)="checkUpdates()"
-      />
-      <ui-primary-button
-        [label]="t('trackTelemetry')"
-        icon="analytics"
-        (pressed)="trackTelemetry()"
-      />
-      <ui-primary-button
-        [label]="t('useEnglish')"
-        icon="language"
-        (pressed)="setLanguage('en-US')"
-      />
+    <div class="actions" role="group" [attr.aria-label]="labels.actions">
+      <button mat-flat-button type="button" (click)="openFile()">
+        {{ labels.openFile }}
+      </button>
+      <button mat-flat-button type="button" (click)="checkUpdates()">
+        {{ labels.checkUpdates }}
+      </button>
+      <button mat-flat-button type="button" (click)="trackTelemetry()">
+        {{ labels.trackTelemetry }}
+      </button>
+      <button mat-flat-button type="button" (click)="setLanguage('en-US')">
+        {{ labels.useEnglish }}
+      </button>
     </div>
 
     @if (fileResult()) {
     <p class="result-line">
-      <strong>{{ t('filePreview') }}:</strong>
+      <strong>{{ labels.filePreview }}:</strong>
       <span>{{ fileResult() }}</span>
     </p>
     } @if (updateResult()) {
     <p class="result-line">
-      <strong>{{ t('updateStatus') }}:</strong>
+      <strong>{{ labels.updateStatus }}:</strong>
       <span>{{ updateResult() }}</span>
     </p>
     } @if (telemetryResult()) {
     <p class="result-line">
-      <strong>{{ t('telemetryStatus') }}:</strong>
+      <strong>{{ labels.telemetryStatus }}:</strong>
       <span>{{ telemetryResult() }}</span>
     </p>
     }
-  </ui-surface-card>
+  </section>
 
-  <ui-carbon-notice
-    [title]="t('governanceTitle')"
-    [body]="t('governanceBody')"
-    status="info"
-  />
+  <aside class="home-governance-note" role="complementary" aria-live="polite">
+    <h3>{{ labels.governanceTitle }}</h3>
+    <p>{{ labels.governanceBody }}</p>
+  </aside>
 </section>

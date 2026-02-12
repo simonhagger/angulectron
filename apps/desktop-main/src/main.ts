@@ -72,6 +72,7 @@ const resolvePreloadPath = (): string =>
 
 const resolveRendererIndexPath = (): string =>
   resolveExistingPath('renderer index', [
+    '../../../../renderer/browser/index.html',
     '../renderer/browser/index.html',
     '../../renderer/browser/index.html',
     '../../../renderer/browser/index.html',
@@ -460,6 +461,18 @@ const registerIpcHandlers = () => {
     }
 
     try {
+      const updateConfigPath = path.join(
+        process.resourcesPath,
+        'app-update.yml',
+      );
+      if (!existsSync(updateConfigPath)) {
+        return asSuccess({
+          status: 'error' as const,
+          message:
+            'Update checks are not configured for this build. Use installer/release artifacts for update testing.',
+        });
+      }
+
       const updateCheck = await autoUpdater.checkForUpdates();
       const candidateVersion = updateCheck?.updateInfo?.version;
       const currentVersion = app.getVersion();

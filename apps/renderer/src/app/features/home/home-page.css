@@ -3,6 +3,25 @@
   gap: 1rem;
 }
 
+.home-surface {
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas 85%);
+  background: color-mix(in srgb, Canvas 94%, CanvasText 6%);
+  padding: 1rem;
+  box-shadow: 0 16px 40px -30px #00000073;
+}
+
+.home-surface-header h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.home-surface-header p {
+  margin: 0.25rem 0 0;
+  color: color-mix(in srgb, CanvasText 72%, Canvas 28%);
+  font-size: 0.9rem;
+}
+
 .status-grid {
   display: grid;
   gap: 0.35rem;
@@ -23,6 +42,23 @@
 .result-line {
   margin: 0.45rem 0;
   font-size: 0.92rem;
+}
+
+.home-governance-note {
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, CanvasText 15%, Canvas 85%);
+  background: color-mix(in srgb, Canvas 95%, CanvasText 5%);
+  padding: 0.75rem 1rem;
+}
+
+.home-governance-note h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.home-governance-note p {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 720px) {

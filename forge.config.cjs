@@ -1,11 +1,9 @@
-const { MakerSquirrel } = require('@electron-forge/maker-squirrel');
 const { MakerZIP } = require('@electron-forge/maker-zip');
 const {
   AutoUnpackNativesPlugin,
 } = require('@electron-forge/plugin-auto-unpack-natives');
 
 const APP_NAME = 'Angulectron';
-const APP_SLUG = 'angulectron';
 const APP_BUNDLE_ID = 'com.simonhagger.angulectron';
 
 const hasAppleSigningConfig =
@@ -46,12 +44,6 @@ module.exports = {
       : undefined,
   },
   rebuildConfig: {},
-  makers: [
-    new MakerSquirrel({
-      name: APP_SLUG,
-      setupExe: `${APP_NAME}Setup.exe`,
-    }),
-    new MakerZIP({}, ['darwin']),
-  ],
+  makers: [new MakerZIP({}, ['win32']), new MakerZIP({}, ['darwin'])],
   plugins: [new AutoUnpackNativesPlugin({})],
 };

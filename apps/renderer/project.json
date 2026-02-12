@@ -12,6 +12,7 @@
       "options": {
         "outputPath": "dist/apps/renderer",
         "browser": "apps/renderer/src/main.ts",
+        "baseHref": "./",
         "tsConfig": "apps/renderer/tsconfig.app.json",
         "assets": [
           {
@@ -26,6 +27,7 @@
       },
       "configurations": {
         "production": {
+          "baseHref": "./",
           "budgets": [
             {
               "type": "initial",
@@ -41,6 +43,7 @@
           "outputHashing": "all"
         },
         "development": {
+          "baseHref": "/",
           "optimization": false,
           "extractLicenses": false,
           "sourceMap": true

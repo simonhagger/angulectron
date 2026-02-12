@@ -8,11 +8,13 @@
     </p>
   </header>
 
-  <ui-carbon-notice
-    title="Adapter component"
-    body="This notice is rendered through our local carbon-adapters library and uses Carbon design tokens."
-    status="success"
-  />
+  <aside class="carbon-notice" data-status="success" role="status">
+    <h3>Adapter component</h3>
+    <p>
+      This notice is rendered with local markup and Carbon token classes for
+      production-safe packaging behavior.
+    </p>
+  </aside>
 
   <section class="panel cds--layer">
     <h2>Buttons</h2>
@@ -76,9 +78,9 @@
   <section class="panel cds--layer">
     <h2>Tags</h2>
     <div class="tag-row">
-      @for (tag of tags; track tag) {
-      <span class="cds--tag cds--tag--blue">{{ tag }}</span>
-      }
+      <span class="cds--tag cds--tag--blue" *ngFor="let tag of tags"
+        >{{ tag }}</span
+      >
     </div>
   </section>
 </section>

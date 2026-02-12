@@ -56,9 +56,24 @@ export class IpcDiagnosticsPage {
     results.push(
       await this.probe('Updates Channel', async () => {
         const response = await desktop.updates.check();
-        return response.ok
-          ? { ok: true, detail: response.data.status }
-          : { ok: false, detail: response.error.message };
+        if (!response.ok) {
+          return { ok: false, detail: response.error.message };
+        }
+
+        const status = response.data.status;
+        const detail = response.data.message ?? status;
+
+        if (
+          status === 'error' &&
+          detail.includes('not configured for this build')
+        ) {
+          return { ok: true, detail };
+        }
+
+        return {
+          ok: status !== 'error',
+          detail,
+        };
       }),
     );
 

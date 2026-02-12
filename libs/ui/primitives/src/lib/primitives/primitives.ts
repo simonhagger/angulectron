@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 @Component({
   selector: 'ui-surface-card',
@@ -8,6 +8,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UiSurfaceCardComponent {
-  readonly title = input.required<string>();
-  readonly subtitle = input<string | null>(null);
+  @Input({ required: true }) title!: string;
+  @Input() subtitle: string | null = null;
 }

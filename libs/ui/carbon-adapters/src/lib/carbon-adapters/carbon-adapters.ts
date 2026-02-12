@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 @Component({
   selector: 'ui-carbon-notice',
@@ -8,7 +8,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CarbonNoticeComponent {
-  readonly title = input.required<string>();
-  readonly body = input.required<string>();
-  readonly status = input<'info' | 'warning' | 'success'>('info');
+  @Input({ required: true }) title!: string;
+  @Input({ required: true }) body!: string;
+  @Input() status: 'info' | 'warning' | 'success' = 'info';
 }
