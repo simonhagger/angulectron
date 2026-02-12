@@ -173,6 +173,8 @@ export class OidcService {
   private summary: AuthSessionSummary = buildSignedOutSummary();
   private tokens: ActiveTokens | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
+  private refreshInFlight: Promise<DesktopResult<AuthSessionSummary>> | null =
+    null;
   private signInInFlight = false;
 
   constructor(options: OidcServiceOptions) {
@@ -298,11 +300,22 @@ export class OidcService {
   }
 
   async signOut(): Promise<DesktopResult<{ signedOut: boolean }>> {
+    const refreshToken =
+      this.tokens?.refreshToken ?? (await this.tokenStore.get());
     this.clearRefreshTimer();
     this.tokens = null;
     this.summary = buildSignedOutSummary();
 
     try {
+      if (refreshToken) {
+        await this.revokeRefreshTokenIfSupported(refreshToken).catch(
+          (error) => {
+            this.logger?.('warn', 'auth.signout.revoke_failed', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          },
+        );
+      }
       await this.tokenStore.clear();
       return asSuccess({ signedOut: true });
     } catch (error) {
@@ -319,7 +332,7 @@ export class OidcService {
 
   async getSessionSummary(): Promise<DesktopResult<AuthSessionSummary>> {
     if (this.tokens && Date.now() >= this.tokens.accessTokenExpiresAt) {
-      const refreshed = await this.refreshAccessToken();
+      const refreshed = await this.ensureRefreshAccessToken();
       if (!refreshed.ok) {
         return refreshed;
       }
@@ -407,8 +420,22 @@ export class OidcService {
     );
 
     this.refreshTimer = setTimeout(() => {
-      void this.refreshAccessToken();
+      void this.ensureRefreshAccessToken();
     }, msUntilRefresh);
+  }
+
+  private async ensureRefreshAccessToken(): Promise<
+    DesktopResult<AuthSessionSummary>
+  > {
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
+    this.refreshInFlight = this.refreshAccessTokenInternal().finally(() => {
+      this.refreshInFlight = null;
+    });
+
+    return this.refreshInFlight;
   }
 
   private async getDiscovery(): Promise<DiscoveryDocument> {
@@ -495,7 +522,7 @@ export class OidcService {
     });
   }
 
-  private async refreshAccessToken(): Promise<
+  private async refreshAccessTokenInternal(): Promise<
     DesktopResult<AuthSessionSummary>
   > {
     const discovery = await this.getDiscovery();
@@ -560,6 +587,32 @@ export class OidcService {
     });
 
     return asSuccess(this.summary);
+  }
+
+  private async revokeRefreshTokenIfSupported(refreshToken: string) {
+    const discovery = await this.getDiscovery();
+    if (!discovery.revocation_endpoint) {
+      return;
+    }
+
+    const body = new URLSearchParams();
+    body.set('token', refreshToken);
+    body.set('token_type_hint', 'refresh_token');
+    body.set('client_id', this.config.clientId);
+
+    const response = await this.fetchFn(discovery.revocation_endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `OIDC token revocation failed (${response.status}): ${await response.text()}`,
+      );
+    }
   }
 
   private applyTokenResponse(tokenResponse: TokenResponse) {
