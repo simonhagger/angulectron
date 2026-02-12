@@ -112,6 +112,13 @@ export const appRoutes: Route[] = [
       ),
   },
   {
+    path: 'auth-session-lab',
+    loadComponent: () =>
+      import('./features/auth-session-lab/auth-session-lab-page').then(
+        (m) => m.AuthSessionLabPage,
+      ),
+  },
+  {
     path: 'file-tools',
     loadComponent: () =>
       import('./features/file-tools/file-tools-page').then(

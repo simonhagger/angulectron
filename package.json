@@ -62,7 +62,8 @@
       "esbuild",
       "electron",
       "electron-winstaller",
-      "@carbon/styles"
+      "@carbon/styles",
+      "keytar"
     ]
   },
   "devDependencies": {
@@ -145,6 +146,7 @@
     "@fontsource/material-icons": "^5.2.7",
     "@jsverse/transloco": "^8.2.1",
     "electron-updater": "^6.7.3",
+    "keytar": "^7.9.0",
     "rxjs": "~7.8.0",
     "zod": "^4.3.6"
   }

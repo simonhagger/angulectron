@@ -5,6 +5,7 @@ import {
   ipcMain,
   safeStorage,
   session,
+  shell,
   type IpcMainInvokeEvent,
   type WebContents,
 } from 'electron';
@@ -14,6 +15,9 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
 import { invokeApiOperation } from './api-gateway';
+import { loadOidcConfig } from './oidc-config';
+import { OidcService } from './oidc-service';
+import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
 import {
   apiInvokeRequestSchema,
@@ -93,6 +97,7 @@ type FileSelectionToken = {
 const selectedFileTokens = new Map<string, FileSelectionToken>();
 let tokenCleanupTimer: NodeJS.Timeout | null = null;
 let storageGateway: StorageGateway | null = null;
+let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
 const APP_VERSION = app.getVersion();
 
@@ -427,13 +432,17 @@ const registerIpcHandlers = () => {
       );
     }
 
-    return asFailure(
-      'AUTH/NOT_IMPLEMENTED',
-      'Auth sign-in flow is not implemented yet.',
-      { operation: 'auth.signIn' },
-      false,
-      parsed.data.correlationId,
-    );
+    if (!oidcService) {
+      return asFailure(
+        'AUTH/NOT_CONFIGURED',
+        'OIDC authentication is not configured for this build.',
+        undefined,
+        false,
+        parsed.data.correlationId,
+      );
+    }
+
+    return oidcService.signIn();
   });
 
   ipcMain.handle(IPC_CHANNELS.authSignOut, (event, payload) => {
@@ -454,13 +463,11 @@ const registerIpcHandlers = () => {
       );
     }
 
-    return asFailure(
-      'AUTH/NOT_IMPLEMENTED',
-      'Auth sign-out flow is not implemented yet.',
-      { operation: 'auth.signOut' },
-      false,
-      parsed.data.correlationId,
-    );
+    if (!oidcService) {
+      return asSuccess({ signedOut: true });
+    }
+
+    return oidcService.signOut();
   });
 
   ipcMain.handle(IPC_CHANNELS.authGetSessionSummary, (event, payload) => {
@@ -481,11 +488,15 @@ const registerIpcHandlers = () => {
       );
     }
 
-    return asSuccess({
-      state: 'signed-out' as const,
-      scopes: [],
-      entitlements: [],
-    });
+    if (!oidcService) {
+      return asSuccess({
+        state: 'signed-out' as const,
+        scopes: [],
+        entitlements: [],
+      });
+    }
+
+    return oidcService.getSessionSummary();
   });
 
   ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (event, payload) => {
@@ -813,6 +824,35 @@ const bootstrap = async () => {
       ? (cipherText) => safeStorage.decryptString(cipherText)
       : undefined,
   });
+  const oidcConfig = loadOidcConfig();
+  if (oidcConfig) {
+    const refreshTokenStore = await createRefreshTokenStore({
+      userDataPath: app.getPath('userData'),
+      encryptString: safeStorage.isEncryptionAvailable()
+        ? (plainText) => safeStorage.encryptString(plainText)
+        : undefined,
+      decryptString: safeStorage.isEncryptionAvailable()
+        ? (cipherText) => safeStorage.decryptString(cipherText)
+        : undefined,
+      allowInsecurePlaintext:
+        process.env.OIDC_ALLOW_INSECURE_TOKEN_STORAGE === '1',
+      logger: (level, message) => {
+        logEvent(level, 'auth.token_store', undefined, { message });
+      },
+    });
+
+    oidcService = new OidcService({
+      config: oidcConfig,
+      tokenStore: refreshTokenStore,
+      openExternal: (url) => shell.openExternal(url).then(() => undefined),
+      logger: (level, event, details) => {
+        logEvent(level, event, undefined, details);
+      },
+    });
+  } else {
+    logEvent('info', 'auth.not_configured');
+  }
+
   registerIpcHandlers();
   mainWindow = await createMainWindow();
   logEvent('info', 'app.bootstrapped');
@@ -827,6 +867,7 @@ const bootstrap = async () => {
 app.on('window-all-closed', () => {
   selectedFileTokens.clear();
   stopFileTokenCleanup();
+  oidcService?.dispose();
   storageGateway?.close();
   if (process.platform !== 'darwin') {
     app.quit();
