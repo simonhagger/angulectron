@@ -77,6 +77,15 @@ export class IpcDiagnosticsPage {
       }),
     );
 
+    results.push(
+      await this.probe('Auth Session Channel', async () => {
+        const response = await desktop.auth.getSessionSummary();
+        return response.ok
+          ? { ok: true, detail: response.data.state }
+          : { ok: false, detail: response.error.message };
+      }),
+    );
+
     this.probes.set(results);
     const failed = results.some((result) => !result.ok);
     this.status.set(
