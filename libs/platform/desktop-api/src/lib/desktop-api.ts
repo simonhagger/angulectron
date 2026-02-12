@@ -1,5 +1,6 @@
 import type {
   ApiOperationId,
+  AuthGetTokenDiagnosticsResponse,
   AuthSessionSummary,
   ContractVersion,
   DesktopResult,
@@ -23,6 +24,9 @@ export interface DesktopAuthApi {
   signIn: () => Promise<DesktopResult<{ initiated: boolean }>>;
   signOut: () => Promise<DesktopResult<{ signedOut: boolean }>>;
   getSessionSummary: () => Promise<DesktopResult<AuthSessionSummary>>;
+  getTokenDiagnostics: () => Promise<
+    DesktopResult<AuthGetTokenDiagnosticsResponse>
+  >;
 }
 
 export interface DesktopFsApi {

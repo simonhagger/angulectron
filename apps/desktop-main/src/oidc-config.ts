@@ -4,6 +4,8 @@ export type OidcConfig = {
   redirectUri: string;
   scopes: string[];
   audience?: string;
+  sendAudienceInAuthorize: boolean;
+  apiBearerTokenSource: 'access_token' | 'id_token';
 };
 
 const splitScopes = (value: string): string[] =>
@@ -20,6 +22,12 @@ export const loadOidcConfig = (
   const redirectUri = env.OIDC_REDIRECT_URI?.trim();
   const scopeValue = env.OIDC_SCOPES?.trim();
   const audience = env.OIDC_AUDIENCE?.trim();
+  const sendAudienceInAuthorize =
+    env.OIDC_SEND_AUDIENCE_IN_AUTHORIZE?.trim() === '1';
+  const apiBearerTokenSource =
+    env.OIDC_API_BEARER_TOKEN_SOURCE?.trim() === 'id_token'
+      ? 'id_token'
+      : 'access_token';
 
   if (!issuer && !clientId && !redirectUri && !scopeValue) {
     return null;
@@ -44,5 +52,7 @@ export const loadOidcConfig = (
     redirectUri,
     scopes,
     audience: audience && audience.length > 0 ? audience : undefined,
+    sendAudienceInAuthorize,
+    apiBearerTokenSource,
   };
 };

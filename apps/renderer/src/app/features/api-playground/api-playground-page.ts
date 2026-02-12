@@ -32,10 +32,8 @@ import { getDesktopApi } from '@electron-foundation/desktop-api';
 export class ApiPlaygroundPage {
   readonly desktopAvailable = signal(!!getDesktopApi());
   readonly operations = API_OPERATION_IDS;
-  readonly operation = signal<ApiOperationId>(API_OPERATION_IDS[0]);
-  readonly paramsText = signal(
-    '{\n  "owner": "simonhagger",\n  "repo": "angulectron"\n}',
-  );
+  readonly operation = signal<ApiOperationId>('portfolio.user');
+  readonly paramsText = signal('{\n  "user_id": "me"\n}');
   readonly requestState = signal('Idle.');
   readonly responseStatus = signal<number | null>(null);
   readonly responseBody = signal('');
@@ -62,6 +60,7 @@ export class ApiPlaygroundPage {
     const response = await desktop.api.invoke(this.operation(), parsedParams);
     if (!response.ok) {
       this.requestState.set(response.error.message);
+      this.responseBody.set(this.pretty(response.error.details ?? {}));
       return;
     }
 

@@ -4,6 +4,7 @@ import { URL } from 'node:url';
 import {
   asFailure,
   asSuccess,
+  type AuthGetTokenDiagnosticsResponse,
   type AuthSessionSummary,
   type DesktopResult,
 } from '@electron-foundation/contracts';
@@ -82,6 +83,32 @@ const decodeJwtPayload = (
   } catch {
     return null;
   }
+};
+
+const pickJwtClaims = (
+  payload: Record<string, unknown> | null,
+): AuthGetTokenDiagnosticsResponse['accessToken']['claims'] => {
+  if (!payload) {
+    return null;
+  }
+
+  const audience = Array.isArray(payload.aud)
+    ? payload.aud.filter((value): value is string => typeof value === 'string')
+    : typeof payload.aud === 'string'
+      ? payload.aud
+      : undefined;
+
+  return {
+    iss: typeof payload.iss === 'string' ? payload.iss : undefined,
+    sub: typeof payload.sub === 'string' ? payload.sub : undefined,
+    aud: audience,
+    azp: typeof payload.azp === 'string' ? payload.azp : undefined,
+    scope: typeof payload.scope === 'string' ? payload.scope : undefined,
+    exp: typeof payload.exp === 'number' ? payload.exp : undefined,
+    iat: typeof payload.iat === 'number' ? payload.iat : undefined,
+    token_use:
+      typeof payload.token_use === 'string' ? payload.token_use : undefined,
+  };
 };
 
 const parseScopeList = (scopeValue: string | undefined): string[] =>
@@ -214,7 +241,7 @@ export class OidcService {
       authorizationUrl.searchParams.set('nonce', nonce);
       authorizationUrl.searchParams.set('code_challenge', challenge);
       authorizationUrl.searchParams.set('code_challenge_method', 'S256');
-      if (this.config.audience) {
+      if (this.config.audience && this.config.sendAudienceInAuthorize) {
         authorizationUrl.searchParams.set('audience', this.config.audience);
       }
 
@@ -251,16 +278,18 @@ export class OidcService {
       });
       return asSuccess({ initiated: true });
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       this.summary = buildSignedOutSummary();
       this.logger?.('error', 'auth.signin.failed', {
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage,
       });
       return asFailure(
         'AUTH/SIGNIN_FAILED',
-        'Authentication sign-in failed.',
+        `Authentication sign-in failed: ${errorMessage}`,
         error instanceof Error
           ? { name: error.name, message: error.message }
-          : String(error),
+          : errorMessage,
         true,
       );
     } finally {
@@ -303,13 +332,56 @@ export class OidcService {
     return asSuccess(this.summary);
   }
 
-  getAccessToken(): string | null {
+  async getTokenDiagnostics(): Promise<
+    DesktopResult<AuthGetTokenDiagnosticsResponse>
+  > {
+    const describeToken = (
+      token: string | undefined,
+    ): AuthGetTokenDiagnosticsResponse['accessToken'] => {
+      if (!token) {
+        return {
+          present: false,
+          format: 'absent',
+          claims: null,
+        };
+      }
+
+      const claims = pickJwtClaims(decodeJwtPayload(token));
+      if (claims) {
+        return {
+          present: true,
+          format: 'jwt',
+          claims,
+        };
+      }
+
+      return {
+        present: true,
+        format: 'opaque',
+        claims: null,
+      };
+    };
+
+    return asSuccess({
+      sessionState: this.summary.state,
+      bearerSource: this.config.apiBearerTokenSource,
+      expectedAudience: this.config.audience,
+      accessToken: describeToken(this.tokens?.accessToken),
+      idToken: describeToken(this.tokens?.idToken),
+    });
+  }
+
+  getApiBearerToken(): string | null {
     if (!this.tokens) {
       return null;
     }
 
     if (Date.now() >= this.tokens.accessTokenExpiresAt) {
       return null;
+    }
+
+    if (this.config.apiBearerTokenSource === 'id_token') {
+      return this.tokens.idToken ?? null;
     }
 
     return this.tokens.accessToken;

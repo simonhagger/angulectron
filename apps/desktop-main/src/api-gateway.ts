@@ -46,6 +46,16 @@ export const defaultApiOperations: Record<ApiOperationId, ApiOperation> = {
     minIntervalMs: 300,
     auth: { type: 'none' },
   },
+  'portfolio.user': {
+    method: 'GET',
+    url: 'https://api.adopa.uk/users/{{user_id}}/portfolio',
+    timeoutMs: 10_000,
+    maxResponseBytes: 1_000_000,
+    concurrencyLimit: 2,
+    minIntervalMs: 300,
+    auth: { type: 'oidc' },
+    retry: { maxAttempts: 2, baseDelayMs: 200 },
+  },
 };
 
 type InvokeApiDeps = {
@@ -152,6 +162,47 @@ const classifyTransportError = (
   );
 };
 
+const PATH_PARAM_PATTERN = /\{\{([a-zA-Z0-9_]+)\}\}/g;
+const ERROR_DETAIL_PREVIEW_MAX_CHARS = 512;
+
+const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
+  const parts = token.split('.');
+  if (parts.length < 2) {
+    return null;
+  }
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4 || 4)) % 4);
+    const json = Buffer.from(padded, 'base64').toString('utf8');
+    return JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+};
+
+const pickTokenDebugClaims = (payload: Record<string, unknown> | null) => {
+  if (!payload) {
+    return null;
+  }
+
+  return {
+    iss: typeof payload.iss === 'string' ? payload.iss : undefined,
+    sub: typeof payload.sub === 'string' ? payload.sub : undefined,
+    aud: Array.isArray(payload.aud)
+      ? payload.aud.filter((value) => typeof value === 'string')
+      : typeof payload.aud === 'string'
+        ? payload.aud
+        : undefined,
+    azp: typeof payload.azp === 'string' ? payload.azp : undefined,
+    scope: typeof payload.scope === 'string' ? payload.scope : undefined,
+    exp: typeof payload.exp === 'number' ? payload.exp : undefined,
+    iat: typeof payload.iat === 'number' ? payload.iat : undefined,
+    token_use:
+      typeof payload.token_use === 'string' ? payload.token_use : undefined,
+  };
+};
+
 const isRetryableFailure = (code: string) =>
   [
     'API/TIMEOUT',
@@ -195,15 +246,67 @@ const invokeSingleAttempt = async (
   const timeoutMs = operation.timeoutMs ?? API_DEFAULT_TIMEOUT_MS;
   const maxResponseBytes =
     operation.maxResponseBytes ?? API_DEFAULT_MAX_RESPONSE_BYTES;
-  const requestUrl = new URL(operationUrl);
+  const providedParams = request.payload.params ?? {};
+  const usedPathParams = new Set<string>();
+  const templatedUrl = operation.url.replace(
+    PATH_PARAM_PATTERN,
+    (_match, rawParamName: string) => {
+      const paramName = String(rawParamName);
+      const paramValue = providedParams[paramName];
+      if (
+        typeof paramValue !== 'string' &&
+        typeof paramValue !== 'number' &&
+        typeof paramValue !== 'boolean'
+      ) {
+        usedPathParams.add(`__missing__${paramName}`);
+        return '';
+      }
+
+      usedPathParams.add(paramName);
+      return encodeURIComponent(String(paramValue));
+    },
+  );
+  const missingPathParams = Array.from(usedPathParams)
+    .filter((key) => key.startsWith('__missing__'))
+    .map((key) => key.replace('__missing__', ''));
+  if (missingPathParams.length > 0) {
+    return asFailure(
+      'API/INVALID_PARAMS',
+      'Required path parameters are missing for API operation.',
+      {
+        operationId: request.payload.operationId,
+        missingPathParams,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  let requestUrl: URL;
+  try {
+    requestUrl = new URL(templatedUrl);
+  } catch (error) {
+    return asFailure(
+      'API/OPERATION_CONFIG_INVALID',
+      'API operation configuration is invalid.',
+      error,
+      false,
+      correlationId,
+    );
+  }
   if (operation.method === 'GET' && request.payload.params) {
     for (const [key, value] of Object.entries(request.payload.params)) {
+      if (usedPathParams.has(key)) {
+        continue;
+      }
       requestUrl.searchParams.set(key, String(value));
     }
   }
 
   const headers = new Headers();
   headers.set('Accept', 'application/json');
+  const requestUrlString = requestUrl.toString();
+  let oidcTokenClaims: ReturnType<typeof pickTokenDebugClaims> | undefined;
 
   const auth = operation.auth ?? { type: 'none' as const };
   if (auth.type === 'bearer') {
@@ -239,6 +342,7 @@ const invokeSingleAttempt = async (
     }
 
     headers.set('Authorization', `Bearer ${token}`);
+    oidcTokenClaims = pickTokenDebugClaims(decodeJwtPayload(token));
   }
 
   const abortController = new AbortController();
@@ -298,12 +402,31 @@ const invokeSingleAttempt = async (
       );
     }
 
+    const contentType = response.headers.get('content-type') ?? undefined;
+
     if (!response.ok) {
+      const detailPreview =
+        responseText.length > ERROR_DETAIL_PREVIEW_MAX_CHARS
+          ? `${responseText.slice(0, ERROR_DETAIL_PREVIEW_MAX_CHARS)}...`
+          : responseText;
+      const failureDetails = {
+        operationId: request.payload.operationId,
+        requestUrl: requestUrlString,
+        status: response.status,
+        contentType,
+        hasAuthorizationHeader: headers.has('Authorization'),
+        tokenClaims: oidcTokenClaims,
+        detail:
+          detailPreview.length > 0
+            ? detailPreview
+            : 'No response body provided.',
+      };
+
       if (response.status === 401) {
         return asFailure(
           'API/AUTH_REQUIRED',
           'External API requires authentication.',
-          { operationId: request.payload.operationId, status: response.status },
+          failureDetails,
           false,
           correlationId,
         );
@@ -313,7 +436,7 @@ const invokeSingleAttempt = async (
         return asFailure(
           'API/FORBIDDEN',
           'External API request is forbidden by policy or credentials.',
-          { operationId: request.payload.operationId, status: response.status },
+          failureDetails,
           false,
           correlationId,
         );
@@ -333,7 +456,7 @@ const invokeSingleAttempt = async (
         return asFailure(
           'API/SERVER_ERROR',
           'External API returned a server error response.',
-          { operationId: request.payload.operationId, status: response.status },
+          failureDetails,
           true,
           correlationId,
         );
@@ -342,13 +465,12 @@ const invokeSingleAttempt = async (
       return asFailure(
         'API/CLIENT_ERROR',
         'External API returned a client error response.',
-        { operationId: request.payload.operationId, status: response.status },
+        failureDetails,
         false,
         correlationId,
       );
     }
 
-    const contentType = response.headers.get('content-type') ?? undefined;
     const isJsonContentType =
       typeof contentType === 'string' &&
       /^application\/([a-z0-9.+-]+\+)?json/i.test(contentType);

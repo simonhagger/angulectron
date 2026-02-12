@@ -22,7 +22,34 @@ describe('loadOidcConfig', () => {
       redirectUri: 'http://127.0.0.1:42813/callback',
       scopes: ['openid', 'profile', 'email'],
       audience: 'api://desktop',
+      sendAudienceInAuthorize: false,
+      apiBearerTokenSource: 'access_token',
     });
+  });
+
+  it('enables audience on authorize when explicitly requested', () => {
+    const config = loadOidcConfig({
+      OIDC_ISSUER: 'https://issuer.example.com/',
+      OIDC_CLIENT_ID: 'desktop-client',
+      OIDC_REDIRECT_URI: 'http://127.0.0.1:42813/callback',
+      OIDC_SCOPES: 'openid profile email',
+      OIDC_AUDIENCE: 'api://desktop',
+      OIDC_SEND_AUDIENCE_IN_AUTHORIZE: '1',
+    });
+
+    expect(config?.sendAudienceInAuthorize).toBe(true);
+  });
+
+  it('can select id_token as API bearer source', () => {
+    const config = loadOidcConfig({
+      OIDC_ISSUER: 'https://issuer.example.com/',
+      OIDC_CLIENT_ID: 'desktop-client',
+      OIDC_REDIRECT_URI: 'http://127.0.0.1:42813/callback',
+      OIDC_SCOPES: 'openid profile email',
+      OIDC_API_BEARER_TOKEN_SOURCE: 'id_token',
+    });
+
+    expect(config?.apiBearerTokenSource).toBe('id_token');
   });
 
   it('throws when required fields are missing', () => {

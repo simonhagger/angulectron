@@ -24,7 +24,7 @@
           mat-flat-button
           type="button"
           (click)="signIn()"
-          [disabled]="signInPending() || !desktopAvailable() || isActive()"
+          [disabled]="!desktopAvailable() || isActive()"
         >
           Sign In
         </button>
@@ -90,4 +90,20 @@
       </div>
     </mat-card-content>
   </mat-card>
+
+  @if (showTokenDiagnostics()) {
+  <mat-card>
+    <mat-card-title>Token Diagnostics</mat-card-title>
+    <mat-card-content>
+      @if (tokenDiagnostics()) {
+      <p class="muted">
+        Safe diagnostics only. Token values are not exposed to renderer.
+      </p>
+      <pre class="diagnostics-json">{{ tokenDiagnosticsJson() }}</pre>
+      } @else {
+      <p class="muted">No token diagnostics loaded yet.</p>
+      }
+    </mat-card-content>
+  </mat-card>
+  }
 </section>

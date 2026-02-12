@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { parseOrFailure } from './contracts';
 import { apiInvokeRequestSchema } from './api.contract';
 import {
+  authGetTokenDiagnosticsResponseSchema,
   authGetSessionSummaryResponseSchema,
   authSignInRequestSchema,
 } from './auth.contract';
@@ -172,5 +173,33 @@ describe('auth contracts', () => {
     });
 
     expect(parsed.success).toBe(false);
+  });
+
+  it('accepts token diagnostics payloads', () => {
+    const parsed = authGetTokenDiagnosticsResponseSchema.safeParse({
+      sessionState: 'active',
+      bearerSource: 'access_token',
+      expectedAudience: 'api.adopa.uk',
+      accessToken: {
+        present: true,
+        format: 'jwt',
+        claims: {
+          iss: 'https://willing-elephant-20.clerk.accounts.dev',
+          sub: 'user_abc',
+          aud: ['api.adopa.uk'],
+          exp: 1770903664,
+          iat: 1770900000,
+        },
+      },
+      idToken: {
+        present: true,
+        format: 'jwt',
+        claims: {
+          aud: 'TOtjISa3Sgz2sDi2',
+        },
+      },
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });

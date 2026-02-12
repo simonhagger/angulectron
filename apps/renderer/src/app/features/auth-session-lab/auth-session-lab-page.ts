@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  isDevMode,
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -9,10 +10,14 @@ import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
-import type { AuthSessionSummary } from '@electron-foundation/contracts';
+import type {
+  AuthGetTokenDiagnosticsResponse,
+  AuthSessionSummary,
+} from '@electron-foundation/contracts';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
 
 type StatusTone = 'info' | 'success' | 'warn' | 'error';
+const signInUiPendingMaxMs = 2_000;
 
 @Component({
   selector: 'app-auth-session-lab-page',
@@ -28,6 +33,7 @@ type StatusTone = 'info' | 'success' | 'warn' | 'error';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuthSessionLabPage {
+  readonly showTokenDiagnostics = signal(isDevMode());
   readonly desktopAvailable = signal(!!getDesktopApi());
   readonly signInPending = signal(false);
   readonly refreshPending = signal(false);
@@ -35,6 +41,17 @@ export class AuthSessionLabPage {
   readonly statusText = signal('Idle.');
   readonly statusTone = signal<StatusTone>('info');
   readonly summary = signal<AuthSessionSummary | null>(null);
+  readonly tokenDiagnostics = signal<AuthGetTokenDiagnosticsResponse | null>(
+    null,
+  );
+  readonly tokenDiagnosticsJson = computed(() => {
+    const diagnostics = this.tokenDiagnostics();
+    if (!diagnostics) {
+      return '';
+    }
+
+    return JSON.stringify(diagnostics, null, 2);
+  });
   readonly isActive = computed(() => this.summary()?.state === 'active');
   readonly scopes = computed(() => this.summary()?.scopes ?? []);
   readonly entitlements = computed(() => this.summary()?.entitlements ?? []);
@@ -49,16 +66,28 @@ export class AuthSessionLabPage {
 
     this.refreshPending.set(true);
     try {
-      const result = await desktop.auth.getSessionSummary();
-      if (!result.ok) {
-        this.statusText.set(result.error.message);
+      const [summaryResult, diagnosticsResult] = await Promise.all([
+        desktop.auth.getSessionSummary(),
+        this.showTokenDiagnostics()
+          ? desktop.auth.getTokenDiagnostics()
+          : Promise.resolve(null),
+      ]);
+      if (!summaryResult.ok) {
+        this.statusText.set(summaryResult.error.message);
         this.statusTone.set('error');
         return;
       }
 
-      this.summary.set(result.data);
-      this.statusText.set(`Session state: ${result.data.state}`);
-      this.statusTone.set(result.data.state === 'active' ? 'success' : 'info');
+      this.summary.set(summaryResult.data);
+      if (diagnosticsResult && diagnosticsResult.ok) {
+        this.tokenDiagnostics.set(diagnosticsResult.data);
+      } else {
+        this.tokenDiagnostics.set(null);
+      }
+      this.statusText.set(`Session state: ${summaryResult.data.state}`);
+      this.statusTone.set(
+        summaryResult.data.state === 'active' ? 'success' : 'info',
+      );
     } finally {
       this.refreshPending.set(false);
     }
@@ -78,9 +107,34 @@ export class AuthSessionLabPage {
       return;
     }
 
+    if (this.signInPending()) {
+      this.statusText.set(
+        'Sign-in is already in progress. Complete it in the browser window or retry shortly.',
+      );
+      this.statusTone.set('info');
+      return;
+    }
+
     this.signInPending.set(true);
+    let uiPendingReleased = false;
+    const releaseUiPending = () => {
+      if (uiPendingReleased) {
+        return;
+      }
+      uiPendingReleased = true;
+      this.signInPending.set(false);
+    };
+    const uiTimeoutHandle = setTimeout(() => {
+      releaseUiPending();
+      this.statusText.set(
+        'Continue sign-in in the browser window. You can retry now or refresh summary after completion.',
+      );
+      this.statusTone.set('info');
+    }, signInUiPendingMaxMs);
+
     try {
       const result = await desktop.auth.signIn();
+      clearTimeout(uiTimeoutHandle);
       if (!result.ok) {
         this.statusText.set(result.error.message);
         this.statusTone.set('error');
@@ -95,7 +149,8 @@ export class AuthSessionLabPage {
       this.statusTone.set(result.data.initiated ? 'success' : 'info');
       await this.refreshSummary();
     } finally {
-      this.signInPending.set(false);
+      clearTimeout(uiTimeoutHandle);
+      releaseUiPending();
     }
   }
 

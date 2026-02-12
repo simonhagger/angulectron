@@ -4,6 +4,7 @@ export const IPC_CHANNELS = {
   authSignIn: 'auth:sign-in',
   authSignOut: 'auth:sign-out',
   authGetSessionSummary: 'auth:get-session-summary',
+  authGetTokenDiagnostics: 'auth:get-token-diagnostics',
   dialogOpenFile: 'dialog:open-file',
   fsReadTextFile: 'fs:read-text-file',
   storageSetItem: 'storage:set-item',

@@ -22,6 +22,7 @@ import { StorageGateway } from './storage-gateway';
 import {
   apiInvokeRequestSchema,
   authGetSessionSummaryRequestSchema,
+  authGetTokenDiagnosticsRequestSchema,
   authSignInRequestSchema,
   authSignOutRequestSchema,
   appVersionRequestSchema,
@@ -499,6 +500,44 @@ const registerIpcHandlers = () => {
     return oidcService.getSessionSummary();
   });
 
+  ipcMain.handle(IPC_CHANNELS.authGetTokenDiagnostics, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authGetTokenDiagnosticsRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    if (!oidcService) {
+      return asSuccess({
+        sessionState: 'signed-out' as const,
+        bearerSource: 'access_token' as const,
+        accessToken: {
+          present: false,
+          format: 'absent' as const,
+          claims: null,
+        },
+        idToken: {
+          present: false,
+          format: 'absent' as const,
+          claims: null,
+        },
+      });
+    }
+
+    return oidcService.getTokenDiagnostics();
+  });
+
   ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (event, payload) => {
     const correlationId = getCorrelationId(payload);
     const unauthorized = assertAuthorizedSender(event, correlationId);
@@ -849,7 +888,7 @@ const bootstrap = async () => {
         logEvent(level, event, undefined, details);
       },
     });
-    setOidcAccessTokenResolver(() => oidcService?.getAccessToken() ?? null);
+    setOidcAccessTokenResolver(() => oidcService?.getApiBearerToken() ?? null);
   } else {
     logEvent('info', 'auth.not_configured');
     setOidcAccessTokenResolver(null);

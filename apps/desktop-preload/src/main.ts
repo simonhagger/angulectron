@@ -7,6 +7,8 @@ import {
   apiInvokeResponseSchema,
   authGetSessionSummaryRequestSchema,
   authGetSessionSummaryResponseSchema,
+  authGetTokenDiagnosticsRequestSchema,
+  authGetTokenDiagnosticsResponseSchema,
   authSignInRequestSchema,
   authSignInResponseSchema,
   authSignOutRequestSchema,
@@ -243,6 +245,21 @@ const desktopApi: DesktopApi = {
         request,
         correlationId,
         authGetSessionSummaryResponseSchema,
+      );
+    },
+    async getTokenDiagnostics() {
+      const correlationId = createCorrelationId();
+      const request = authGetTokenDiagnosticsRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authGetTokenDiagnostics,
+        request,
+        correlationId,
+        authGetTokenDiagnosticsResponseSchema,
       );
     },
   },
