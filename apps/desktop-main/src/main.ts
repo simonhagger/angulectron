@@ -5,6 +5,7 @@ import {
   ipcMain,
   safeStorage,
   session,
+  type IpcMainInvokeEvent,
   type WebContents,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
@@ -241,9 +242,58 @@ const getCorrelationId = (payload: unknown): string | undefined => {
   return undefined;
 };
 
+const assertAuthorizedSender = (
+  event: IpcMainInvokeEvent,
+  correlationId?: string,
+) => {
+  const senderWindow = BrowserWindow.fromWebContents(event.sender);
+  const senderUrl = event.senderFrame?.url ?? event.sender.getURL();
+  const authorized =
+    senderWindow?.id === mainWindow?.id && isAllowedNavigation(senderUrl);
+
+  if (!authorized) {
+    return asFailure(
+      'IPC/UNAUTHORIZED_SENDER',
+      'IPC sender is not authorized for this operation.',
+      {
+        senderWindowId: senderWindow?.id ?? null,
+        expectedWindowId: mainWindow?.id ?? null,
+        senderUrl,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  return null;
+};
+
+const redactTelemetryProperties = (
+  properties: Record<string, string | number | boolean> | undefined,
+): Record<string, string | number | boolean> => {
+  if (!properties) {
+    return {};
+  }
+
+  const sensitiveKeyPattern =
+    /token|secret|password|credential|api[-_]?key|auth/i;
+  const redacted: Record<string, string | number | boolean> = {};
+
+  for (const [key, value] of Object.entries(properties)) {
+    redacted[key] = sensitiveKeyPattern.test(key) ? '[REDACTED]' : value;
+  }
+
+  return redacted;
+};
+
 const registerIpcHandlers = () => {
-  ipcMain.handle(IPC_CHANNELS.handshake, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.handshake, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = handshakeRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -258,8 +308,13 @@ const registerIpcHandlers = () => {
     return asSuccess({ contractVersion: CONTRACT_VERSION });
   });
 
-  ipcMain.handle(IPC_CHANNELS.appGetVersion, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.appGetVersion, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = appVersionRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -276,6 +331,11 @@ const registerIpcHandlers = () => {
 
   ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = openFileDialogRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -323,8 +383,13 @@ const registerIpcHandlers = () => {
     });
   });
 
-  ipcMain.handle(IPC_CHANNELS.fsReadTextFile, async (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.fsReadTextFile, async (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = readTextFileRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -349,6 +414,21 @@ const registerIpcHandlers = () => {
         );
       }
 
+      const senderWindowId = BrowserWindow.fromWebContents(event.sender)?.id;
+      if (senderWindowId !== selected.windowId) {
+        selectedFileTokens.delete(parsed.data.payload.fileToken);
+        return asFailure(
+          'FS/INVALID_TOKEN_SCOPE',
+          'Selected file token was issued for a different window.',
+          {
+            senderWindowId: senderWindowId ?? null,
+            tokenWindowId: selected.windowId,
+          },
+          false,
+          parsed.data.correlationId,
+        );
+      }
+
       // Tokens are single-use to reduce replay risk from compromised renderers.
       selectedFileTokens.delete(parsed.data.payload.fileToken);
 
@@ -368,8 +448,13 @@ const registerIpcHandlers = () => {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.apiInvoke, async (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.apiInvoke, async (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = apiInvokeRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -383,8 +468,13 @@ const registerIpcHandlers = () => {
     return invokeApiOperation(parsed.data);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storageSetItem, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.storageSetItem, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = storageSetRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -399,8 +489,13 @@ const registerIpcHandlers = () => {
     return storageGateway!.setItem(parsed.data);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storageGetItem, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.storageGetItem, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = storageGetRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -415,8 +510,13 @@ const registerIpcHandlers = () => {
     return storageGateway!.getItem(parsed.data);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storageDeleteItem, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.storageDeleteItem, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = storageDeleteRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -431,8 +531,13 @@ const registerIpcHandlers = () => {
     return storageGateway!.deleteItem(parsed.data);
   });
 
-  ipcMain.handle(IPC_CHANNELS.storageClearDomain, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.storageClearDomain, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = storageClearDomainRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -447,8 +552,13 @@ const registerIpcHandlers = () => {
     return storageGateway!.clearDomain(parsed.data);
   });
 
-  ipcMain.handle(IPC_CHANNELS.updatesCheck, async (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.updatesCheck, async (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = updatesCheckRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -498,8 +608,13 @@ const registerIpcHandlers = () => {
     }
   });
 
-  ipcMain.handle(IPC_CHANNELS.telemetryTrack, (_event, payload) => {
+  ipcMain.handle(IPC_CHANNELS.telemetryTrack, (event, payload) => {
     const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
     const parsed = telemetryTrackRequestSchema.safeParse(payload);
     if (!parsed.success) {
       return asFailure(
@@ -513,7 +628,7 @@ const registerIpcHandlers = () => {
 
     logEvent('info', 'telemetry.track', parsed.data.correlationId, {
       eventName: parsed.data.payload.eventName,
-      properties: parsed.data.payload.properties ?? {},
+      properties: redactTelemetryProperties(parsed.data.payload.properties),
     });
 
     return asSuccess({ accepted: true });
