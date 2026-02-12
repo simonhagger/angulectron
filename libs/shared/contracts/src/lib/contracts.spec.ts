@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { parseOrFailure } from './contracts';
 import { apiInvokeRequestSchema } from './api.contract';
+import {
+  authGetSessionSummaryResponseSchema,
+  authSignInRequestSchema,
+} from './auth.contract';
 import { readTextFileRequestSchema } from './fs.contract';
 import { storageSetRequestSchema } from './storage.contract';
 
@@ -129,6 +133,42 @@ describe('storageSetRequestSchema', () => {
         value: 'v',
         ttlSeconds: 0,
       },
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe('auth contracts', () => {
+  it('accepts sign-in requests with empty payload', () => {
+    const parsed = authSignInRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-auth-1',
+      payload: {},
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts active session summary payloads', () => {
+    const parsed = authGetSessionSummaryResponseSchema.safeParse({
+      state: 'active',
+      userId: 'user-1',
+      email: 'user@example.com',
+      name: 'Example User',
+      expiresAt: '2026-02-12T20:00:00.000Z',
+      scopes: ['openid', 'profile'],
+      entitlements: ['storage.read'],
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects malformed session summary payloads', () => {
+    const parsed = authGetSessionSummaryResponseSchema.safeParse({
+      state: 'active',
+      email: 'not-an-email',
+      scopes: [123],
     });
 
     expect(parsed.success).toBe(false);
