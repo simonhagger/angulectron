@@ -1,8 +1,8 @@
 <section class="surface-card" role="region">
   <header>
-    <h2>{{ title }}</h2>
-    @if (subtitle) {
-    <p>{{ subtitle }}</p>
+    <h2>{{ title() }}</h2>
+    @if (subtitle()) {
+    <p>{{ subtitle() }}</p>
     }
   </header>
   <div class="surface-content">

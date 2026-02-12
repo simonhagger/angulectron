@@ -46,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
@@ -54,7 +56,12 @@ jobs:
           node-version: 24.13.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm format:check
+      - name: format check (targeted)
+        shell: bash
+        run: |
+          BASE_BRANCH="${GITHUB_BASE_REF:-main}"
+          git fetch origin "refs/heads/${BASE_BRANCH}:refs/remotes/origin/${BASE_BRANCH}" --depth=1
+          pnpm nx format:check --base="origin/${BASE_BRANCH}" --head=HEAD
 
   lint:
     name: lint

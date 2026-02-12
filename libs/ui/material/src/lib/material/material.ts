@@ -1,9 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  EventEmitter,
-  Input,
-  Output,
+  input,
+  output,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 
@@ -15,8 +14,8 @@ import { MatButtonModule } from '@angular/material/button';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class UiPrimaryButtonComponent {
-  @Input({ required: true }) label!: string;
-  @Input() icon: string | null = null;
-  @Input() disabled = false;
-  @Output() readonly pressed = new EventEmitter<Event>();
+  readonly label = input.required<string>();
+  readonly icon = input<string | null>(null);
+  readonly disabled = input(false);
+  readonly pressed = output<Event>();
 }

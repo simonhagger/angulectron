@@ -16,7 +16,7 @@
         "format": ["cjs"],
         "bundle": false,
         "main": "apps/desktop-main/src/main.ts",
-        "tsConfig": "apps/desktop-main/tsconfig.app.json",
+        "tsConfig": "apps/desktop-main/tsconfig.build.json",
         "assets": ["apps/desktop-main/src/assets"],
         "generatePackageJson": true,
         "esbuildOptions": {

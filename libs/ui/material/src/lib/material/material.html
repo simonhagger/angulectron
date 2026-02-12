@@ -2,9 +2,9 @@
   mat-flat-button
   type="button"
   class="inline-flex items-center gap-2 rounded-md"
-  [disabled]="disabled"
+  [disabled]="disabled()"
   (click)="pressed.emit($event)"
 >
-  <span aria-hidden="true">{{ icon ?? '' }}</span>
-  <span>{{ label }}</span>
+  <span aria-hidden="true">{{ icon() ?? '' }}</span>
+  <span>{{ label() }}</span>
 </button>
