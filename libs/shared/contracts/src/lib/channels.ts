@@ -1,6 +1,7 @@
 export const IPC_CHANNELS = {
   handshake: 'contract:handshake',
   appGetVersion: 'app:get-version',
+  appGetRuntimeVersions: 'app:get-runtime-versions',
   authSignIn: 'auth:sign-in',
   authSignOut: 'auth:sign-out',
   authGetSessionSummary: 'auth:get-session-summary',

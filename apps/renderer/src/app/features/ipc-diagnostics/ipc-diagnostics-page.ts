@@ -36,7 +36,7 @@ export class IpcDiagnosticsPage {
     const results: ProbeResult[] = [];
 
     results.push(
-      await this.probe('App Version', async () => {
+      await this.probe('App Metadata Version', async () => {
         const response = await desktop.app.getVersion();
         return response.ok
           ? { ok: true, detail: response.data }
@@ -49,6 +49,18 @@ export class IpcDiagnosticsPage {
         const response = await desktop.app.getContractVersion();
         return response.ok
           ? { ok: true, detail: response.data }
+          : { ok: false, detail: response.error.message };
+      }),
+    );
+
+    results.push(
+      await this.probe('Electron Runtime Version', async () => {
+        const response = await desktop.app.getRuntimeVersions();
+        return response.ok
+          ? {
+              ok: true,
+              detail: `electron=${response.data.electron}, node=${response.data.node}, chrome=${response.data.chrome}`,
+            }
           : { ok: false, detail: response.error.message };
       }),
     );

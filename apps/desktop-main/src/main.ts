@@ -25,6 +25,7 @@ import {
   authGetTokenDiagnosticsRequestSchema,
   authSignInRequestSchema,
   authSignOutRequestSchema,
+  appRuntimeVersionsRequestSchema,
   appVersionRequestSchema,
   asFailure,
   asSuccess,
@@ -413,6 +414,31 @@ const registerIpcHandlers = () => {
     }
 
     return asSuccess({ version: app.getVersion() });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.appGetRuntimeVersions, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = appRuntimeVersionsRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return asSuccess({
+      electron: process.versions.electron,
+      node: process.versions.node,
+      chrome: process.versions.chrome,
+    });
   });
 
   ipcMain.handle(IPC_CHANNELS.authSignIn, (event, payload) => {

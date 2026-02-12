@@ -5,6 +5,8 @@ import { toStructuredLogLine } from '@electron-foundation/common';
 import {
   apiInvokeRequestSchema,
   apiInvokeResponseSchema,
+  appRuntimeVersionsRequestSchema,
+  appRuntimeVersionsResponseSchema,
   authGetSessionSummaryRequestSchema,
   authGetSessionSummaryResponseSchema,
   authGetTokenDiagnosticsRequestSchema,
@@ -198,6 +200,20 @@ const desktopApi: DesktopApi = {
       );
 
       return mapResult(result, (value) => value.version);
+    },
+    async getRuntimeVersions() {
+      const correlationId = createCorrelationId();
+      const request = appRuntimeVersionsRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+      return invoke(
+        IPC_CHANNELS.appGetRuntimeVersions,
+        request,
+        correlationId,
+        appRuntimeVersionsResponseSchema,
+      );
     },
   },
   auth: {

@@ -12,7 +12,23 @@ export const appVersionResponseSchema = z.object({
   version: z.string().min(1),
 });
 
+export const appRuntimeVersionsRequestSchema =
+  requestEnvelope(emptyPayloadSchema);
+export const appRuntimeVersionsResponseSchema = z
+  .object({
+    electron: z.string().min(1),
+    node: z.string().min(1),
+    chrome: z.string().min(1),
+  })
+  .strict();
+
 export type HandshakeRequest = z.infer<typeof handshakeRequestSchema>;
 export type HandshakeResponse = z.infer<typeof handshakeResponseSchema>;
 export type AppVersionRequest = z.infer<typeof appVersionRequestSchema>;
 export type AppVersionResponse = z.infer<typeof appVersionResponseSchema>;
+export type AppRuntimeVersionsRequest = z.infer<
+  typeof appRuntimeVersionsRequestSchema
+>;
+export type AppRuntimeVersionsResponse = z.infer<
+  typeof appRuntimeVersionsResponseSchema
+>;

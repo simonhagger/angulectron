@@ -9,6 +9,9 @@ import type {
 export interface DesktopAppApi {
   getContractVersion: () => Promise<DesktopResult<ContractVersion>>;
   getVersion: () => Promise<DesktopResult<string>>;
+  getRuntimeVersions: () => Promise<
+    DesktopResult<{ electron: string; node: string; chrome: string }>
+  >;
 }
 
 export interface DesktopDialogApi {
