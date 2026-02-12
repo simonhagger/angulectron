@@ -1,0 +1,21 @@
+.signin-bridge {
+  margin: 2rem;
+  max-width: 48rem;
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.signin-bridge h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.6rem;
+}
+
+.signin-bridge p {
+  margin: 0 0 1rem;
+}
+
+.signin-bridge pre {
+  background: #fff1f1;
+  border: 1px solid #d9a7a7;
+  padding: 0.75rem;
+  white-space: pre-wrap;
+}
