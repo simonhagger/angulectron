@@ -1,4 +1,10 @@
 import { Route } from '@angular/router';
+import {
+  jwtCanActivateChildGuard,
+  jwtCanActivateGuard,
+  jwtCanDeactivateGuard,
+  jwtCanMatchGuard,
+} from './guards/jwt-route.guards';
 
 export const appRoutes: Route[] = [
   {
@@ -92,10 +98,19 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'api-playground',
-    loadComponent: () =>
-      import('./features/api-playground/api-playground-page').then(
-        (m) => m.ApiPlaygroundPage,
-      ),
+    canMatch: [jwtCanMatchGuard],
+    canActivate: [jwtCanActivateGuard],
+    canActivateChild: [jwtCanActivateChildGuard],
+    children: [
+      {
+        path: '',
+        canDeactivate: [jwtCanDeactivateGuard],
+        loadComponent: () =>
+          import('./features/api-playground/api-playground-page').then(
+            (m) => m.ApiPlaygroundPage,
+          ),
+      },
+    ],
   },
   {
     path: 'updates-release',

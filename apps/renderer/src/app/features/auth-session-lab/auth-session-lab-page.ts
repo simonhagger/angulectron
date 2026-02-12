@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   isDevMode,
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -33,6 +35,8 @@ const signInUiPendingMaxMs = 2_000;
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AuthSessionLabPage {
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly showTokenDiagnostics = signal(isDevMode());
   readonly desktopAvailable = signal(!!getDesktopApi());
   readonly signInPending = signal(false);
@@ -53,8 +57,14 @@ export class AuthSessionLabPage {
     return JSON.stringify(diagnostics, null, 2);
   });
   readonly isActive = computed(() => this.summary()?.state === 'active');
+  readonly returnUrl = signal('/');
   readonly scopes = computed(() => this.summary()?.scopes ?? []);
   readonly entitlements = computed(() => this.summary()?.entitlements ?? []);
+
+  constructor() {
+    const queryReturnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    this.returnUrl.set(this.toSafeInternalUrl(queryReturnUrl));
+  }
 
   async refreshSummary() {
     const desktop = getDesktopApi();
@@ -148,6 +158,9 @@ export class AuthSessionLabPage {
       );
       this.statusTone.set(result.data.initiated ? 'success' : 'info');
       await this.refreshSummary();
+      if (this.isActive()) {
+        await this.router.navigateByUrl(this.returnUrl());
+      }
     } finally {
       clearTimeout(uiTimeoutHandle);
       releaseUiPending();
@@ -177,5 +190,17 @@ export class AuthSessionLabPage {
     } finally {
       this.signOutPending.set(false);
     }
+  }
+
+  private toSafeInternalUrl(url: string | null): string {
+    if (!url || !url.startsWith('/')) {
+      return '/';
+    }
+
+    if (url.startsWith('//') || /[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)) {
+      return '/';
+    }
+
+    return url;
   }
 }
