@@ -12,6 +12,7 @@ import {
   type ApiOperationId,
 } from '@electron-foundation/contracts';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
+import type { JwtProtectedRouteComponent } from '../../guards/jwt-route.guards';
 
 @Component({
   selector: 'app-api-playground-page',
@@ -29,14 +30,13 @@ import { getDesktopApi } from '@electron-foundation/desktop-api';
   styleUrl: './api-playground-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class ApiPlaygroundPage {
+export class ApiPlaygroundPage implements JwtProtectedRouteComponent {
   readonly desktopAvailable = signal(!!getDesktopApi());
   readonly operations = API_OPERATION_IDS;
-  readonly operation = signal<ApiOperationId>(API_OPERATION_IDS[0]);
-  readonly paramsText = signal(
-    '{\n  "owner": "simonhagger",\n  "repo": "angulectron"\n}',
-  );
+  readonly operation = signal<ApiOperationId>('portfolio.user');
+  readonly paramsText = signal('{\n  "user_id": "me"\n}');
   readonly requestState = signal('Idle.');
+  readonly requestPending = signal(false);
   readonly responseStatus = signal<number | null>(null);
   readonly responseBody = signal('');
 
@@ -56,18 +56,34 @@ export class ApiPlaygroundPage {
     }
 
     this.requestState.set('Calling operation...');
+    this.requestPending.set(true);
     this.responseStatus.set(null);
     this.responseBody.set('');
 
-    const response = await desktop.api.invoke(this.operation(), parsedParams);
-    if (!response.ok) {
-      this.requestState.set(response.error.message);
-      return;
+    try {
+      const response = await desktop.api.invoke(this.operation(), parsedParams);
+      if (!response.ok) {
+        this.requestState.set(response.error.message);
+        this.responseBody.set(this.pretty(response.error.details ?? {}));
+        return;
+      }
+
+      this.requestState.set('Request completed.');
+      this.responseStatus.set(response.data.status);
+      this.responseBody.set(this.pretty(response.data.data));
+    } finally {
+      this.requestPending.set(false);
+    }
+  }
+
+  canDeactivateJwt(): boolean {
+    if (!this.requestPending()) {
+      return true;
     }
 
-    this.requestState.set('Request completed.');
-    this.responseStatus.set(response.data.status);
-    this.responseBody.set(this.pretty(response.data.data));
+    return window.confirm(
+      'An API request is still in progress. Leave this page and cancel the current review?',
+    );
   }
 
   private parseParams(

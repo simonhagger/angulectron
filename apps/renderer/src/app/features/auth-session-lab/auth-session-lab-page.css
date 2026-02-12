@@ -1,0 +1,56 @@
+.auth-session-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.hero {
+  border-radius: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.status {
+  margin: 0;
+}
+
+.status.error {
+  color: #a2191f;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 0.4rem 0.8rem;
+  margin: 0 0 1rem;
+}
+
+.summary-grid dt {
+  font-weight: 600;
+}
+
+.summary-grid dd {
+  margin: 0;
+}
+
+.chip-row h3 {
+  margin: 0.4rem 0;
+}
+
+.muted {
+  opacity: 0.75;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.diagnostics-json {
+  margin: 0;
+  padding: 0.75rem;
+  background: #f4f4f4;
+  border: 1px solid #d0d0d0;
+  border-radius: 0;
+  overflow: auto;
+}

@@ -1,6 +1,19 @@
 import { Route } from '@angular/router';
+import {
+  jwtCanActivateChildGuard,
+  jwtCanActivateGuard,
+  jwtCanDeactivateGuard,
+  jwtCanMatchGuard,
+} from './guards/jwt-route.guards';
 
 export const appRoutes: Route[] = [
+  {
+    path: 'sign-in',
+    loadComponent: () =>
+      import('./features/auth-signin-bridge/auth-signin-bridge-page').then(
+        (m) => m.AuthSigninBridgePage,
+      ),
+  },
   {
     path: '',
     loadComponent: () =>
@@ -85,10 +98,19 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'api-playground',
-    loadComponent: () =>
-      import('./features/api-playground/api-playground-page').then(
-        (m) => m.ApiPlaygroundPage,
-      ),
+    canMatch: [jwtCanMatchGuard],
+    canActivate: [jwtCanActivateGuard],
+    canActivateChild: [jwtCanActivateChildGuard],
+    children: [
+      {
+        path: '',
+        canDeactivate: [jwtCanDeactivateGuard],
+        loadComponent: () =>
+          import('./features/api-playground/api-playground-page').then(
+            (m) => m.ApiPlaygroundPage,
+          ),
+      },
+    ],
   },
   {
     path: 'updates-release',
@@ -109,6 +131,13 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./features/ipc-diagnostics/ipc-diagnostics-page').then(
         (m) => m.IpcDiagnosticsPage,
+      ),
+  },
+  {
+    path: 'auth-session-lab',
+    loadComponent: () =>
+      import('./features/auth-session-lab/auth-session-lab-page').then(
+        (m) => m.AuthSessionLabPage,
       ),
   },
   {

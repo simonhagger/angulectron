@@ -1,5 +1,7 @@
 import type {
   ApiOperationId,
+  AuthGetTokenDiagnosticsResponse,
+  AuthSessionSummary,
   ContractVersion,
   DesktopResult,
 } from '@electron-foundation/contracts';
@@ -7,6 +9,9 @@ import type {
 export interface DesktopAppApi {
   getContractVersion: () => Promise<DesktopResult<ContractVersion>>;
   getVersion: () => Promise<DesktopResult<string>>;
+  getRuntimeVersions: () => Promise<
+    DesktopResult<{ electron: string; node: string; chrome: string }>
+  >;
 }
 
 export interface DesktopDialogApi {
@@ -15,6 +20,15 @@ export interface DesktopDialogApi {
     filters?: Array<{ name: string; extensions: string[] }>;
   }) => Promise<
     DesktopResult<{ canceled: boolean; fileName?: string; fileToken?: string }>
+  >;
+}
+
+export interface DesktopAuthApi {
+  signIn: () => Promise<DesktopResult<{ initiated: boolean }>>;
+  signOut: () => Promise<DesktopResult<{ signedOut: boolean }>>;
+  getSessionSummary: () => Promise<DesktopResult<AuthSessionSummary>>;
+  getTokenDiagnostics: () => Promise<
+    DesktopResult<AuthGetTokenDiagnosticsResponse>
   >;
 }
 
@@ -74,6 +88,7 @@ export interface DesktopTelemetryApi {
 
 export interface DesktopApi {
   app: DesktopAppApi;
+  auth: DesktopAuthApi;
   dialog: DesktopDialogApi;
   fs: DesktopFsApi;
   storage: DesktopStorageApi;

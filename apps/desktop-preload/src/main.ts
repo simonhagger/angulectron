@@ -5,6 +5,16 @@ import { toStructuredLogLine } from '@electron-foundation/common';
 import {
   apiInvokeRequestSchema,
   apiInvokeResponseSchema,
+  appRuntimeVersionsRequestSchema,
+  appRuntimeVersionsResponseSchema,
+  authGetSessionSummaryRequestSchema,
+  authGetSessionSummaryResponseSchema,
+  authGetTokenDiagnosticsRequestSchema,
+  authGetTokenDiagnosticsResponseSchema,
+  authSignInRequestSchema,
+  authSignInResponseSchema,
+  authSignOutRequestSchema,
+  authSignOutResponseSchema,
   appVersionRequestSchema,
   appVersionResponseSchema,
   asFailure,
@@ -50,6 +60,7 @@ const logPreloadError = (
 };
 
 const ipcInvokeTimeoutMs = 10_000;
+const authSignInTimeoutMs = 5 * 60_000;
 
 const createCorrelationId = (): string => {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
@@ -90,13 +101,11 @@ const invoke = async <TResponse>(
   request: unknown,
   correlationId: string,
   responsePayloadSchema: ZodType<TResponse>,
+  timeoutMs = ipcInvokeTimeoutMs,
 ): Promise<DesktopResult<TResponse>> => {
   try {
     const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      setTimeout(
-        () => reject(new Error('IPC invoke timed out')),
-        ipcInvokeTimeoutMs,
-      );
+      setTimeout(() => reject(new Error('IPC invoke timed out')), timeoutMs);
     });
     const response = await Promise.race([
       ipcRenderer.invoke(channel, request),
@@ -122,12 +131,12 @@ const invoke = async <TResponse>(
     if (error instanceof Error && error.message === 'IPC invoke timed out') {
       logPreloadError('ipc.invoke_timeout', correlationId, {
         channel,
-        timeoutMs: ipcInvokeTimeoutMs,
+        timeoutMs,
       });
       return asFailure(
         'IPC/TIMEOUT',
         `IPC invoke timed out for channel: ${channel}`,
-        { timeoutMs: ipcInvokeTimeoutMs },
+        { timeoutMs },
         true,
         correlationId,
       );
@@ -191,6 +200,83 @@ const desktopApi: DesktopApi = {
       );
 
       return mapResult(result, (value) => value.version);
+    },
+    async getRuntimeVersions() {
+      const correlationId = createCorrelationId();
+      const request = appRuntimeVersionsRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+      return invoke(
+        IPC_CHANNELS.appGetRuntimeVersions,
+        request,
+        correlationId,
+        appRuntimeVersionsResponseSchema,
+      );
+    },
+  },
+  auth: {
+    async signIn() {
+      const correlationId = createCorrelationId();
+      const request = authSignInRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authSignIn,
+        request,
+        correlationId,
+        authSignInResponseSchema,
+        authSignInTimeoutMs,
+      );
+    },
+    async signOut() {
+      const correlationId = createCorrelationId();
+      const request = authSignOutRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authSignOut,
+        request,
+        correlationId,
+        authSignOutResponseSchema,
+      );
+    },
+    async getSessionSummary() {
+      const correlationId = createCorrelationId();
+      const request = authGetSessionSummaryRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authGetSessionSummary,
+        request,
+        correlationId,
+        authGetSessionSummaryResponseSchema,
+      );
+    },
+    async getTokenDiagnostics() {
+      const correlationId = createCorrelationId();
+      const request = authGetTokenDiagnosticsRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {},
+      });
+
+      return invoke(
+        IPC_CHANNELS.authGetTokenDiagnostics,
+        request,
+        correlationId,
+        authGetTokenDiagnosticsResponseSchema,
+      );
     },
   },
   dialog: {

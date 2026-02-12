@@ -41,53 +41,99 @@ pnpm install
 
 ## Common Commands
 
-Quality gates:
+Core workflow:
+
+```bash
+pnpm install
+pnpm desktop:dev:win
+```
+
+Quality and CI-style checks:
 
 ```bash
 pnpm lint
 pnpm unit-test
+pnpm integration-test
+pnpm e2e-smoke
 pnpm build
+pnpm ci:local
 ```
 
-Renderer-only dev:
+Targeted dev commands:
 
 ```bash
 pnpm renderer:serve
+pnpm desktop:serve-all
+pnpm workspace:refresh:win
 ```
 
-Desktop dev (Windows one-command flow):
-
-```bash
-pnpm desktop:dev:win
-```
-
-Windows packaging (deterministic clean + make):
+Packaging commands:
 
 ```bash
 pnpm forge:make
+pnpm forge:make:staging
+pnpm forge:make:production
 ```
+
+Build flavor behavior:
+
+- `forge:make:staging`
+  - sets `APP_ENV=staging`
+  - enables packaged DevTools (`DESKTOP_ENABLE_DEVTOOLS=1`)
+  - outputs a staging executable name (`Angulectron-Staging.exe`)
+- `forge:make:production`
+  - sets `APP_ENV=production`
+  - disables packaged DevTools (`DESKTOP_ENABLE_DEVTOOLS=0`)
+  - outputs locked-down production artifacts
 
 Packaging notes:
 
-- `forge:make` now runs `forge:clean` first to remove stale outputs from `out/`.
+- Packaging runs `forge:clean` first to remove stale outputs from `out/`.
 - Windows distributable is ZIP-based (no interactive installer prompts).
 - Output ZIP location:
   - `out/make/zip/win32/x64/`
   - filename pattern: `@electron-foundation-source-win32-x64-<version>.zip`
-- Extract the ZIP, then run:
-  - `Angulectron.exe`
+- Extract the ZIP and run the generated executable from the extracted folder.
+- Custom app icon source path:
+  - `build/icon.ico`
 
-If local Nx state gets stuck/locked on Windows:
+## OIDC Authentication (Desktop)
 
-```bash
-pnpm workspace:refresh:win
-```
+OIDC support is implemented in main/preload with Authorization Code + PKCE.
 
-Then relaunch desktop dev:
+Required environment variables:
 
-```bash
-pnpm desktop:dev:win
-```
+- `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_REDIRECT_URI` (loopback URI, for example `http://127.0.0.1:42813/callback`)
+- `OIDC_SCOPES` (must include `openid`)
+
+Optional:
+
+- `OIDC_AUDIENCE`
+- `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1` (development-only fallback when OS secure storage is unavailable)
+
+Recommended local setup:
+
+1. Copy `.env.example` to `.env.local`.
+2. Fill in your OIDC values.
+3. Run `pnpm desktop:dev:win`.
+
+`desktop:dev:win` now auto-loads `.env` and `.env.local` (with `.env.local` taking precedence).
+
+Runtime behavior:
+
+- Refresh tokens are stored in OS secure storage on Windows (`keytar`) with encrypted file fallback.
+- Renderer can only call `desktop.auth.signIn()`, `desktop.auth.signOut()`, and `desktop.auth.getSessionSummary()`.
+- Access token attachment for secured API operations occurs in main process only.
+
+Temporary compatibility note:
+
+- Current Clerk OAuth flow may issue JWT access tokens without API `aud` claim in this tenant.
+- AWS JWT authorizer is temporarily configured to accept both:
+  - API audience (`YOUR_API_AUDIENCE`)
+  - OAuth client id (`YOUR_OAUTH_CLIENT_ID`)
+- This is tracked for removal in `docs/05-governance/backlog.md` (`BL-014`) and `docs/05-governance/oidc-auth-backlog.md`.
 
 ## Repository Layout
 

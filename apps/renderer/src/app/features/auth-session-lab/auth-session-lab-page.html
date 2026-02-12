@@ -1,0 +1,109 @@
+<section class="auth-session-page">
+  <mat-card class="hero">
+    <mat-card-subtitle>IDENTITY LAB</mat-card-subtitle>
+    <mat-card-title>OIDC Session Console</mat-card-title>
+    <mat-card-content>
+      Exercises desktop auth bridge APIs (`signIn`, `signOut`,
+      `getSessionSummary`) without exposing token values in renderer context.
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card>
+    <mat-card-title>Session Controls</mat-card-title>
+    <mat-card-content>
+      <div class="actions">
+        <button
+          mat-flat-button
+          type="button"
+          (click)="refreshSummary()"
+          [disabled]="refreshPending() || signOutPending()"
+        >
+          Refresh Summary
+        </button>
+        <button
+          mat-flat-button
+          type="button"
+          (click)="signIn()"
+          [disabled]="!desktopAvailable() || isActive()"
+        >
+          Sign In
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="signOut()"
+          [disabled]="signOutPending() || !desktopAvailable()"
+        >
+          Sign Out
+        </button>
+      </div>
+      <p class="status" [class.error]="statusTone() === 'error'">
+        {{ statusText() }}
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card>
+    <mat-card-title>Current Session</mat-card-title>
+    <mat-card-content>
+      @if (summary(); as session) {
+      <dl class="summary-grid">
+        <dt>State</dt>
+        <dd>{{ session.state }}</dd>
+        <dt>User ID</dt>
+        <dd>{{ session.userId ?? 'n/a' }}</dd>
+        <dt>Email</dt>
+        <dd>{{ session.email ?? 'n/a' }}</dd>
+        <dt>Name</dt>
+        <dd>{{ session.name ?? 'n/a' }}</dd>
+        <dt>Expires</dt>
+        <dd>{{ session.expiresAt ?? 'n/a' }}</dd>
+      </dl>
+      } @else {
+      <p>No session summary loaded yet.</p>
+      }
+
+      <div class="chip-row">
+        <h3>Scopes</h3>
+        @if (scopes().length > 0) {
+        <mat-chip-set>
+          @for (scope of scopes(); track scope) {
+          <mat-chip>{{ scope }}</mat-chip>
+          }
+        </mat-chip-set>
+        } @else {
+        <p class="muted">No scopes.</p>
+        }
+      </div>
+
+      <div class="chip-row">
+        <h3>Entitlements</h3>
+        @if (entitlements().length > 0) {
+        <mat-chip-set>
+          @for (entitlement of entitlements(); track entitlement) {
+          <mat-chip>{{ entitlement }}</mat-chip>
+          }
+        </mat-chip-set>
+        } @else {
+        <p class="muted">No entitlements.</p>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  @if (showTokenDiagnostics()) {
+  <mat-card>
+    <mat-card-title>Token Diagnostics</mat-card-title>
+    <mat-card-content>
+      @if (tokenDiagnostics()) {
+      <p class="muted">
+        Safe diagnostics only. Token values are not exposed to renderer.
+      </p>
+      <pre class="diagnostics-json">{{ tokenDiagnosticsJson() }}</pre>
+      } @else {
+      <p class="muted">No token diagnostics loaded yet.</p>
+      }
+    </mat-card-content>
+  </mat-card>
+  }
+</section>

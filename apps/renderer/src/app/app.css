@@ -65,6 +65,11 @@
 
 .shell-title {
   font-weight: 600;
+  margin-right: auto;
+}
+
+.labs-toggle {
+  border-radius: 0;
 }
 
 .active-link {

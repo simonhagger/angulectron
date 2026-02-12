@@ -3,8 +3,10 @@ import {
   BrowserWindow,
   dialog,
   ipcMain,
+  Menu,
   safeStorage,
   session,
+  shell,
   type IpcMainInvokeEvent,
   type WebContents,
 } from 'electron';
@@ -13,10 +15,18 @@ import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
-import { invokeApiOperation } from './api-gateway';
+import { invokeApiOperation, setOidcAccessTokenResolver } from './api-gateway';
+import { loadOidcConfig } from './oidc-config';
+import { OidcService } from './oidc-service';
+import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
 import {
   apiInvokeRequestSchema,
+  authGetSessionSummaryRequestSchema,
+  authGetTokenDiagnosticsRequestSchema,
+  authSignInRequestSchema,
+  authSignOutRequestSchema,
+  appRuntimeVersionsRequestSchema,
   appVersionRequestSchema,
   asFailure,
   asSuccess,
@@ -34,10 +44,65 @@ import {
 } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 
-const isDevelopment = !app.isPackaged;
+const runtimeSmokeEnabled = process.env.RUNTIME_SMOKE === '1';
+const isDevelopment = !app.isPackaged && !runtimeSmokeEnabled;
+const resolveAppEnvironment = (): 'development' | 'staging' | 'production' => {
+  const envValue = process.env.APP_ENV?.trim().toLowerCase();
+  if (
+    envValue === 'development' ||
+    envValue === 'staging' ||
+    envValue === 'production'
+  ) {
+    return envValue;
+  }
+
+  const packageJsonCandidates = [
+    '../../../../package.json',
+    '../../../package.json',
+    '../../package.json',
+    '../package.json',
+  ];
+
+  for (const candidate of packageJsonCandidates) {
+    try {
+      const absolutePath = path.resolve(__dirname, candidate);
+      if (!existsSync(absolutePath)) {
+        continue;
+      }
+
+      const raw = require(absolutePath) as { appEnv?: unknown };
+      if (
+        raw.appEnv === 'development' ||
+        raw.appEnv === 'staging' ||
+        raw.appEnv === 'production'
+      ) {
+        return raw.appEnv;
+      }
+    } catch {
+      // Ignore and continue fallback chain.
+    }
+  }
+
+  return app.isPackaged ? 'production' : 'development';
+};
+
+const resolveIsStagingExecutable = (): boolean => {
+  const executableName = path.basename(process.execPath).toLowerCase();
+  return executableName.includes('staging');
+};
+
+const appEnvironment = resolveAppEnvironment();
+const packagedDevToolsOverride = process.env.DESKTOP_ENABLE_DEVTOOLS;
+const allowPackagedDevTools =
+  app.isPackaged &&
+  (appEnvironment === 'staging' || resolveIsStagingExecutable()) &&
+  packagedDevToolsOverride !== '0';
+const shouldOpenDevTools =
+  !runtimeSmokeEnabled && (isDevelopment || allowPackagedDevTools);
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const fileTokenTtlMs = 5 * 60 * 1000;
 const fileTokenCleanupIntervalMs = 60 * 1000;
+const runtimeSmokeSettleMs = 4_000;
 const allowedDevHosts = new Set(['localhost', '127.0.0.1']);
 
 const resolveExistingPath = (
@@ -56,6 +121,38 @@ const resolveExistingPath = (
       .map((candidate) => path.resolve(__dirname, candidate))
       .join(', ')}`,
   );
+};
+
+const resolveAppMetadataVersion = (): string => {
+  const envVersion = process.env.npm_package_version?.trim();
+  if (envVersion) {
+    return envVersion;
+  }
+
+  const packageJsonCandidates = [
+    '../../../../package.json',
+    '../../../package.json',
+    '../../package.json',
+    '../package.json',
+  ];
+
+  for (const candidate of packageJsonCandidates) {
+    try {
+      const absolutePath = path.resolve(__dirname, candidate);
+      if (!existsSync(absolutePath)) {
+        continue;
+      }
+
+      const raw = require(absolutePath) as { version?: unknown };
+      if (typeof raw.version === 'string' && raw.version.trim().length > 0) {
+        return raw.version.trim();
+      }
+    } catch {
+      // Ignore and continue fallback chain.
+    }
+  }
+
+  return app.getVersion();
 };
 
 const resolvePreloadPath = (): string =>
@@ -79,6 +176,31 @@ const resolveRendererIndexPath = (): string =>
     '../../../renderer/browser/index.html',
   ]);
 
+const resolveWindowIconPath = (): string | undefined => {
+  const appPath = app.getAppPath();
+  const candidates = [
+    path.resolve(process.cwd(), 'build/icon.ico'),
+    path.resolve(process.cwd(), 'apps/renderer/public/favicon.ico'),
+    path.resolve(appPath, 'build/icon.ico'),
+    path.resolve(appPath, 'apps/renderer/public/favicon.ico'),
+    path.resolve(__dirname, '../../../../../build/icon.ico'),
+    path.resolve(__dirname, '../../../../../../build/icon.ico'),
+    path.resolve(__dirname, '../../../../../apps/renderer/public/favicon.ico'),
+    path.resolve(
+      __dirname,
+      '../../../../../../apps/renderer/public/favicon.ico',
+    ),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+};
+
 type FileSelectionToken = {
   filePath: string;
   expiresAt: number;
@@ -88,8 +210,9 @@ type FileSelectionToken = {
 const selectedFileTokens = new Map<string, FileSelectionToken>();
 let tokenCleanupTimer: NodeJS.Timeout | null = null;
 let storageGateway: StorageGateway | null = null;
+let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
-const APP_VERSION = app.getVersion();
+const APP_VERSION = resolveAppMetadataVersion();
 
 const logEvent = (
   level: 'debug' | 'info' | 'warn' | 'error',
@@ -190,7 +313,75 @@ const clearFileTokensForWindow = (windowId: number) => {
   }
 };
 
+const enableRuntimeSmokeMode = (window: BrowserWindow) => {
+  const diagnostics: string[] = [];
+  const pushDiagnostic = (message: string) => {
+    diagnostics.push(message);
+  };
+
+  window.webContents.on('console-message', (details) => {
+    if (details.level === 'warning' || details.level === 'error') {
+      const label = details.level === 'warning' ? 'warn' : 'error';
+      pushDiagnostic(
+        `${label} ${details.sourceId}:${details.lineNumber} ${details.message}`,
+      );
+    }
+  });
+
+  window.webContents.on('render-process-gone', (_event, details) => {
+    pushDiagnostic(`render-process-gone: ${details.reason}`);
+  });
+
+  window.webContents.on('did-fail-load', (_event, code, description, url) => {
+    pushDiagnostic(`did-fail-load: ${code} ${description} ${url}`);
+  });
+
+  window.webContents.once('did-finish-load', () => {
+    setTimeout(async () => {
+      try {
+        await window.webContents.executeJavaScript(`
+          (() => {
+            const labels = ['Material', 'Carbon', 'Tailwind'];
+            let delay = 150;
+            for (const label of labels) {
+              setTimeout(() => {
+                const candidates = [...document.querySelectorAll('a,[role="link"],button')];
+                const target = candidates.find((el) =>
+                  (el.textContent || '').toLowerCase().includes(label.toLowerCase())
+                );
+                target?.click();
+              }, delay);
+              delay += 250;
+            }
+          })();
+        `);
+      } catch (error) {
+        pushDiagnostic(
+          `route-probe-failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      setTimeout(() => {
+        if (diagnostics.length > 0) {
+          console.error('Runtime smoke failed due to renderer diagnostics.');
+          for (const message of diagnostics) {
+            console.error(`- ${message}`);
+          }
+          app.exit(1);
+          return;
+        }
+
+        console.info('Runtime smoke passed: no renderer warnings or errors.');
+        app.exit(0);
+      }, runtimeSmokeSettleMs);
+    }, 250);
+  });
+};
+
 const createMainWindow = async (): Promise<BrowserWindow> => {
+  const windowIconPath = resolveWindowIconPath();
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -198,6 +389,8 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     minHeight: 680,
     show: false,
     backgroundColor: '#f8f7f1',
+    autoHideMenuBar: true,
+    ...(windowIconPath ? { icon: windowIconPath } : {}),
     webPreferences: {
       preload: resolvePreloadPath(),
       contextIsolation: true,
@@ -209,7 +402,12 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
+  window.setMenuBarVisibility(false);
+
   hardenWebContents(window.webContents);
+  if (runtimeSmokeEnabled) {
+    enableRuntimeSmokeMode(window);
+  }
 
   window.on('closed', () => {
     clearFileTokensForWindow(window.id);
@@ -224,9 +422,12 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
 
   if (isDevelopment) {
     await window.loadURL(resolveRendererDevUrl().toString());
-    window.webContents.openDevTools({ mode: 'detach' });
   } else {
     await window.loadFile(resolveRendererIndexPath());
+  }
+
+  if (shouldOpenDevTools) {
+    window.webContents.openDevTools({ mode: 'detach' });
   }
 
   return window;
@@ -329,7 +530,155 @@ const registerIpcHandlers = () => {
       );
     }
 
-    return asSuccess({ version: app.getVersion() });
+    return asSuccess({ version: APP_VERSION });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.appGetRuntimeVersions, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = appRuntimeVersionsRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    return asSuccess({
+      electron: process.versions.electron,
+      node: process.versions.node,
+      chrome: process.versions.chrome,
+    });
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authSignIn, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authSignInRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    if (!oidcService) {
+      return asFailure(
+        'AUTH/NOT_CONFIGURED',
+        'OIDC authentication is not configured for this build.',
+        undefined,
+        false,
+        parsed.data.correlationId,
+      );
+    }
+
+    return oidcService.signIn();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authSignOut, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authSignOutRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    if (!oidcService) {
+      return asSuccess({ signedOut: true });
+    }
+
+    return oidcService.signOut();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authGetSessionSummary, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authGetSessionSummaryRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    if (!oidcService) {
+      return asSuccess({
+        state: 'signed-out' as const,
+        scopes: [],
+        entitlements: [],
+      });
+    }
+
+    return oidcService.getSessionSummary();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.authGetTokenDiagnostics, (event, payload) => {
+    const correlationId = getCorrelationId(payload);
+    const unauthorized = assertAuthorizedSender(event, correlationId);
+    if (unauthorized) {
+      return unauthorized;
+    }
+
+    const parsed = authGetTokenDiagnosticsRequestSchema.safeParse(payload);
+    if (!parsed.success) {
+      return asFailure(
+        'IPC/VALIDATION_FAILED',
+        'IPC payload failed validation.',
+        parsed.error.flatten(),
+        false,
+        correlationId,
+      );
+    }
+
+    if (!oidcService) {
+      return asSuccess({
+        sessionState: 'signed-out' as const,
+        bearerSource: 'access_token' as const,
+        accessToken: {
+          present: false,
+          format: 'absent' as const,
+          claims: null,
+        },
+        idToken: {
+          present: false,
+          format: 'absent' as const,
+          claims: null,
+        },
+      });
+    }
+
+    return oidcService.getTokenDiagnostics();
   });
 
   ipcMain.handle(IPC_CHANNELS.dialogOpenFile, async (event, payload) => {
@@ -642,6 +991,17 @@ const bootstrap = async () => {
   await app.whenReady();
   startFileTokenCleanup();
 
+  logEvent('info', 'app.environment', undefined, {
+    appEnvironment,
+    isPackaged: app.isPackaged,
+    executable: path.basename(process.execPath),
+    shouldOpenDevTools,
+  });
+
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+  }
+
   session.defaultSession.setPermissionRequestHandler(
     (_webContents, _permission, callback) => {
       callback(false);
@@ -657,6 +1017,37 @@ const bootstrap = async () => {
       ? (cipherText) => safeStorage.decryptString(cipherText)
       : undefined,
   });
+  const oidcConfig = loadOidcConfig();
+  if (oidcConfig) {
+    const refreshTokenStore = await createRefreshTokenStore({
+      userDataPath: app.getPath('userData'),
+      encryptString: safeStorage.isEncryptionAvailable()
+        ? (plainText) => safeStorage.encryptString(plainText)
+        : undefined,
+      decryptString: safeStorage.isEncryptionAvailable()
+        ? (cipherText) => safeStorage.decryptString(cipherText)
+        : undefined,
+      allowInsecurePlaintext:
+        process.env.OIDC_ALLOW_INSECURE_TOKEN_STORAGE === '1',
+      logger: (level, message) => {
+        logEvent(level, 'auth.token_store', undefined, { message });
+      },
+    });
+
+    oidcService = new OidcService({
+      config: oidcConfig,
+      tokenStore: refreshTokenStore,
+      openExternal: (url) => shell.openExternal(url).then(() => undefined),
+      logger: (level, event, details) => {
+        logEvent(level, event, undefined, details);
+      },
+    });
+    setOidcAccessTokenResolver(() => oidcService?.getApiBearerToken() ?? null);
+  } else {
+    logEvent('info', 'auth.not_configured');
+    setOidcAccessTokenResolver(null);
+  }
+
   registerIpcHandlers();
   mainWindow = await createMainWindow();
   logEvent('info', 'app.bootstrapped');
@@ -671,6 +1062,7 @@ const bootstrap = async () => {
 app.on('window-all-closed', () => {
   selectedFileTokens.clear();
   stopFileTokenCleanup();
+  oidcService?.dispose();
   storageGateway?.close();
   if (process.platform !== 'darwin') {
     app.quit();

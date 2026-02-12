@@ -39,8 +39,7 @@ testem.log
 .DS_Store
 Thumbs.db
 
-.nx/cache
-.nx/workspace-data
+/.nx/*
 
 .angular
 
@@ -50,3 +49,12 @@ vitest.config.*.timestamp*
 
 FILE_INDEX.txt
 FEEDBACK.md
+
+# local environment configuration
+.env*
+!.env.example
+!.env.*.example
+
+# e2e and test artifacts
+playwright-report/
+test-results/

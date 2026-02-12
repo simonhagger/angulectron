@@ -8,7 +8,7 @@ const apiParamValueSchema = z.union([
   z.null(),
 ]);
 
-export const API_OPERATION_IDS = ['status.github'] as const;
+export const API_OPERATION_IDS = ['status.github', 'portfolio.user'] as const;
 export const apiOperationIdSchema = z.enum(API_OPERATION_IDS);
 export type ApiOperationId = z.infer<typeof apiOperationIdSchema>;
 

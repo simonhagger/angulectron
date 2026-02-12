@@ -31,10 +31,13 @@
     "perf:ipc": "node ./tools/scripts/perf-ipc.mjs",
     "perf:memory": "node ./tools/scripts/perf-memory.mjs",
     "perf:check": "node ./tools/scripts/perf-check.mjs",
+    "runtime:smoke": "cross-env NX_DAEMON=false TMPDIR=/tmp TMP=/tmp TEMP=/tmp pnpm nx run-many -t build --projects=renderer,desktop-preload,desktop-main && node tools/scripts/runtime-smoke.mjs",
     "security-checklist:gate": "node ./tools/scripts/security-checklist-gate.mjs",
     "forge:clean": "node ./tools/scripts/clean-forge-output.mjs",
     "forge:start": "pnpm run build-desktop && electron-forge start",
     "forge:make": "pnpm run forge:clean && pnpm run build && electron-forge make",
+    "forge:make:staging": "pnpm run forge:clean && cross-env APP_ENV=staging DESKTOP_ENABLE_DEVTOOLS=1 pnpm run build && cross-env APP_ENV=staging DESKTOP_ENABLE_DEVTOOLS=1 electron-forge make",
+    "forge:make:production": "pnpm run forge:clean && cross-env APP_ENV=production DESKTOP_ENABLE_DEVTOOLS=0 pnpm run build && cross-env APP_ENV=production DESKTOP_ENABLE_DEVTOOLS=0 electron-forge make",
     "forge:publish": "electron-forge publish",
     "changeset": "changeset",
     "version-packages": "changeset version",
@@ -42,7 +45,7 @@
     "dependency-audit": "pnpm audit --prod",
     "license-compliance": "license-checker --summary",
     "commitlint": "commitlint --edit",
-    "ci:local": "pnpm nx format:check --all && pnpm lint && pnpm typecheck && pnpm unit-test && pnpm integration-test && pnpm e2e-smoke && pnpm a11y-e2e && pnpm i18n-check && pnpm build-renderer && pnpm build-desktop && pnpm dependency-audit --audit-level=high && pnpm license-compliance && pnpm perf:check"
+    "ci:local": "pnpm nx format:check --all && pnpm lint && pnpm typecheck && pnpm unit-test && pnpm integration-test && pnpm e2e-smoke && pnpm a11y-e2e && pnpm i18n-check && pnpm build-renderer && pnpm build-desktop && pnpm runtime:smoke && pnpm dependency-audit --audit-level=high && pnpm license-compliance && pnpm perf:check"
   },
   "private": true,
   "packageManager": "pnpm@10.14.0",
@@ -61,7 +64,8 @@
       "esbuild",
       "electron",
       "electron-winstaller",
-      "@carbon/styles"
+      "@carbon/styles",
+      "keytar"
     ]
   },
   "devDependencies": {
@@ -144,6 +148,7 @@
     "@fontsource/material-icons": "^5.2.7",
     "@jsverse/transloco": "^8.2.1",
     "electron-updater": "^6.7.3",
+    "keytar": "^7.9.0",
     "rxjs": "~7.8.0",
     "zod": "^4.3.6"
   }
