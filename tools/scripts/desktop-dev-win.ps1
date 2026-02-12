@@ -4,6 +4,44 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 Set-Location $repoRoot
 
+function Import-DotEnvFile {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  if (-not (Test-Path $Path)) {
+    return
+  }
+
+  Get-Content -Path $Path | ForEach-Object {
+    $line = $_.Trim()
+    if ([string]::IsNullOrWhiteSpace($line) -or $line.StartsWith('#')) {
+      return
+    }
+
+    $match = [regex]::Match($line, '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$')
+    if (-not $match.Success) {
+      return
+    }
+
+    $key = $match.Groups[1].Value
+    $value = $match.Groups[2].Value.Trim()
+
+    if (
+      ($value.StartsWith('"') -and $value.EndsWith('"')) -or
+      ($value.StartsWith("'") -and $value.EndsWith("'"))
+    ) {
+      $value = $value.Substring(1, $value.Length - 2)
+    }
+
+    [System.Environment]::SetEnvironmentVariable($key, $value, 'Process')
+  }
+}
+
+Import-DotEnvFile -Path (Join-Path $repoRoot ".env")
+Import-DotEnvFile -Path (Join-Path $repoRoot ".env.local")
+
 # Ensure Electron runs in GUI mode.
 Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
 

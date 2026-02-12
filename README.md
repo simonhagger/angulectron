@@ -105,6 +105,14 @@ Optional:
 - `OIDC_AUDIENCE`
 - `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1` (development-only fallback when OS secure storage is unavailable)
 
+Recommended local setup:
+
+1. Copy `.env.example` to `.env.local`.
+2. Fill in your OIDC values.
+3. Run `pnpm desktop:dev:win`.
+
+`desktop:dev:win` now auto-loads `.env` and `.env.local` (with `.env.local` taking precedence).
+
 Runtime behavior:
 
 - Refresh tokens are stored in OS secure storage on Windows (`keytar`) with encrypted file fallback.
