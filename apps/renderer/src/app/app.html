@@ -1,10 +1,18 @@
-<mat-sidenav-container class="shell-container">
-  <mat-sidenav class="shell-sidenav" mode="side" [opened]="navOpen()">
+<mat-sidenav-container
+  class="shell-container"
+  [hasBackdrop]="mobileViewport()"
+  (backdropClick)="closeNavForMobile()"
+>
+  <mat-sidenav
+    class="shell-sidenav"
+    [mode]="mobileViewport() ? 'over' : 'side'"
+    [opened]="navOpen()"
+  >
     <div class="sidenav-brand">
       <mat-icon aria-hidden="true">developer_board</mat-icon>
       <span>{{ title }}</span>
     </div>
-    <mat-nav-list>
+    <mat-nav-list (click)="handleNavListClick($event)">
       <a
         mat-list-item
         routerLink="/"
