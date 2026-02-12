@@ -56,6 +56,7 @@ const logPreloadError = (
 };
 
 const ipcInvokeTimeoutMs = 10_000;
+const authSignInTimeoutMs = 5 * 60_000;
 
 const createCorrelationId = (): string => {
   if (typeof globalThis.crypto?.randomUUID === 'function') {
@@ -96,13 +97,11 @@ const invoke = async <TResponse>(
   request: unknown,
   correlationId: string,
   responsePayloadSchema: ZodType<TResponse>,
+  timeoutMs = ipcInvokeTimeoutMs,
 ): Promise<DesktopResult<TResponse>> => {
   try {
     const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      setTimeout(
-        () => reject(new Error('IPC invoke timed out')),
-        ipcInvokeTimeoutMs,
-      );
+      setTimeout(() => reject(new Error('IPC invoke timed out')), timeoutMs);
     });
     const response = await Promise.race([
       ipcRenderer.invoke(channel, request),
@@ -128,12 +127,12 @@ const invoke = async <TResponse>(
     if (error instanceof Error && error.message === 'IPC invoke timed out') {
       logPreloadError('ipc.invoke_timeout', correlationId, {
         channel,
-        timeoutMs: ipcInvokeTimeoutMs,
+        timeoutMs,
       });
       return asFailure(
         'IPC/TIMEOUT',
         `IPC invoke timed out for channel: ${channel}`,
-        { timeoutMs: ipcInvokeTimeoutMs },
+        { timeoutMs },
         true,
         correlationId,
       );
@@ -213,6 +212,7 @@ const desktopApi: DesktopApi = {
         request,
         correlationId,
         authSignInResponseSchema,
+        authSignInTimeoutMs,
       );
     },
     async signOut() {
