@@ -16,6 +16,7 @@ const hasAppleSigningConfig =
 module.exports = {
   packagerConfig: {
     asar: true,
+    derefSymlinks: true,
     executableName: APP_NAME,
     appBundleId: APP_BUNDLE_ID,
     appCategoryType: 'public.app-category.developer-tools',

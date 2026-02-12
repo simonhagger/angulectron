@@ -1,6 +1,8 @@
 {
   "name": "@electron-foundation/source",
   "version": "0.0.0",
+  "description": "Angulectron desktop foundation workspace.",
+  "author": "Simon Hagger",
   "license": "MIT",
   "main": "dist/apps/desktop-main/main.js",
   "scripts": {

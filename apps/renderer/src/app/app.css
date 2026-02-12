@@ -14,7 +14,7 @@
 .shell-sidenav {
   width: 248px;
   border-right: 1px solid rgb(0 0 0 / 9%);
-  background: rgb(255 255 255 / 78%);
+  background: #fff;
   border-radius: 0;
 }
 
@@ -76,4 +76,11 @@
   width: min(1280px, calc(100% - 2rem));
   margin: 0 auto;
   padding: 1rem 0 2rem;
+}
+
+@media (max-width: 1023px) {
+  .shell-sidenav {
+    background: #fff;
+    opacity: 1;
+  }
 }

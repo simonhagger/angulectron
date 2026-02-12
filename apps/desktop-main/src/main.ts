@@ -33,7 +33,7 @@ import {
 } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = !app.isPackaged;
 const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
 const fileTokenTtlMs = 5 * 60 * 1000;
 const fileTokenCleanupIntervalMs = 60 * 1000;
@@ -86,6 +86,7 @@ type FileSelectionToken = {
 const selectedFileTokens = new Map<string, FileSelectionToken>();
 let tokenCleanupTimer: NodeJS.Timeout | null = null;
 let storageGateway: StorageGateway | null = null;
+let mainWindow: BrowserWindow | null = null;
 const APP_VERSION = app.getVersion();
 
 const logEvent = (
@@ -188,7 +189,7 @@ const clearFileTokensForWindow = (windowId: number) => {
 };
 
 const createMainWindow = async (): Promise<BrowserWindow> => {
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1440,
     height: 900,
     minWidth: 1080,
@@ -203,24 +204,27 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
     },
   });
 
-  hardenWebContents(mainWindow.webContents);
+  hardenWebContents(window.webContents);
 
-  mainWindow.on('closed', () => {
-    clearFileTokensForWindow(mainWindow.id);
+  window.on('closed', () => {
+    clearFileTokensForWindow(window.id);
+    if (mainWindow?.id === window.id) {
+      mainWindow = null;
+    }
   });
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+  window.once('ready-to-show', () => {
+    window.show();
   });
 
   if (isDevelopment) {
-    await mainWindow.loadURL(resolveRendererDevUrl().toString());
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
+    await window.loadURL(resolveRendererDevUrl().toString());
+    window.webContents.openDevTools({ mode: 'detach' });
   } else {
-    await mainWindow.loadFile(resolveRendererIndexPath());
+    await window.loadFile(resolveRendererIndexPath());
   }
 
-  return mainWindow;
+  return window;
 };
 
 const getCorrelationId = (payload: unknown): string | undefined => {
@@ -523,12 +527,12 @@ const bootstrap = async () => {
       : undefined,
   });
   registerIpcHandlers();
-  await createMainWindow();
+  mainWindow = await createMainWindow();
   logEvent('info', 'app.bootstrapped');
 
   app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      await createMainWindow();
+      mainWindow = await createMainWindow();
     }
   });
 };
