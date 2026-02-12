@@ -20,6 +20,7 @@ Last reviewed: 2026-02-08
 | BL-012 | IPC real-handler contract harness expansion                      | Proposed | Medium   | Testing + IPC Contracts | TASK.md          | Platform            | Extend contract tests to execute preload/main handlers incl. timeout and correlation checks.                                                                                                                |
 | BL-013 | OIDC auth platform (desktop PKCE + secure IPC)                   | Planned  | High     | Security + Identity     | TASK.md          | Platform            | Phased backlog and acceptance tests tracked in `docs/05-governance/oidc-auth-backlog.md`.                                                                                                                   |
 | BL-014 | Remove temporary JWT-authorizer client-id audience compatibility | Planned  | High     | Security + Identity     | OIDC integration | Platform + Security | Clerk OAuth access token currently omits `aud`; AWS authorizer temporarily allows both `YOUR_API_AUDIENCE` and OAuth client id. Remove client-id audience once Clerk emits API audience/scopes as required. |
+| BL-015 | Add IdP global sign-out and token revocation flow                | Planned  | Medium   | Security + Identity     | OIDC integration | Platform + Security | Current sign-out clears local session only. Add provider logout/end-session and refresh-token revocation (where supported), plus clear UX state for local vs global sign-out.                               |
 
 ## Status Definitions
 
