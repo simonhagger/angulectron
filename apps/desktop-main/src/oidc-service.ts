@@ -161,6 +161,14 @@ export class OidcService {
   }
 
   async signIn(): Promise<DesktopResult<{ initiated: boolean }>> {
+    if (
+      this.summary.state === 'active' &&
+      this.tokens &&
+      Date.now() < this.tokens.accessTokenExpiresAt
+    ) {
+      return asSuccess({ initiated: false });
+    }
+
     if (this.signInInFlight) {
       return asFailure(
         'AUTH/SIGNIN_IN_PROGRESS',

@@ -29,10 +29,13 @@ type StatusTone = 'info' | 'success' | 'warn' | 'error';
 })
 export class AuthSessionLabPage {
   readonly desktopAvailable = signal(!!getDesktopApi());
-  readonly loading = signal(false);
+  readonly signInPending = signal(false);
+  readonly refreshPending = signal(false);
+  readonly signOutPending = signal(false);
   readonly statusText = signal('Idle.');
   readonly statusTone = signal<StatusTone>('info');
   readonly summary = signal<AuthSessionSummary | null>(null);
+  readonly isActive = computed(() => this.summary()?.state === 'active');
   readonly scopes = computed(() => this.summary()?.scopes ?? []);
   readonly entitlements = computed(() => this.summary()?.entitlements ?? []);
 
@@ -44,7 +47,7 @@ export class AuthSessionLabPage {
       return;
     }
 
-    this.loading.set(true);
+    this.refreshPending.set(true);
     try {
       const result = await desktop.auth.getSessionSummary();
       if (!result.ok) {
@@ -57,7 +60,7 @@ export class AuthSessionLabPage {
       this.statusText.set(`Session state: ${result.data.state}`);
       this.statusTone.set(result.data.state === 'active' ? 'success' : 'info');
     } finally {
-      this.loading.set(false);
+      this.refreshPending.set(false);
     }
   }
 
@@ -69,7 +72,13 @@ export class AuthSessionLabPage {
       return;
     }
 
-    this.loading.set(true);
+    if (this.isActive()) {
+      this.statusText.set('Session is already active.');
+      this.statusTone.set('info');
+      return;
+    }
+
+    this.signInPending.set(true);
     try {
       const result = await desktop.auth.signIn();
       if (!result.ok) {
@@ -78,11 +87,15 @@ export class AuthSessionLabPage {
         return;
       }
 
-      this.statusText.set('Sign-in completed.');
-      this.statusTone.set('success');
+      this.statusText.set(
+        result.data.initiated
+          ? 'Sign-in completed.'
+          : 'Session is already active.',
+      );
+      this.statusTone.set(result.data.initiated ? 'success' : 'info');
       await this.refreshSummary();
     } finally {
-      this.loading.set(false);
+      this.signInPending.set(false);
     }
   }
 
@@ -94,7 +107,7 @@ export class AuthSessionLabPage {
       return;
     }
 
-    this.loading.set(true);
+    this.signOutPending.set(true);
     try {
       const result = await desktop.auth.signOut();
       if (!result.ok) {
@@ -107,7 +120,7 @@ export class AuthSessionLabPage {
       this.statusTone.set('info');
       await this.refreshSummary();
     } finally {
-      this.loading.set(false);
+      this.signOutPending.set(false);
     }
   }
 }
