@@ -25,6 +25,9 @@ export type ApiOperation = {
         tokenEnvVar: string;
       }
     | {
+        type: 'oidc';
+      }
+    | {
         type: 'none';
       };
   retry?: {
@@ -62,6 +65,13 @@ type OperationRuntimeState = {
 };
 
 const operationRuntimeState = new Map<string, OperationRuntimeState>();
+let oidcAccessTokenResolver: (() => string | null) | null = null;
+
+export const setOidcAccessTokenResolver = (
+  resolver: (() => string | null) | null,
+) => {
+  oidcAccessTokenResolver = resolver;
+};
 
 const sleep = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -205,6 +215,23 @@ const invokeSingleAttempt = async (
         {
           operationId: request.payload.operationId,
           tokenEnvVar: auth.tokenEnvVar,
+        },
+        false,
+        correlationId,
+      );
+    }
+
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  if (auth.type === 'oidc') {
+    const token = oidcAccessTokenResolver?.();
+    if (!token) {
+      return asFailure(
+        'API/AUTH_REQUIRED',
+        'An active OIDC session is required for this API operation.',
+        {
+          operationId: request.payload.operationId,
         },
         false,
         correlationId,

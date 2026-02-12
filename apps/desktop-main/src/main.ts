@@ -14,7 +14,7 @@ import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
-import { invokeApiOperation } from './api-gateway';
+import { invokeApiOperation, setOidcAccessTokenResolver } from './api-gateway';
 import { loadOidcConfig } from './oidc-config';
 import { OidcService } from './oidc-service';
 import { createRefreshTokenStore } from './secure-token-store';
@@ -849,8 +849,10 @@ const bootstrap = async () => {
         logEvent(level, event, undefined, details);
       },
     });
+    setOidcAccessTokenResolver(() => oidcService?.getAccessToken() ?? null);
   } else {
     logEvent('info', 'auth.not_configured');
+    setOidcAccessTokenResolver(null);
   }
 
   registerIpcHandlers();

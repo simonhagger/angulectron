@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type {
   ApiInvokeRequest,
   ApiOperationId,
   DesktopResult,
 } from '@electron-foundation/contracts';
-import { invokeApiOperation, type ApiOperation } from './api-gateway';
+import {
+  invokeApiOperation,
+  setOidcAccessTokenResolver,
+  type ApiOperation,
+} from './api-gateway';
 
 const baseRequest = (
   operationId: ApiOperationId,
@@ -32,6 +36,10 @@ const expectFailure = (
 };
 
 describe('invokeApiOperation', () => {
+  afterEach(() => {
+    setOidcAccessTokenResolver(null);
+  });
+
   it('rejects unknown operations', async () => {
     const result = await invokeApiOperation(
       {
@@ -192,6 +200,59 @@ describe('invokeApiOperation', () => {
 
     const error = expectFailure(result);
     expect(error.code).toBe('API/CREDENTIALS_UNAVAILABLE');
+  });
+
+  it('rejects oidc-auth operations when no session token is available', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
+        method: 'GET',
+        url: 'https://api.example.com/secure',
+        auth: {
+          type: 'oidc',
+        },
+      },
+    };
+    setOidcAccessTokenResolver(() => null);
+
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations,
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/AUTH_REQUIRED');
+  });
+
+  it('attaches oidc bearer token when resolver returns an access token', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'status.github': {
+        method: 'GET',
+        url: 'https://api.example.com/secure',
+        auth: {
+          type: 'oidc',
+        },
+      },
+    };
+    setOidcAccessTokenResolver(() => 'oidc-token-123');
+
+    let authHeader = '';
+    const fetchFn: typeof fetch = async (_input, init) => {
+      const headers = new Headers(init?.headers);
+      authHeader = headers.get('Authorization') ?? '';
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      });
+    };
+
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations,
+      fetchFn,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(authHeader).toBe('Bearer oidc-token-123');
   });
 
   it('retries GET requests for retryable errors', async () => {
