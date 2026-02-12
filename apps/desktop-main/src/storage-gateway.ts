@@ -43,13 +43,26 @@ type StoredRow = {
 
 export class StorageGateway {
   private db: SqliteDatabase | null = null;
+  private readonly deps: StorageGatewayDeps;
 
-  constructor(private readonly deps: StorageGatewayDeps) {}
+  constructor(deps: StorageGatewayDeps) {
+    this.deps = deps;
+  }
 
   setItem(request: StorageSetRequest): DesktopResult<{ updated: boolean }> {
     const readyFailure = this.ensureReady(request.correlationId);
     if (readyFailure) {
       return readyFailure;
+    }
+    const db = this.db;
+    if (!db) {
+      return asFailure(
+        'STORAGE/INITIALIZATION_FAILED',
+        'Storage is not initialized.',
+        undefined,
+        false,
+        request.correlationId,
+      );
     }
 
     const serialized = this.serializeValue(
@@ -79,7 +92,7 @@ export class StorageGateway {
       expiresAt = now + DEFAULT_CACHE_TTL_SECONDS * 1000;
     }
 
-    this.db!.prepare(
+    db.prepare(
       `
       INSERT INTO kv_store (domain, key, value, is_encrypted, classification, expires_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -112,17 +125,31 @@ export class StorageGateway {
     if (readyFailure) {
       return readyFailure;
     }
+    const db = this.db;
+    if (!db) {
+      return asFailure(
+        'STORAGE/INITIALIZATION_FAILED',
+        'Storage is not initialized.',
+        undefined,
+        false,
+        request.correlationId,
+      );
+    }
 
-    const row = this.db!.prepare(
-      'SELECT value, is_encrypted, classification, expires_at FROM kv_store WHERE domain = ? AND key = ?',
-    ).get(request.payload.domain, request.payload.key) as StoredRow | undefined;
+    const row = db
+      .prepare(
+        'SELECT value, is_encrypted, classification, expires_at FROM kv_store WHERE domain = ? AND key = ?',
+      )
+      .get(request.payload.domain, request.payload.key) as
+      | StoredRow
+      | undefined;
 
     if (!row) {
       return asSuccess({ found: false });
     }
 
     if (typeof row.expires_at === 'number' && row.expires_at <= Date.now()) {
-      this.db!.prepare('DELETE FROM kv_store WHERE domain = ? AND key = ?').run(
+      db.prepare('DELETE FROM kv_store WHERE domain = ? AND key = ?').run(
         request.payload.domain,
         request.payload.key,
       );
@@ -148,10 +175,20 @@ export class StorageGateway {
     if (readyFailure) {
       return readyFailure;
     }
+    const db = this.db;
+    if (!db) {
+      return asFailure(
+        'STORAGE/INITIALIZATION_FAILED',
+        'Storage is not initialized.',
+        undefined,
+        false,
+        request.correlationId,
+      );
+    }
 
-    const result = this.db!.prepare(
-      'DELETE FROM kv_store WHERE domain = ? AND key = ?',
-    ).run(request.payload.domain, request.payload.key);
+    const result = db
+      .prepare('DELETE FROM kv_store WHERE domain = ? AND key = ?')
+      .run(request.payload.domain, request.payload.key);
 
     return asSuccess({ deleted: result.changes > 0 });
   }
@@ -163,10 +200,20 @@ export class StorageGateway {
     if (readyFailure) {
       return readyFailure;
     }
+    const db = this.db;
+    if (!db) {
+      return asFailure(
+        'STORAGE/INITIALIZATION_FAILED',
+        'Storage is not initialized.',
+        undefined,
+        false,
+        request.correlationId,
+      );
+    }
 
-    const result = this.db!.prepare(
-      'DELETE FROM kv_store WHERE domain = ?',
-    ).run(request.payload.domain);
+    const result = db
+      .prepare('DELETE FROM kv_store WHERE domain = ?')
+      .run(request.payload.domain);
 
     return asSuccess({ cleared: result.changes });
   }

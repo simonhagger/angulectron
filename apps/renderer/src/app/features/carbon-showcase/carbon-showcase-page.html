@@ -78,9 +78,9 @@
   <section class="panel cds--layer">
     <h2>Tags</h2>
     <div class="tag-row">
-      <span class="cds--tag cds--tag--blue" *ngFor="let tag of tags"
-        >{{ tag }}</span
-      >
+      @for (tag of tags; track tag) {
+      <span class="cds--tag cds--tag--blue">{{ tag }}</span>
+      }
     </div>
   </section>
 </section>
