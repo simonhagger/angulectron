@@ -32,7 +32,11 @@ export class AuthSigninBridgePage {
         throw new Error('Only HTTPS redirect URLs are allowed.');
       }
 
-      window.location.replace(parsed.toString());
+      const signInHost = parsed.hostname;
+      const hostedSignInUrl = new URL(`https://${signInHost}/sign-in`);
+      hostedSignInUrl.searchParams.set('redirect_url', parsed.toString());
+
+      window.location.replace(hostedSignInUrl.toString());
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : String(error));
       this.message.set('Unable to continue sign-in.');
