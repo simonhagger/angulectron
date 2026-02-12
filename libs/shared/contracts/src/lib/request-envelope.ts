@@ -4,10 +4,12 @@ import { contractVersionSchema } from './contract-version';
 export const requestEnvelope = <TPayload extends z.ZodTypeAny>(
   payload: TPayload,
 ) =>
-  z.object({
-    contractVersion: contractVersionSchema,
-    correlationId: z.string().min(1).max(128),
-    payload,
-  });
+  z
+    .object({
+      contractVersion: contractVersionSchema,
+      correlationId: z.string().min(1).max(128),
+      payload,
+    })
+    .strict();
 
 export const emptyPayloadSchema = z.object({}).strict();

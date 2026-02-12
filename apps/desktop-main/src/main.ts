@@ -203,6 +203,9 @@ const createMainWindow = async (): Promise<BrowserWindow> => {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
     },
   });
 
