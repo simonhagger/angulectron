@@ -41,13 +41,21 @@ export const registerAuthIpcHandlers = (
     channel: IPC_CHANNELS.authSignOut,
     schema: authSignOutRequestSchema,
     context,
-    handler: () => {
+    handler: (_event, request) => {
       const oidcService = context.getOidcService();
       if (!oidcService) {
-        return asSuccess({ signedOut: true });
+        return asSuccess({
+          signedOut: true,
+          mode: request.payload.mode,
+          refreshTokenPresent: false,
+          refreshTokenRevoked: false,
+          revocationSupported: false,
+          endSessionSupported: false,
+          endSessionInitiated: false,
+        });
       }
 
-      return oidcService.signOut();
+      return oidcService.signOut(request.payload.mode);
     },
   });
 

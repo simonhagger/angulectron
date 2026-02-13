@@ -5,6 +5,7 @@ import { autoUpdater } from 'electron-updater';
 import {
   asSuccess,
   IPC_CHANNELS,
+  updatesApplyDemoPatchRequestSchema,
   updatesCheckRequestSchema,
 } from '@electron-foundation/contracts';
 import type { MainIpcContext } from './handler-context';
@@ -26,11 +27,16 @@ export const registerUpdatesIpcHandlers = (
           'app-update.yml',
         );
         if (!existsSync(updateConfigPath)) {
-          return asSuccess({
-            status: 'error' as const,
-            message:
-              'Update checks are not configured for this build. Use installer/release artifacts for update testing.',
-          });
+          const demoUpdater = context.getDemoUpdater();
+          if (!demoUpdater) {
+            return asSuccess({
+              status: 'error' as const,
+              message:
+                'Update checks are not configured for this build and demo updater is unavailable.',
+            });
+          }
+
+          return demoUpdater.check();
         }
 
         const updateCheck = await autoUpdater.checkForUpdates();
@@ -45,17 +51,46 @@ export const registerUpdatesIpcHandlers = (
           return asSuccess({
             status: 'available' as const,
             message: `Update ${candidateVersion} is available.`,
+            source: 'native' as const,
+            currentVersion,
+            latestVersion: candidateVersion,
           });
         }
 
-        return asSuccess({ status: 'not-available' as const });
+        return asSuccess({
+          status: 'not-available' as const,
+          source: 'native' as const,
+          currentVersion,
+          latestVersion: currentVersion,
+        });
       } catch (error) {
         return asSuccess({
           status: 'error' as const,
           message:
             error instanceof Error ? error.message : 'Update check failed.',
+          source: 'native' as const,
         });
       }
+    },
+  });
+
+  registerValidatedHandler({
+    ipcMain,
+    channel: IPC_CHANNELS.updatesApplyDemoPatch,
+    schema: updatesApplyDemoPatchRequestSchema,
+    context,
+    handler: async () => {
+      const demoUpdater = context.getDemoUpdater();
+      if (!demoUpdater) {
+        return asSuccess({
+          applied: false,
+          status: 'error' as const,
+          source: 'demo' as const,
+          message: 'Demo updater is unavailable for this build.',
+        });
+      }
+
+      return demoUpdater.applyPatch();
     },
   });
 };

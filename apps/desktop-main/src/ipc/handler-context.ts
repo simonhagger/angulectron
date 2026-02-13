@@ -7,6 +7,7 @@ import type {
 } from '@electron-foundation/contracts';
 import type { OidcService } from '../oidc-service';
 import type { StorageGateway } from '../storage-gateway';
+import type { DemoUpdater } from '../demo-updater';
 
 export type FileSelectionToken = {
   filePath: string;
@@ -32,6 +33,7 @@ export type MainIpcContext = {
   getApiOperationDiagnostics: (
     operationId: ApiInvokeRequest['payload']['operationId'],
   ) => DesktopResult<ApiGetOperationDiagnosticsResponse>;
+  getDemoUpdater: () => DemoUpdater | null;
   logEvent: (
     level: 'debug' | 'info' | 'warn' | 'error',
     event: string,

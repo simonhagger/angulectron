@@ -1,13 +1,16 @@
 import {
   ChangeDetectionStrategy,
-  computed,
   Component,
+  computed,
+  inject,
   signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
 import { createShellBadge } from '@electron-foundation/shell';
 import { MatButtonModule } from '@angular/material/button';
+import { TranslocoService } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-home-page',
@@ -17,29 +20,36 @@ import { MatButtonModule } from '@angular/material/button';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class HomePage {
-  readonly labels = {
-    title: 'Workspace Home',
-    subtitle: 'Desktop bridge status and quick integration actions.',
-    desktopBridge: 'Desktop bridge',
-    connected: 'Connected',
-    disconnected: 'Disconnected',
-    appVersion: 'App version',
-    contractVersion: 'Contract version',
-    activeLanguage: 'Active language',
-    actions: 'Actions',
-    openFile: 'Open file',
-    checkUpdates: 'Check updates',
-    trackTelemetry: 'Track telemetry',
-    useEnglish: 'Use English',
-    filePreview: 'File preview',
-    updateStatus: 'Update status',
-    telemetryStatus: 'Telemetry status',
-    governanceTitle: 'Governance',
-    governanceBody:
-      'Track build quality, CI health, and release readiness from this dashboard.',
-  } as const;
+  private readonly transloco = inject(TranslocoService);
+  readonly labels = toSignal(this.transloco.selectTranslateObject('home'), {
+    initialValue: {
+      title: 'home.title',
+      subtitle: 'home.subtitle',
+      desktopBridge: 'home.desktopBridge',
+      connected: 'home.connected',
+      disconnected: 'home.disconnected',
+      appVersion: 'home.appVersion',
+      contractVersion: 'home.contractVersion',
+      activeLanguage: 'home.activeLanguage',
+      actions: 'home.actions',
+      openFile: 'home.openFile',
+      checkUpdates: 'home.checkUpdates',
+      trackTelemetry: 'home.trackTelemetry',
+      useEnglish: 'home.useEnglish',
+      filePreview: 'home.filePreview',
+      updateStatus: 'home.updateStatus',
+      telemetryStatus: 'home.telemetryStatus',
+      governanceTitle: 'home.governanceTitle',
+      governanceBody: 'home.governanceBody',
+      desktopUnavailable: 'home.desktopUnavailable',
+      selectTextFileTitle: 'home.selectTextFileTitle',
+      textFiles: 'home.textFiles',
+      noFileSelected: 'home.noFileSelected',
+      eventAccepted: 'home.eventAccepted',
+    },
+  });
 
-  readonly language = signal('en-US');
+  readonly language = signal(this.transloco.getActiveLang());
   readonly desktopAvailable = signal(false);
   readonly appVersion = signal('N/A');
   readonly contractVersion = signal('N/A');
@@ -56,19 +66,22 @@ export class HomePage {
   }
 
   setLanguage(language: 'en-US') {
+    this.transloco.setActiveLang(language);
     this.language.set(language);
   }
 
   async openFile() {
     const desktop = getDesktopApi();
     if (!desktop) {
-      this.fileResult.set('Desktop bridge unavailable in browser mode.');
+      this.fileResult.set(this.labels().desktopUnavailable);
       return;
     }
 
     const fileDialogResult = await desktop.dialog.openFile({
-      title: 'Select a text file',
-      filters: [{ name: 'Text files', extensions: ['txt', 'md', 'json'] }],
+      title: this.labels().selectTextFileTitle,
+      filters: [
+        { name: this.labels().textFiles, extensions: ['txt', 'md', 'json'] },
+      ],
     });
 
     if (
@@ -76,7 +89,7 @@ export class HomePage {
       fileDialogResult.data.canceled ||
       !fileDialogResult.data.fileToken
     ) {
-      this.fileResult.set('No file selected.');
+      this.fileResult.set(this.labels().noFileSelected);
       return;
     }
 
@@ -95,7 +108,7 @@ export class HomePage {
   async checkUpdates() {
     const desktop = getDesktopApi();
     if (!desktop) {
-      this.updateResult.set('Desktop bridge unavailable in browser mode.');
+      this.updateResult.set(this.labels().desktopUnavailable);
       return;
     }
 
@@ -112,7 +125,7 @@ export class HomePage {
   async trackTelemetry() {
     const desktop = getDesktopApi();
     if (!desktop) {
-      this.telemetryResult.set('Desktop bridge unavailable in browser mode.');
+      this.telemetryResult.set(this.labels().desktopUnavailable);
       return;
     }
 
@@ -122,7 +135,7 @@ export class HomePage {
     });
 
     this.telemetryResult.set(
-      result.ok ? 'Event accepted.' : result.error.message,
+      result.ok ? this.labels().eventAccepted : result.error.message,
     );
   }
 

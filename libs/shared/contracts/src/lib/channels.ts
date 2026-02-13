@@ -15,6 +15,7 @@ export const IPC_CHANNELS = {
   apiInvoke: 'api:invoke',
   apiGetOperationDiagnostics: 'api:get-operation-diagnostics',
   updatesCheck: 'updates:check',
+  updatesApplyDemoPatch: 'updates:apply-demo-patch',
   telemetryTrack: 'telemetry:track',
 } as const;
 

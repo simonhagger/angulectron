@@ -7,6 +7,7 @@ const apiParamValueSchema = z.union([
   z.boolean(),
   z.null(),
 ]);
+export type ApiParamValue = z.infer<typeof apiParamValueSchema>;
 
 const apiHeaderNameSchema = z
   .string()
@@ -19,6 +20,16 @@ export const API_OPERATION_IDS = [
 ] as const;
 export const apiOperationIdSchema = z.enum(API_OPERATION_IDS);
 export type ApiOperationId = z.infer<typeof apiOperationIdSchema>;
+
+export type ApiOperationParamsById = {
+  'status.github': Record<string, ApiParamValue> | undefined;
+  'call.secure-endpoint': Record<string, ApiParamValue> | undefined;
+};
+
+export type ApiOperationResponseDataById = {
+  'status.github': unknown;
+  'call.secure-endpoint': unknown;
+};
 
 export const apiInvokeRequestSchema = requestEnvelope(
   z
@@ -61,6 +72,7 @@ export const apiInvokeResponseSchema = z.object({
 });
 
 export type ApiInvokeRequest = z.infer<typeof apiInvokeRequestSchema>;
+export type ApiInvokeRequestPayload = ApiInvokeRequest['payload'];
 export type ApiGetOperationDiagnosticsRequest = z.infer<
   typeof apiGetOperationDiagnosticsRequestSchema
 >;

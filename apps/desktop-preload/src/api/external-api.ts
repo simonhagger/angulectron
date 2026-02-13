@@ -1,5 +1,7 @@
 import type { DesktopExternalApi } from '@electron-foundation/desktop-api';
 import {
+  type ApiOperationId,
+  type ApiOperationParamsById,
   apiGetOperationDiagnosticsRequestSchema,
   apiGetOperationDiagnosticsResponseSchema,
   apiInvokeRequestSchema,
@@ -10,7 +12,11 @@ import {
 import { createCorrelationId, invokeIpc } from '../invoke-client';
 
 export const createExternalApi = (): DesktopExternalApi => ({
-  async invoke(operationId, params, options) {
+  async invoke<TOperationId extends ApiOperationId>(
+    operationId: TOperationId,
+    params?: ApiOperationParamsById[TOperationId],
+    options?: { headers?: Record<string, string> },
+  ) {
     const correlationId = createCorrelationId();
     const request = apiInvokeRequestSchema.parse({
       contractVersion: CONTRACT_VERSION,

@@ -14,6 +14,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import type {
   AuthGetTokenDiagnosticsResponse,
+  AuthSignOutMode,
   AuthSessionSummary,
 } from '@electron-foundation/contracts';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
@@ -59,7 +60,7 @@ export class AuthSessionLabPage {
     return JSON.stringify(diagnostics, null, 2);
   });
   readonly isActive = this.authSessionState.isActive;
-  readonly returnUrl = signal('/');
+  readonly returnUrl = signal<string | null>(null);
   readonly scopes = computed(() => this.summary()?.scopes ?? []);
   readonly entitlements = computed(() => this.summary()?.entitlements ?? []);
 
@@ -147,8 +148,9 @@ export class AuthSessionLabPage {
       );
       this.statusTone.set(result.data.initiated ? 'success' : 'info');
       await this.refreshSummary();
-      if (this.isActive()) {
-        await this.router.navigateByUrl(this.returnUrl());
+      const returnUrl = this.returnUrl();
+      if (this.isActive() && returnUrl) {
+        await this.router.navigateByUrl(returnUrl);
       }
     } finally {
       clearTimeout(uiTimeoutHandle);
@@ -164,7 +166,15 @@ export class AuthSessionLabPage {
     this.statusTone.set('info');
   }
 
-  async signOut() {
+  async signOutLocal() {
+    await this.signOut('local');
+  }
+
+  async signOutGlobal() {
+    await this.signOut('global');
+  }
+
+  private async signOut(mode: AuthSignOutMode) {
     const desktop = getDesktopApi();
     if (!desktop) {
       this.statusText.set('Desktop bridge unavailable in browser mode.');
@@ -179,14 +189,29 @@ export class AuthSessionLabPage {
 
     this.signOutPending.set(true);
     try {
-      const result = await desktop.auth.signOut();
+      const result = await desktop.auth.signOut(mode);
       if (!result.ok) {
         this.statusText.set(result.error.message);
         this.statusTone.set('error');
         return;
       }
 
-      this.statusText.set('Signed out.');
+      const providerMessage =
+        result.data.mode === 'global'
+          ? result.data.endSessionSupported
+            ? result.data.endSessionInitiated
+              ? 'Provider end-session flow was launched in browser.'
+              : 'Provider end-session flow was not launched.'
+            : 'Provider does not advertise an end-session endpoint.'
+          : 'Local session cleared.';
+      const revokeMessage = result.data.revocationSupported
+        ? result.data.refreshTokenPresent
+          ? result.data.refreshTokenRevoked
+            ? 'Refresh token was revoked.'
+            : 'Refresh token revocation failed.'
+          : 'No refresh token was present to revoke.'
+        : 'Provider does not advertise a revocation endpoint.';
+      this.statusText.set(`${providerMessage} ${revokeMessage}`);
       this.statusTone.set('info');
       await this.refreshSummary();
     } finally {
@@ -194,13 +219,17 @@ export class AuthSessionLabPage {
     }
   }
 
-  private toSafeInternalUrl(url: string | null): string {
+  private toSafeInternalUrl(url: string | null): string | null {
     if (!url || !url.startsWith('/')) {
-      return '/';
+      return null;
     }
 
     if (url.startsWith('//') || /[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)) {
-      return '/';
+      return null;
+    }
+
+    if (url === '/auth-session-lab') {
+      return null;
     }
 
     return url;
@@ -208,15 +237,18 @@ export class AuthSessionLabPage {
 
   private async initializeSessionState() {
     await this.authSessionState.ensureInitialized(this.showTokenDiagnostics());
-    await this.refreshSummary();
-    const summary = this.summary();
-    if (!summary) {
-      this.statusText.set('Desktop bridge unavailable in browser mode.');
-      this.statusTone.set('warn');
+    const result = await this.authSessionState.refreshSummary(
+      this.showTokenDiagnostics(),
+    );
+    if (!result.ok) {
+      this.statusText.set(result.error.message);
+      this.statusTone.set(
+        result.error.code === 'DESKTOP/UNAVAILABLE' ? 'warn' : 'error',
+      );
       return;
     }
 
-    this.applySummaryStatus(summary.state);
+    this.applySummaryStatus(result.data.state);
   }
 
   private applySummaryStatus(state: AuthSessionSummary['state']) {

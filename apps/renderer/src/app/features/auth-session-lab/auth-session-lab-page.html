@@ -41,10 +41,18 @@
         <button
           mat-stroked-button
           type="button"
-          (click)="signOut()"
+          (click)="signOutLocal()"
           [disabled]="!sessionInitialized() || !isActive() || signOutPending() || !desktopAvailable()"
         >
-          Sign Out
+          Sign Out (Local)
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="signOutGlobal()"
+          [disabled]="!sessionInitialized() || !isActive() || signOutPending() || !desktopAvailable()"
+        >
+          Sign Out (Global)
         </button>
       </div>
       <p class="status" [class.error]="statusTone() === 'error'">

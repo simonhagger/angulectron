@@ -18,6 +18,11 @@
           {
             "glob": "**/*",
             "input": "apps/renderer/public"
+          },
+          {
+            "glob": "**/i18n/*.json",
+            "input": "apps/renderer/src/app/features",
+            "output": "i18n/features"
           }
         ],
         "styles": [
@@ -28,6 +33,16 @@
       "configurations": {
         "production": {
           "baseHref": "./",
+          "fileReplacements": [
+            {
+              "replace": "apps/renderer/src/app/app.routes.ts",
+              "with": "apps/renderer/src/app/app.routes.prod.ts"
+            },
+            {
+              "replace": "apps/renderer/src/app/app-shell.config.ts",
+              "with": "apps/renderer/src/app/app-shell.config.prod.ts"
+            }
+          ],
           "budgets": [
             {
               "type": "initial",

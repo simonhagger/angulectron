@@ -33,12 +33,12 @@ export const createAuthApi = (): DesktopAuthApi => ({
     );
   },
 
-  async signOut() {
+  async signOut(mode: 'local' | 'global' = 'local') {
     const correlationId = createCorrelationId();
     const request = authSignOutRequestSchema.parse({
       contractVersion: CONTRACT_VERSION,
       correlationId,
-      payload: {},
+      payload: { mode },
     });
 
     return invokeIpc(

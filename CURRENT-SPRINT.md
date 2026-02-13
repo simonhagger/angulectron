@@ -1,83 +1,87 @@
 # Current Sprint
 
-Sprint window: 2026-02-13 onward  
-Owner: Platform Engineering + Frontend  
-Status: Active
+Sprint window: 2026-02-13 onward (Sprint 2)  
+Owner: Platform Engineering + Security + Frontend  
+Status: Active (core scope complete; stretch pending)
 
 ## Sprint Goal
 
-Reduce risk in privileged runtime boundaries by completing the P0 refactor set while preserving existing behavior.
+Advance post-refactor hardening by improving auth lifecycle completeness, IPC integration confidence, and API contract typing safety.
 
 ## In Scope (Committed)
 
-- `BL-016` Refactor desktop-main composition root and IPC modularization.
-- `BL-017` Refactor preload bridge into domain modules with shared invoke client.
-- `BL-018` Introduce reusable validated IPC handler factory in desktop-main.
-
-## Stretch Scope (If Capacity Allows)
-
+- `BL-015` Add IdP global sign-out and token revocation flow.
 - `BL-023` Expand IPC integration harness for preload-main real handler paths.
 - `BL-025` Strengthen compile-time typing for API operation contracts end-to-end.
 
+## Stretch Scope (If Capacity Allows)
+
+- `BL-020` Complete renderer i18n migration for hardcoded user-facing strings.
+
+## Additional Delivered Work (Unplanned but Completed)
+
+- Production hardening: exclude lab routes/navigation from production bundle surface.
+- Update model proof: deterministic bundled-file demo patch cycle (`v1` to `v2`) with integrity check and UI diagnostics.
+
 ## Out Of Scope (This Sprint)
 
-- `BL-019`, `BL-020`, `BL-021`, `BL-022`, `BL-024`.
+- `BL-019`, `BL-022`, `BL-024`.
 
 ## Execution Plan (Coherent + Individually Testable)
 
-### Workstream A: `BL-016` desktop-main modularization
+### Workstream A: `BL-015` auth sign-out completeness
 
-1. `BL-016A` Extract non-IPC concerns from `apps/desktop-main/src/main.ts`.
+1. `BL-015A` Implement explicit sign-out mode handling in main auth service.
 
-- Scope: move window creation, navigation hardening, environment/version resolution, and runtime-smoke setup into dedicated modules.
-- Done when: `main.ts` is composition-focused and behavior remains unchanged.
+- Scope: introduce local-only vs provider/global sign-out behavior, including revocation/end-session where supported by IdP metadata/config.
+- Done when: sign-out path can deterministically return local clear success and provider sign-out status without exposing secrets.
 - Proof:
-  - `pnpm nx build desktop-main`
-  - `pnpm nx test desktop-main`
+  - `pnpm nx run desktop-main:test`
+  - `pnpm nx run desktop-main:build`
 
-2. `BL-016B` Extract IPC handlers into per-domain modules.
+2. `BL-015B` Surface sign-out mode + outcome through preload and renderer UX.
 
-- Scope: move handlers into `ipc/handlers/*` while retaining channel and response behavior.
-- Done when: handler registration is centralized and each domain handler is isolated.
+- Scope: extend preload/renderer flow to request mode and render user-safe outcomes (local cleared, provider signed out, provider not supported).
+- Done when: Auth Session Lab can execute both paths and show accurate status transitions.
 - Proof:
-  - `pnpm nx build desktop-main`
-  - `pnpm nx test desktop-main`
+  - `pnpm nx run renderer:test`
+  - `pnpm nx run renderer:build`
 
-### Workstream B: `BL-018` validated handler factory
+### Workstream B: `BL-023` IPC integration hardening
 
-3. `BL-018A` Add reusable handler wrapper.
+3. `BL-023A` Add unauthorized sender integration tests with real handlers.
 
-- Scope: create shared factory for sender authorization + schema validation + typed failure envelope mapping.
-- Done when: at least handshake/app/auth handlers use factory with no behavior drift.
+- Scope: test real handler registration path rejects wrong window/frame sender consistently across privileged channels.
+- Done when: unauthorized sender rejection is covered by integration tests, not only unit-level wrapper tests.
 - Proof:
-  - `pnpm nx test desktop-main`
-  - `pnpm nx build desktop-main`
+  - `pnpm nx run desktop-main:test`
 
-4. `BL-018B` Migrate remaining handlers to wrapper.
+4. `BL-023B` Add correlation-id and timeout propagation integration tests.
 
-- Scope: migrate dialog/fs/storage/api/updates/telemetry handlers.
-- Done when: all privileged handlers use one validation/authorization path.
+- Scope: verify correlation-id continuity and timeout envelope behavior across preload invoke client and main IPC handlers.
+- Done when: tests assert stable error codes/correlation behavior for timeout and malformed/failed invoke cases.
 - Proof:
-  - `pnpm nx test desktop-main`
-  - `pnpm nx build desktop-main`
+  - `pnpm nx run desktop-main:test`
+  - `pnpm nx run desktop-preload:build`
 
-### Workstream C: `BL-017` preload modularization
+### Workstream C: `BL-025` API typing end-to-end
 
-5. `BL-017A` Extract invoke client core.
+5. `BL-025A` Introduce operation-to-request/response type map in contracts.
 
-- Scope: move correlation-id generation, timeout race handling, result parsing, and error mapping into shared `invoke` module.
-- Done when: existing namespaces call shared invoke core.
+- Scope: define typed operation map and export helper types for operation params/result payloads.
+- Done when: operations can be referenced by key with compile-time request/response inference.
 - Proof:
-  - `pnpm nx build desktop-preload`
-  - `pnpm nx build desktop-main`
+  - `pnpm nx run contracts:test`
+  - `pnpm nx run contracts:build`
 
-6. `BL-017B` Split preload API by domain.
+6. `BL-025B` Consume typed operation map in preload + main API gateway interfaces.
 
-- Scope: split app/auth/dialog/fs/storage/api/updates/telemetry methods into domain modules and compose into exported `desktopApi`.
-- Done when: `apps/desktop-preload/src/main.ts` becomes thin composition only.
+- Scope: remove stringly-typed call sites in preload and gateway boundaries where operation payload types can be inferred.
+- Done when: `desktop.api.invoke` and main gateway wiring compile with mapped operation types and unchanged runtime behavior.
 - Proof:
-  - `pnpm nx build desktop-preload`
-  - `pnpm nx build desktop-main`
+  - `pnpm nx run desktop-preload:build`
+  - `pnpm nx run desktop-main:test`
+  - `pnpm nx run renderer:build`
 
 ### Cross-cut verification gate (after each merged unit)
 
@@ -87,17 +91,20 @@ Reduce risk in privileged runtime boundaries by completing the P0 refactor set w
 
 ## Exit Criteria
 
-- P0 items merged through PR workflow with no security model regressions.
+- `BL-015`, `BL-023`, and `BL-025` merged through PR workflow with security checklist completed.
 - Existing CI quality gates remain green.
-- Docs updated for any changed project structure or conventions.
+- Docs updated for any changed contracts/flows.
 
 ## Progress Log
 
-- 2026-02-13: Sprint initialized from governance backlog with P0 focus (`BL-016`, `BL-017`, `BL-018`).
-- 2026-02-13: Added PR-sized execution breakdown with per-unit proof commands.
-- 2026-02-13: Completed `BL-016B` by extracting desktop-main IPC handlers into per-domain modules under `apps/desktop-main/src/ipc/*`.
-- 2026-02-13: Completed `BL-018A` and `BL-018B` by introducing `registerValidatedHandler` and migrating all privileged handlers to the shared authorization/validation wrapper.
-- 2026-02-13: Completed `BL-017A` by extracting preload invoke/correlation/error-mapping core into `apps/desktop-preload/src/invoke-client.ts`.
-- 2026-02-13: Completed `BL-017B` by splitting preload app/auth/dialog/fs/storage/external/updates/telemetry APIs into `apps/desktop-preload/src/api/*` and reducing `apps/desktop-preload/src/main.ts` to composition-only wiring.
-- 2026-02-13: Verification pass after `BL-017B` completed: `pnpm nx run desktop-preload:build`, `pnpm nx run desktop-main:build`, `pnpm nx run desktop-main:test`, and `pnpm nx run renderer:build` all passed.
-- 2026-02-13: Cross-cut gate passed for the sprint batch: `pnpm unit-test`, `pnpm integration-test`, and `pnpm runtime:smoke`.
+- 2026-02-13: Sprint 1 closure confirmed (`BL-016`, `BL-017`, `BL-018` complete with cross-cut verification).
+- 2026-02-13: Sprint 2 initialized with committed scope (`BL-015`, `BL-023`, `BL-025`) and stretch (`BL-020`).
+- 2026-02-13: Completed `BL-015A` by introducing explicit sign-out mode (`local` or `global`) and detailed sign-out outcomes in auth contracts, desktop-main service flow, and IPC handling.
+- 2026-02-13: Completed `BL-015B` baseline by propagating sign-out mode through preload and Auth Session Lab UX with separate local/global controls and provider outcome messaging.
+- 2026-02-13: Completed `BL-023A` by adding real-handler unauthorized-sender integration coverage in `apps/desktop-main/src/ipc/register-ipc-handlers.spec.ts`.
+- 2026-02-13: Completed `BL-023B` by adding preload invoke-client tests for malformed responses, timeout behavior, and invoke failures with correlation-id assertions (`apps/desktop-preload/src/invoke-client.spec.ts`) and wiring `desktop-preload:test` target.
+- 2026-02-13: Completed `BL-025A` and `BL-025B` baseline by adding operation type maps in contracts and consuming typed operation params/result signatures in desktop API/preload invoke surfaces.
+- 2026-02-13: Auth lifecycle stabilization pass completed: bounded OIDC network timeouts in main auth service, auth-page initialization now surfaces true IPC errors, token diagnostics sequencing fixed to avoid startup race, and auth-lab redirect behavior corrected to honor only explicit external `returnUrl`.
+- 2026-02-13: Production hardening completed by replacing production route/shell config to exclude lab routes and lab navigation/toggle from production artifacts.
+- 2026-02-13: Added bundled update demo proof flow: app startup seeds local runtime demo file to `1.0.0-demo`, update check detects bundled `1.0.1-demo`, apply action validates sha256 and overwrites local demo file, and renderer surfaces source/version/path diagnostics.
+- 2026-02-13: Completed `BL-021` by adding a typed renderer route registry (`app-route-registry.ts`) that derives both `app.routes.ts` and `APP_SHELL_CONFIG.navLinks`, removing duplicated route/nav metadata while retaining production route/shell file replacements.

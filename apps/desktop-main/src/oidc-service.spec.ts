@@ -37,7 +37,7 @@ const createStore = (
 });
 
 describe('OidcService lifecycle', () => {
-  it('calls revocation endpoint and clears token store on sign out', async () => {
+  it('calls revocation endpoint and clears token store on global sign out', async () => {
     const store = createStore({
       get: vi.fn(async () => 'stored-refresh-token'),
       clear: vi.fn(async () => undefined),
@@ -73,9 +73,16 @@ describe('OidcService lifecycle', () => {
       fetchFn,
     });
 
-    const result = await service.signOut();
+    const result = await service.signOut('global');
 
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.mode).toBe('global');
+      expect(result.data.refreshTokenPresent).toBe(true);
+      expect(result.data.refreshTokenRevoked).toBe(true);
+      expect(result.data.revocationSupported).toBe(true);
+      expect(result.data.endSessionSupported).toBe(false);
+    }
     expect(store.clear).toHaveBeenCalledTimes(1);
     expect(fetchFn).toHaveBeenCalledWith(
       'https://issuer.example.com/oauth/revoke',
@@ -116,10 +123,48 @@ describe('OidcService lifecycle', () => {
       fetchFn,
     });
 
-    const result = await service.signOut();
+    const result = await service.signOut('global');
 
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.refreshTokenPresent).toBe(true);
+      expect(result.data.refreshTokenRevoked).toBe(false);
+      expect(result.data.revocationSupported).toBe(true);
+      expect(result.data.endSessionSupported).toBe(false);
+    }
     expect(store.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('performs local-only sign out without provider calls', async () => {
+    const store = createStore({
+      get: vi.fn(async () => 'stored-refresh-token'),
+      clear: vi.fn(async () => undefined),
+    });
+
+    const fetchFn: typeof fetch = vi.fn(async () => {
+      return new Response('unexpected', { status: 500 });
+    });
+
+    const service = new OidcService({
+      config: baseConfig,
+      tokenStore: store,
+      openExternal: async () => undefined,
+      fetchFn,
+    });
+
+    const result = await service.signOut('local');
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.mode).toBe('local');
+      expect(result.data.refreshTokenPresent).toBe(true);
+      expect(result.data.refreshTokenRevoked).toBe(false);
+      expect(result.data.revocationSupported).toBe(false);
+      expect(result.data.endSessionSupported).toBe(false);
+      expect(result.data.endSessionInitiated).toBe(false);
+    }
+    expect(store.clear).toHaveBeenCalledTimes(1);
+    expect(fetchFn).not.toHaveBeenCalled();
   });
 
   it('rehydrates active session from stored refresh token on startup', async () => {

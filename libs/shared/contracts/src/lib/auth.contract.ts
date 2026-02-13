@@ -27,10 +27,26 @@ export const authSignInResponseSchema = z
   })
   .strict();
 
-export const authSignOutRequestSchema = requestEnvelope(emptyPayloadSchema);
+export const authSignOutModeSchema = z.enum(['local', 'global']);
+
+export const authSignOutRequestPayloadSchema = z
+  .object({
+    mode: authSignOutModeSchema.default('local'),
+  })
+  .strict();
+
+export const authSignOutRequestSchema = requestEnvelope(
+  authSignOutRequestPayloadSchema,
+);
 export const authSignOutResponseSchema = z
   .object({
     signedOut: z.boolean(),
+    mode: authSignOutModeSchema,
+    refreshTokenPresent: z.boolean().default(false),
+    refreshTokenRevoked: z.boolean().default(false),
+    revocationSupported: z.boolean().default(false),
+    endSessionSupported: z.boolean().default(false),
+    endSessionInitiated: z.boolean().default(false),
   })
   .strict();
 
@@ -80,6 +96,10 @@ export type AuthSessionState = z.infer<typeof authSessionStateSchema>;
 export type AuthSessionSummary = z.infer<typeof authSessionSummarySchema>;
 export type AuthSignInRequest = z.infer<typeof authSignInRequestSchema>;
 export type AuthSignInResponse = z.infer<typeof authSignInResponseSchema>;
+export type AuthSignOutMode = z.infer<typeof authSignOutModeSchema>;
+export type AuthSignOutRequestPayload = z.infer<
+  typeof authSignOutRequestPayloadSchema
+>;
 export type AuthSignOutRequest = z.infer<typeof authSignOutRequestSchema>;
 export type AuthSignOutResponse = z.infer<typeof authSignOutResponseSchema>;
 export type AuthGetSessionSummaryRequest = z.infer<

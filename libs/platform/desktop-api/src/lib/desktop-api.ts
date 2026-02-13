@@ -1,6 +1,8 @@
 import type {
   ApiGetOperationDiagnosticsResponse,
   ApiOperationId,
+  ApiOperationParamsById,
+  ApiOperationResponseDataById,
   AuthGetTokenDiagnosticsResponse,
   AuthSessionSummary,
   ContractVersion,
@@ -31,7 +33,17 @@ export interface DesktopDialogApi {
 
 export interface DesktopAuthApi {
   signIn: () => Promise<DesktopResult<{ initiated: boolean }>>;
-  signOut: () => Promise<DesktopResult<{ signedOut: boolean }>>;
+  signOut: (mode?: 'local' | 'global') => Promise<
+    DesktopResult<{
+      signedOut: boolean;
+      mode: 'local' | 'global';
+      refreshTokenPresent: boolean;
+      refreshTokenRevoked: boolean;
+      revocationSupported: boolean;
+      endSessionSupported: boolean;
+      endSessionInitiated: boolean;
+    }>
+  >;
   getSessionSummary: () => Promise<DesktopResult<AuthSessionSummary>>;
   getTokenDiagnostics: () => Promise<
     DesktopResult<AuthGetTokenDiagnosticsResponse>
@@ -47,6 +59,21 @@ export interface DesktopUpdatesApi {
     DesktopResult<{
       status: 'available' | 'not-available' | 'error';
       message?: string;
+      source?: 'native' | 'demo';
+      currentVersion?: string;
+      latestVersion?: string;
+      demoFilePath?: string;
+    }>
+  >;
+  applyDemoPatch: () => Promise<
+    DesktopResult<{
+      applied: boolean;
+      status: 'available' | 'not-available' | 'error';
+      message?: string;
+      source: 'demo';
+      currentVersion?: string;
+      latestVersion?: string;
+      demoFilePath?: string;
     }>
   >;
 }
@@ -79,12 +106,16 @@ export interface DesktopStorageApi {
 }
 
 export interface DesktopExternalApi {
-  invoke: (
-    operationId: ApiOperationId,
-    params?: Record<string, string | number | boolean | null>,
+  invoke: <TOperationId extends ApiOperationId>(
+    operationId: TOperationId,
+    params?: ApiOperationParamsById[TOperationId],
     options?: { headers?: Record<string, string> },
   ) => Promise<
-    DesktopResult<{ status: number; data: unknown; requestPath?: string }>
+    DesktopResult<{
+      status: number;
+      data: ApiOperationResponseDataById[TOperationId];
+      requestPath?: string;
+    }>
   >;
   getOperationDiagnostics: (
     operationId: ApiOperationId,

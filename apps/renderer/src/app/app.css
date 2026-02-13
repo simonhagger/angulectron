@@ -12,7 +12,7 @@
 }
 
 .shell-sidenav {
-  width: 248px;
+  width: clamp(248px, 24vw, 360px);
   border-right: 1px solid rgb(0 0 0 / 9%);
   background: #fff;
   border-radius: 0;
@@ -35,8 +35,83 @@
   align-items: center;
 }
 
+:host ::ng-deep .shell-sidenav .mdc-list-item__primary-text {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.3;
+}
+
 .shell-sidenav .mat-mdc-nav-list .mat-mdc-list-item .mat-icon {
   align-self: center;
+}
+
+:host ::ng-deep .shell-container .shell-sidenav .mat-drawer-inner-container {
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav
+  .mat-drawer-inner-container::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:hover
+  .mat-drawer-inner-container,
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:focus-within
+  .mat-drawer-inner-container {
+  scrollbar-width: thin;
+}
+
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:hover
+  .mat-drawer-inner-container::-webkit-scrollbar,
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:focus-within
+  .mat-drawer-inner-container::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:hover
+  .mat-drawer-inner-container::-webkit-scrollbar-thumb,
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:focus-within
+  .mat-drawer-inner-container::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 24%);
+  border-radius: 999px;
+}
+
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:hover
+  .mat-drawer-inner-container::-webkit-scrollbar-track,
+:host
+  ::ng-deep
+  .shell-container
+  .shell-sidenav:focus-within
+  .mat-drawer-inner-container::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .sidenav-brand {
@@ -85,6 +160,7 @@
 
 @media (max-width: 1023px) {
   .shell-sidenav {
+    width: 248px;
     background: #fff;
     opacity: 1;
   }

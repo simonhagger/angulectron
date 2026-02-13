@@ -28,9 +28,28 @@
           <mat-icon aria-hidden="true">system_update</mat-icon>
           Check For Updates
         </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="applyDemoPatch()"
+          [disabled]="updateSource() !== 'demo'"
+        >
+          Apply Demo Patch
+        </button>
       </div>
 
       <p class="status">{{ updateState() }}</p>
+      <p class="status"><strong>Update Source:</strong> {{ updateSource() }}</p>
+      <p class="status">
+        <strong>Current Version:</strong> {{ updateCurrentVersion() }}
+      </p>
+      <p class="status">
+        <strong>Latest Version:</strong> {{ updateLatestVersion() }}
+      </p>
+      @if (demoFilePath()) {
+      <p class="status"><strong>Demo File:</strong> {{ demoFilePath() }}</p>
+      }
+      <p class="status">{{ demoPatchState() }}</p>
     </mat-card-content>
   </mat-card>
 </section>
