@@ -2,7 +2,7 @@
 
 Sprint window: 2026-02-13 onward (Sprint 2)  
 Owner: Platform Engineering + Security + Frontend  
-Status: Active
+Status: Active (core scope complete; stretch pending)
 
 ## Sprint Goal
 
@@ -18,9 +18,14 @@ Advance post-refactor hardening by improving auth lifecycle completeness, IPC in
 
 - `BL-020` Complete renderer i18n migration for hardcoded user-facing strings.
 
+## Additional Delivered Work (Unplanned but Completed)
+
+- Production hardening: exclude lab routes/navigation from production bundle surface.
+- Update model proof: deterministic bundled-file demo patch cycle (`v1` to `v2`) with integrity check and UI diagnostics.
+
 ## Out Of Scope (This Sprint)
 
-- `BL-019`, `BL-021`, `BL-022`, `BL-024`.
+- `BL-019`, `BL-022`, `BL-024`.
 
 ## Execution Plan (Coherent + Individually Testable)
 
@@ -99,3 +104,7 @@ Advance post-refactor hardening by improving auth lifecycle completeness, IPC in
 - 2026-02-13: Completed `BL-023A` by adding real-handler unauthorized-sender integration coverage in `apps/desktop-main/src/ipc/register-ipc-handlers.spec.ts`.
 - 2026-02-13: Completed `BL-023B` by adding preload invoke-client tests for malformed responses, timeout behavior, and invoke failures with correlation-id assertions (`apps/desktop-preload/src/invoke-client.spec.ts`) and wiring `desktop-preload:test` target.
 - 2026-02-13: Completed `BL-025A` and `BL-025B` baseline by adding operation type maps in contracts and consuming typed operation params/result signatures in desktop API/preload invoke surfaces.
+- 2026-02-13: Auth lifecycle stabilization pass completed: bounded OIDC network timeouts in main auth service, auth-page initialization now surfaces true IPC errors, token diagnostics sequencing fixed to avoid startup race, and auth-lab redirect behavior corrected to honor only explicit external `returnUrl`.
+- 2026-02-13: Production hardening completed by replacing production route/shell config to exclude lab routes and lab navigation/toggle from production artifacts.
+- 2026-02-13: Added bundled update demo proof flow: app startup seeds local runtime demo file to `1.0.0-demo`, update check detects bundled `1.0.1-demo`, apply action validates sha256 and overwrites local demo file, and renderer surfaces source/version/path diagnostics.
+- 2026-02-13: Completed `BL-021` by adding a typed renderer route registry (`app-route-registry.ts`) that derives both `app.routes.ts` and `APP_SHELL_CONFIG.navLinks`, removing duplicated route/nav metadata while retaining production route/shell file replacements.
