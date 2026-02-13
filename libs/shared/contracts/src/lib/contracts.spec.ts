@@ -9,6 +9,8 @@ import {
   authGetTokenDiagnosticsResponseSchema,
   authGetSessionSummaryResponseSchema,
   authSignInRequestSchema,
+  authSignOutRequestSchema,
+  authSignOutResponseSchema,
 } from './auth.contract';
 import { readTextFileRequestSchema } from './fs.contract';
 import { storageSetRequestSchema } from './storage.contract';
@@ -197,6 +199,30 @@ describe('auth contracts', () => {
       contractVersion: '1.0.0',
       correlationId: 'corr-auth-1',
       payload: {},
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts sign-out requests with explicit mode', () => {
+    const parsed = authSignOutRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-auth-2',
+      payload: {
+        mode: 'global',
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts sign-out responses with provider metadata', () => {
+    const parsed = authSignOutResponseSchema.safeParse({
+      signedOut: true,
+      mode: 'global',
+      refreshTokenRevoked: true,
+      providerLogoutSupported: true,
+      providerLogoutInitiated: true,
     });
 
     expect(parsed.success).toBe(true);

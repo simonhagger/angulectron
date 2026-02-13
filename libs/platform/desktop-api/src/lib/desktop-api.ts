@@ -1,6 +1,8 @@
 import type {
   ApiGetOperationDiagnosticsResponse,
   ApiOperationId,
+  ApiOperationParamsById,
+  ApiOperationResponseDataById,
   AuthGetTokenDiagnosticsResponse,
   AuthSessionSummary,
   ContractVersion,
@@ -31,7 +33,15 @@ export interface DesktopDialogApi {
 
 export interface DesktopAuthApi {
   signIn: () => Promise<DesktopResult<{ initiated: boolean }>>;
-  signOut: () => Promise<DesktopResult<{ signedOut: boolean }>>;
+  signOut: (mode?: 'local' | 'global') => Promise<
+    DesktopResult<{
+      signedOut: boolean;
+      mode: 'local' | 'global';
+      refreshTokenRevoked: boolean;
+      providerLogoutSupported: boolean;
+      providerLogoutInitiated: boolean;
+    }>
+  >;
   getSessionSummary: () => Promise<DesktopResult<AuthSessionSummary>>;
   getTokenDiagnostics: () => Promise<
     DesktopResult<AuthGetTokenDiagnosticsResponse>
@@ -79,12 +89,16 @@ export interface DesktopStorageApi {
 }
 
 export interface DesktopExternalApi {
-  invoke: (
-    operationId: ApiOperationId,
-    params?: Record<string, string | number | boolean | null>,
+  invoke: <TOperationId extends ApiOperationId>(
+    operationId: TOperationId,
+    params?: ApiOperationParamsById[TOperationId],
     options?: { headers?: Record<string, string> },
   ) => Promise<
-    DesktopResult<{ status: number; data: unknown; requestPath?: string }>
+    DesktopResult<{
+      status: number;
+      data: ApiOperationResponseDataById[TOperationId];
+      requestPath?: string;
+    }>
   >;
   getOperationDiagnostics: (
     operationId: ApiOperationId,

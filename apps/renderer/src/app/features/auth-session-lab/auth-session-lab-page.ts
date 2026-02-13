@@ -14,6 +14,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import type {
   AuthGetTokenDiagnosticsResponse,
+  AuthSignOutMode,
   AuthSessionSummary,
 } from '@electron-foundation/contracts';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
@@ -164,7 +165,15 @@ export class AuthSessionLabPage {
     this.statusTone.set('info');
   }
 
-  async signOut() {
+  async signOutLocal() {
+    await this.signOut('local');
+  }
+
+  async signOutGlobal() {
+    await this.signOut('global');
+  }
+
+  private async signOut(mode: AuthSignOutMode) {
     const desktop = getDesktopApi();
     if (!desktop) {
       this.statusText.set('Desktop bridge unavailable in browser mode.');
@@ -179,14 +188,25 @@ export class AuthSessionLabPage {
 
     this.signOutPending.set(true);
     try {
-      const result = await desktop.auth.signOut();
+      const result = await desktop.auth.signOut(mode);
       if (!result.ok) {
         this.statusText.set(result.error.message);
         this.statusTone.set('error');
         return;
       }
 
-      this.statusText.set('Signed out.');
+      const providerMessage =
+        result.data.mode === 'global'
+          ? result.data.providerLogoutSupported
+            ? result.data.providerLogoutInitiated
+              ? 'Provider sign-out initiated.'
+              : 'Provider sign-out not initiated.'
+            : 'Provider does not advertise global sign-out support.'
+          : 'Local session cleared.';
+      const revokeMessage = result.data.refreshTokenRevoked
+        ? 'Refresh token revoked.'
+        : 'Refresh token revocation not performed.';
+      this.statusText.set(`${providerMessage} ${revokeMessage}`);
       this.statusTone.set('info');
       await this.refreshSummary();
     } finally {

@@ -5,6 +5,8 @@ import {
   asFailure,
   asSuccess,
   type AuthGetTokenDiagnosticsResponse,
+  type AuthSignOutMode,
+  type AuthSignOutResponse,
   type AuthSessionSummary,
   type DesktopResult,
 } from '@electron-foundation/contracts';
@@ -15,6 +17,7 @@ type DiscoveryDocument = {
   authorization_endpoint: string;
   token_endpoint: string;
   revocation_endpoint?: string;
+  end_session_endpoint?: string;
 };
 
 type TokenResponse = {
@@ -306,25 +309,61 @@ export class OidcService {
     }
   }
 
-  async signOut(): Promise<DesktopResult<{ signedOut: boolean }>> {
+  async signOut(
+    mode: AuthSignOutMode = 'local',
+  ): Promise<DesktopResult<AuthSignOutResponse>> {
     const refreshToken =
       this.tokens?.refreshToken ?? (await this.tokenStore.get());
+    const idToken = this.tokens?.idToken;
     this.clearRefreshTimer();
     this.tokens = null;
     this.summary = buildSignedOutSummary();
+    let refreshTokenRevoked = false;
+    let providerLogoutSupported = false;
+    let providerLogoutInitiated = false;
 
     try {
-      if (refreshToken) {
-        await this.revokeRefreshTokenIfSupported(refreshToken).catch(
-          (error) => {
+      if (mode === 'global') {
+        const discovery = await this.getDiscovery();
+        providerLogoutSupported =
+          Boolean(discovery.revocation_endpoint) ||
+          Boolean(discovery.end_session_endpoint);
+
+        if (refreshToken) {
+          const revoked = await this.revokeRefreshTokenIfSupported(
+            refreshToken,
+            discovery,
+          ).catch((error) => {
             this.logger?.('warn', 'auth.signout.revoke_failed', {
               message: error instanceof Error ? error.message : String(error),
             });
-          },
-        );
+            return false;
+          });
+          refreshTokenRevoked = revoked;
+        }
+
+        if (discovery.end_session_endpoint) {
+          const endSessionUrl = this.buildEndSessionUrl(
+            discovery.end_session_endpoint,
+            idToken,
+          );
+          await this.openExternal(endSessionUrl.toString()).catch((error) => {
+            this.logger?.('warn', 'auth.signout.global_logout_failed', {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          });
+          providerLogoutInitiated = true;
+        }
       }
+
       await this.tokenStore.clear();
-      return asSuccess({ signedOut: true });
+      return asSuccess({
+        signedOut: true,
+        mode,
+        refreshTokenRevoked,
+        providerLogoutSupported,
+        providerLogoutInitiated,
+      });
     } catch (error) {
       return asFailure(
         'AUTH/SIGNOUT_FAILED',
@@ -482,6 +521,7 @@ export class OidcService {
       authorization_endpoint: payload.authorization_endpoint,
       token_endpoint: payload.token_endpoint,
       revocation_endpoint: payload.revocation_endpoint,
+      end_session_endpoint: payload.end_session_endpoint,
     };
     return this.discoveryCache;
   }
@@ -608,10 +648,12 @@ export class OidcService {
     return asSuccess(this.summary);
   }
 
-  private async revokeRefreshTokenIfSupported(refreshToken: string) {
-    const discovery = await this.getDiscovery();
+  private async revokeRefreshTokenIfSupported(
+    refreshToken: string,
+    discovery: DiscoveryDocument,
+  ): Promise<boolean> {
     if (!discovery.revocation_endpoint) {
-      return;
+      return false;
     }
 
     const body = new URLSearchParams();
@@ -632,6 +674,19 @@ export class OidcService {
         `OIDC token revocation failed (${response.status}): ${await response.text()}`,
       );
     }
+
+    return true;
+  }
+
+  private buildEndSessionUrl(
+    endSessionEndpoint: string,
+    idToken?: string,
+  ): URL {
+    const url = new URL(endSessionEndpoint);
+    if (idToken) {
+      url.searchParams.set('id_token_hint', idToken);
+    }
+    return url;
   }
 
   private async applyTokenResponse(tokenResponse: TokenResponse) {
