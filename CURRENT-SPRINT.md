@@ -95,3 +95,9 @@ Reduce risk in privileged runtime boundaries by completing the P0 refactor set w
 
 - 2026-02-13: Sprint initialized from governance backlog with P0 focus (`BL-016`, `BL-017`, `BL-018`).
 - 2026-02-13: Added PR-sized execution breakdown with per-unit proof commands.
+- 2026-02-13: Completed `BL-016B` by extracting desktop-main IPC handlers into per-domain modules under `apps/desktop-main/src/ipc/*`.
+- 2026-02-13: Completed `BL-018A` and `BL-018B` by introducing `registerValidatedHandler` and migrating all privileged handlers to the shared authorization/validation wrapper.
+- 2026-02-13: Completed `BL-017A` by extracting preload invoke/correlation/error-mapping core into `apps/desktop-preload/src/invoke-client.ts`.
+- 2026-02-13: Completed `BL-017B` by splitting preload app/auth/dialog/fs/storage/external/updates/telemetry APIs into `apps/desktop-preload/src/api/*` and reducing `apps/desktop-preload/src/main.ts` to composition-only wiring.
+- 2026-02-13: Verification pass after `BL-017B` completed: `pnpm nx run desktop-preload:build`, `pnpm nx run desktop-main:build`, `pnpm nx run desktop-main:test`, and `pnpm nx run renderer:build` all passed.
+- 2026-02-13: Cross-cut gate passed for the sprint batch: `pnpm unit-test`, `pnpm integration-test`, and `pnpm runtime:smoke`.
