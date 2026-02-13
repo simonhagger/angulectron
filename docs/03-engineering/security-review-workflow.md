@@ -64,6 +64,22 @@ Security review is required for any change that introduces or modifies:
 - Avoid unrestricted process execution; use explicit allowlists and argument validation
 - Return minimal data needed by renderer
 
+### File ingress and parser pipelines
+
+- Enforce dual file-type checks before privileged parsing/execution:
+  - extension allowlist
+  - file signature/magic-byte verification
+- Use tokenized file handles (expiring + sender-window scoped) between renderer and main.
+- Reject mismatches with typed failure codes and fail closed.
+- Log mismatch events without leaking raw sensitive content.
+
+### Local helper services (for example Python sidecar)
+
+- Bind helper service to loopback only.
+- Validate all helper requests in main process first; helper must not become primary policy gate.
+- Keep helper API surface minimal and operation-specific.
+- Ensure stop/start lifecycle is deterministic and observable in diagnostics.
+
 ### Logging and secret handling
 
 - Preserve `correlationId` across renderer -> preload -> main
@@ -96,6 +112,13 @@ Security review is required for any change that introduces or modifies:
   - unit test for unsafe header rejection
   - unit test for unconfigured operation behavior
   - one runtime smoke/e2e check that launch has no console/page errors
+
+Review evidence for file-ingress/helper-runtime patterns should include:
+
+- unit/integration tests for token expiry and token scope mismatch rejection
+- unit/integration tests for extension mismatch rejection
+- unit/integration tests for signature mismatch rejection
+- helper-runtime tests for endpoint misuse/negative path handling
 
 Reference implementation:
 

@@ -8,6 +8,7 @@ import { createFsApi } from './api/fs-api';
 import { createStorageApi } from './api/storage-api';
 import { createTelemetryApi } from './api/telemetry-api';
 import { createUpdatesApi } from './api/updates-api';
+import { createPythonApi } from './api/python-api';
 
 const desktopApi: DesktopApi = {
   app: createAppApi(),
@@ -17,6 +18,7 @@ const desktopApi: DesktopApi = {
   storage: createStorageApi(),
   api: createExternalApi(),
   updates: createUpdatesApi(),
+  python: createPythonApi(),
   telemetry: createTelemetryApi(),
 };
 

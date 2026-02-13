@@ -23,6 +23,10 @@ Advance post-refactor hardening by improving auth lifecycle completeness, IPC in
 - Production hardening: exclude lab routes/navigation from production bundle surface.
 - Update model proof: deterministic bundled-file demo patch cycle (`v1` to `v2`) with integrity check and UI diagnostics.
 
+## Highest Priority Follow-Up
+
+- `BL-028` Enforce robust file signature validation for privileged file ingress (extension + header/magic validation with fail-closed behavior before parser execution).
+
 ## Out Of Scope (This Sprint)
 
 - `BL-019`, `BL-022`, `BL-024`.

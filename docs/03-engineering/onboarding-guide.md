@@ -20,6 +20,7 @@ Prerequisites:
 
 - Node.js `^24.13.0`
 - pnpm `^10.14.0`
+- Python `3.11+` (required for Python sidecar lab and Python-side test gate)
 
 Install and baseline checks:
 
@@ -128,6 +129,7 @@ Tests:
 
 ```bash
 pnpm unit-test
+pnpm nx run desktop-main:test-python
 pnpm integration-test
 pnpm e2e-smoke
 pnpm a11y-e2e

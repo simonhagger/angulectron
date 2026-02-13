@@ -16,6 +16,9 @@ export const IPC_CHANNELS = {
   apiGetOperationDiagnostics: 'api:get-operation-diagnostics',
   updatesCheck: 'updates:check',
   updatesApplyDemoPatch: 'updates:apply-demo-patch',
+  pythonProbe: 'python:probe',
+  pythonInspectPdf: 'python:inspect-pdf',
+  pythonStop: 'python:stop',
   telemetryTrack: 'telemetry:track',
 } as const;
 

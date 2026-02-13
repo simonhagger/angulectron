@@ -29,6 +29,7 @@ import {
 import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
 import { DemoUpdater } from './demo-updater';
+import { PythonSidecar } from './python-sidecar';
 import { asFailure } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 
@@ -49,6 +50,7 @@ let storageGateway: StorageGateway | null = null;
 let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
 let demoUpdater: DemoUpdater | null = null;
+let pythonSidecar: PythonSidecar | null = null;
 const APP_VERSION = resolveAppMetadataVersion();
 
 const logEvent = (
@@ -210,6 +212,13 @@ const bootstrap = async () => {
   const oidcConfig = loadOidcConfig();
   demoUpdater = new DemoUpdater(app.getPath('userData'));
   demoUpdater.seedRuntimeWithBaseline();
+  pythonSidecar = new PythonSidecar({
+    scriptPath: path.join(__dirname, 'assets', 'python_sidecar', 'service.py'),
+    host: process.env.PYTHON_SIDECAR_HOST ?? '127.0.0.1',
+    port: Number(process.env.PYTHON_SIDECAR_PORT ?? '43124'),
+    logger: (level, event, details) =>
+      logEvent(level, event, undefined, details),
+  });
 
   if (oidcConfig) {
     const refreshTokenStore = await createRefreshTokenStore({
@@ -255,6 +264,7 @@ const bootstrap = async () => {
     getApiOperationDiagnostics: (operationId) =>
       getApiOperationDiagnostics(operationId),
     getDemoUpdater: () => demoUpdater,
+    getPythonSidecar: () => pythonSidecar,
     logEvent,
   });
 
@@ -272,6 +282,7 @@ app.on('window-all-closed', () => {
   selectedFileTokens.clear();
   stopFileTokenCleanup();
   oidcService?.dispose();
+  pythonSidecar?.dispose();
   storageGateway?.close();
   if (process.platform !== 'darwin') {
     app.quit();

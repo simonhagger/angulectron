@@ -78,6 +78,47 @@ export interface DesktopUpdatesApi {
   >;
 }
 
+export interface DesktopPythonApi {
+  probe: () => Promise<
+    DesktopResult<{
+      available: boolean;
+      started: boolean;
+      running: boolean;
+      endpoint: string;
+      pid?: number;
+      pythonCommand?: string;
+      message?: string;
+      health?: {
+        status: string;
+        service: string;
+        pythonVersion: string;
+        pymupdfAvailable: boolean;
+        pymupdfVersion?: string;
+        pymupdfError?: string;
+      };
+    }>
+  >;
+  inspectPdf: (fileToken: string) => Promise<
+    DesktopResult<{
+      accepted: boolean;
+      fileName: string;
+      fileSizeBytes: number;
+      headerHex: string;
+      pythonVersion: string;
+      pymupdfAvailable: boolean;
+      pymupdfVersion?: string;
+      message?: string;
+    }>
+  >;
+  stop: () => Promise<
+    DesktopResult<{
+      stopped: boolean;
+      running: boolean;
+      message?: string;
+    }>
+  >;
+}
+
 export interface DesktopStorageApi {
   setItem: (
     domain: 'settings' | 'cache',
@@ -137,6 +178,7 @@ export interface DesktopApi {
   storage: DesktopStorageApi;
   api: DesktopExternalApi;
   updates: DesktopUpdatesApi;
+  python: DesktopPythonApi;
   telemetry: DesktopTelemetryApi;
 }
 

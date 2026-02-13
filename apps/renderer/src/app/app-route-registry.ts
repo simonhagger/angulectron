@@ -241,6 +241,20 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     }),
   },
   {
+    path: 'python-sidecar-lab',
+    label: 'Python Sidecar Lab',
+    icon: 'memory',
+    lab: true,
+    nav: true,
+    toRoute: () => ({
+      path: 'python-sidecar-lab',
+      loadComponent: () =>
+        import('./features/python-sidecar-lab/python-sidecar-lab-page').then(
+          (m) => m.PythonSidecarLabPage,
+        ),
+    }),
+  },
+  {
     path: 'telemetry-console',
     label: 'Telemetry Console',
     icon: 'analytics',

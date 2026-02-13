@@ -1,0 +1,73 @@
+<section class="python-lab-layout">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>Python Sidecar Lab</mat-card-title>
+      <mat-card-subtitle
+        >Probes and controls the bundled Python sidecar process from renderer
+        through preload/main IPC.</mat-card-subtitle
+      >
+    </mat-card-header>
+
+    <mat-card-content>
+      @if (!desktopAvailable()) {
+      <p class="warning">Desktop bridge unavailable in browser mode.</p>
+      }
+
+      <div class="actions">
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="probeSidecar()"
+        >
+          <mat-icon aria-hidden="true">health_and_safety</mat-icon>
+          Probe Sidecar
+        </button>
+        <button mat-stroked-button type="button" (click)="stopSidecar()">
+          Stop Sidecar
+        </button>
+      </div>
+
+      <p class="status">{{ status() }}</p>
+
+      <h3>PDF Pipeline Demo</h3>
+      <div class="actions">
+        <button mat-flat-button type="button" (click)="selectPdf()">
+          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+          Select PDF
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="inspectSelectedPdf()"
+          [disabled]="!selectedPdfToken()"
+        >
+          Inspect Selected PDF
+        </button>
+      </div>
+      <p class="status">
+        <strong>Selected PDF:</strong> {{ selectedPdfName() }}
+      </p>
+      <p class="status">{{ inspectStatus() }}</p>
+
+      <div class="meta-grid">
+        <p><strong>Running:</strong> {{ running() }}</p>
+        <p><strong>Started In Probe:</strong> {{ started() }}</p>
+        <p><strong>Endpoint:</strong> {{ endpoint() }}</p>
+        <p><strong>PID:</strong> {{ pid() }}</p>
+        <p><strong>Python Command:</strong> {{ pythonCommand() }}</p>
+        <p><strong>Python Version:</strong> {{ pythonVersion() }}</p>
+        <p><strong>PyMuPDF Available:</strong> {{ pymupdfAvailable() }}</p>
+        <p><strong>PyMuPDF Version:</strong> {{ pymupdfVersion() }}</p>
+        <p><strong>PDF Accepted:</strong> {{ inspectedAccepted() }}</p>
+        <p><strong>PDF Size Bytes:</strong> {{ inspectedFileSize() }}</p>
+        <p><strong>PDF Header Hex:</strong> {{ inspectedHeaderHex() }}</p>
+      </div>
+
+      @if (rawDiagnostics()) {
+      <h3>Raw Diagnostics</h3>
+      <pre>{{ rawDiagnostics() }}</pre>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>

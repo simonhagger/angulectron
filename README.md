@@ -55,6 +55,7 @@ Desktop API surface includes:
 - `desktop.api.invoke()`
 - `desktop.updates.check()`
 - `desktop.telemetry.track()`
+- `desktop.python.*` (local Python sidecar probe/inspect/stop for privileged helper workflows)
 
 ## Expected Behaviors
 
@@ -68,6 +69,7 @@ Desktop API surface includes:
 
 - Node.js `^24.13.0`
 - pnpm `^10.14.0`
+- Python `3.11+` (required for Python sidecar lab/tests)
 
 ## Setup
 
@@ -101,6 +103,7 @@ pnpm renderer:serve
 ```bash
 pnpm lint
 pnpm unit-test
+pnpm nx run desktop-main:test-python
 pnpm integration-test
 pnpm e2e-smoke
 pnpm a11y-e2e
@@ -173,6 +176,46 @@ Examples:
 - `API_SECURE_ENDPOINT_CLAIM_MAP={"user_id":"sub","tenant_id":"org.id"}`
 
 If not configured, calling `call.secure-endpoint` returns a typed `API/OPERATION_NOT_CONFIGURED` failure.
+
+## Python Sidecar Backend Pattern
+
+This workspace supports a local Python helper backend model for privileged desktop capabilities (for example, file parsing libraries such as PyMuPDF).
+
+Current status:
+
+- Implemented as a lab capability (`Python Sidecar Lab` route).
+- Runs a local sidecar HTTP service bound to loopback (`127.0.0.1`).
+- Main process remains the security policy enforcement point.
+
+Pattern:
+
+1. Renderer selects a file via typed desktop dialog API.
+2. Renderer receives a short-lived file token, not a raw path.
+3. Preload/main validates contract envelopes.
+4. Main resolves token (window-scoped + expiring), validates file extension and magic header, then calls Python sidecar.
+5. Main returns safe diagnostics/results to renderer.
+
+Security properties:
+
+- Renderer cannot pass arbitrary filesystem paths for privileged parsing.
+- File ingress is fail-closed on extension/signature mismatch.
+- Helper runtime is local-only and not a renderer-controlled authority.
+
+How to run/verify:
+
+- Open `Python Sidecar Lab`.
+- `Probe Sidecar` to start/diagnose local runtime.
+- `Select PDF` then `Inspect Selected PDF` to verify end-to-end file handoff.
+- Run test gate:
+  - `pnpm nx run desktop-main:test-python`
+
+How to extend for new Python-backed operations:
+
+- Add a new typed channel/contract in `libs/shared/contracts`.
+- Add preload API binding in `apps/desktop-preload`.
+- Add main handler validation and token/scope checks in `apps/desktop-main`.
+- Add sidecar endpoint behavior in `apps/desktop-main/src/assets/python_sidecar/service.py`.
+- Add/extend Python tests under `apps/desktop-main/python-sidecar/tests`.
 
 ## Repository Layout
 

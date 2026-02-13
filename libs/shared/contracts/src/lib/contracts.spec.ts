@@ -18,6 +18,11 @@ import {
   updatesApplyDemoPatchResponseSchema,
   updatesCheckResponseSchema,
 } from './updates.contract';
+import {
+  pythonInspectPdfResponseSchema,
+  pythonProbeResponseSchema,
+  pythonStopResponseSchema,
+} from './python.contract';
 
 describe('parseOrFailure', () => {
   it('should parse valid values', () => {
@@ -309,6 +314,52 @@ describe('updates contracts', () => {
       currentVersion: '1.0.1-demo',
       latestVersion: '1.0.1-demo',
       demoFilePath: 'C:\\Users\\demo\\update-demo\\runtime\\feature.txt',
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe('python contracts', () => {
+  it('accepts python sidecar probe response payloads', () => {
+    const parsed = pythonProbeResponseSchema.safeParse({
+      available: true,
+      started: true,
+      running: true,
+      endpoint: 'http://127.0.0.1:43123/health',
+      pid: 12345,
+      pythonCommand: 'python',
+      health: {
+        status: 'ok',
+        service: 'python-sidecar',
+        pythonVersion: '3.12.4',
+        pymupdfAvailable: true,
+        pymupdfVersion: '1.24.10',
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts python sidecar stop response payloads', () => {
+    const parsed = pythonStopResponseSchema.safeParse({
+      stopped: true,
+      running: false,
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts python pdf inspect response payloads', () => {
+    const parsed = pythonInspectPdfResponseSchema.safeParse({
+      accepted: true,
+      fileName: 'safe-sample.pdf',
+      fileSizeBytes: 10240,
+      headerHex: '255044462d',
+      pythonVersion: '3.12.4',
+      pymupdfAvailable: true,
+      pymupdfVersion: '1.26.7',
+      message: 'PDF inspected successfully.',
     });
 
     expect(parsed.success).toBe(true);

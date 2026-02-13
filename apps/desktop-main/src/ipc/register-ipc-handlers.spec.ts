@@ -75,6 +75,7 @@ describe('registerIpcHandlers unauthorized sender integration', () => {
       invokeApiOperation,
       getApiOperationDiagnostics,
       getDemoUpdater: vi.fn(() => null),
+      getPythonSidecar: vi.fn(() => null),
       logEvent: vi.fn(),
     };
 
@@ -88,6 +89,9 @@ describe('registerIpcHandlers unauthorized sender integration', () => {
       IPC_CHANNELS.storageGetItem,
       IPC_CHANNELS.updatesCheck,
       IPC_CHANNELS.updatesApplyDemoPatch,
+      IPC_CHANNELS.pythonProbe,
+      IPC_CHANNELS.pythonInspectPdf,
+      IPC_CHANNELS.pythonStop,
     ];
 
     for (const channel of privilegedChannels) {
