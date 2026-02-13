@@ -17,16 +17,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { distinctUntilChanged, map } from 'rxjs';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
 import { AuthSessionStateService } from './services/auth-session-state.service';
-import { APP_SHELL_CONFIG } from './app-shell.config';
+import { APP_SHELL_CONFIG, type NavLink } from './app-shell.config';
 
 const LABS_MODE_STORAGE_KEY = 'angulectron.labsMode';
-type NavLink = {
-  path: string;
-  label: string;
-  icon: string;
-  exact?: boolean;
-  lab?: boolean;
-};
 
 @Component({
   imports: [
