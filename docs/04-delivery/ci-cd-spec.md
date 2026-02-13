@@ -26,6 +26,12 @@ Last reviewed: 2026-02-13
 - `perf-check`
 - `artifact-publish` (push to `main` only)
 
+Notes:
+
+- `unit-test` must execute `desktop-main:test`, which includes:
+  - `desktop-main:test-ts` (Vitest)
+  - `desktop-main:test-python` (pytest + coverage gate)
+
 ## Caching
 
 - pnpm cache via `actions/setup-node`.
@@ -35,3 +41,4 @@ Last reviewed: 2026-02-13
 
 - Performance report artifact uploaded by `perf-check`.
 - Desktop build artifacts uploaded on `main` push by `artifact-publish`.
+- Python sidecar coverage XML emitted at `coverage/apps/desktop-main/python-sidecar-coverage.xml` during `desktop-main:test-python`.

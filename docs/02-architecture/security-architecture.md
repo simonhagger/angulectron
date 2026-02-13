@@ -30,6 +30,18 @@ Last reviewed: 2026-02-13
 - Restrict file dialog and file operation scope.
 - Log and classify failures with typed error envelopes.
 
+## Local Helper Runtime Security (Python Sidecar)
+
+- Treat Python sidecar as privileged local execution, not a renderer extension.
+- Allow main-process invocation only through explicit IPC channels and validated envelopes.
+- Use expiring, window-scoped file selection tokens; never accept renderer-supplied raw filesystem paths.
+- Enforce fail-closed file guards before parser execution:
+  - expected extension
+  - expected file signature (magic/header bytes)
+- Return minimal, non-sensitive diagnostics to renderer.
+- Keep sidecar endpoint local-only (`127.0.0.1`) with no external bind.
+- Do not trust sidecar process availability as a security boundary; main process remains policy enforcement point.
+
 ## Secrets
 
 - Do not commit secrets.

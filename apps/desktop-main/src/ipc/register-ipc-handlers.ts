@@ -7,6 +7,7 @@ import { registerFileIpcHandlers } from './file-handlers';
 import { registerStorageIpcHandlers } from './storage-handlers';
 import { registerTelemetryIpcHandlers } from './telemetry-handlers';
 import { registerUpdatesIpcHandlers } from './updates-handlers';
+import { registerPythonIpcHandlers } from './python-handlers';
 
 export const registerIpcHandlers = (
   ipcMain: IpcMain,
@@ -18,5 +19,6 @@ export const registerIpcHandlers = (
   registerApiIpcHandlers(ipcMain, context);
   registerStorageIpcHandlers(ipcMain, context);
   registerUpdatesIpcHandlers(ipcMain, context);
+  registerPythonIpcHandlers(ipcMain, context);
   registerTelemetryIpcHandlers(ipcMain, context);
 };

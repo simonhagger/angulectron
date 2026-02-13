@@ -1,0 +1,46 @@
+:host {
+  display: block;
+}
+
+.python-lab-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.warning {
+  margin: 0 0 0.75rem;
+  color: #9a3412;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.status {
+  margin: 0 0 0.75rem;
+  color: rgb(60 60 60);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.5rem;
+}
+
+.meta-grid p {
+  margin: 0;
+}
+
+h3 {
+  margin: 1rem 0 0.5rem;
+}
+
+pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  overflow: auto;
+  background: rgb(0 0 0 / 4%);
+}

@@ -57,6 +57,22 @@
           ],
           "outputHashing": "all"
         },
+        "staging": {
+          "baseHref": "./",
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "1.35mb",
+              "maximumError": "2mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
         "development": {
           "baseHref": "/",
           "optimization": false,
@@ -72,6 +88,9 @@
       "configurations": {
         "production": {
           "buildTarget": "renderer:build:production"
+        },
+        "staging": {
+          "buildTarget": "renderer:build:staging"
         },
         "development": {
           "buildTarget": "renderer:build:development"

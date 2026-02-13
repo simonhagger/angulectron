@@ -8,6 +8,7 @@ import type {
 import type { OidcService } from '../oidc-service';
 import type { StorageGateway } from '../storage-gateway';
 import type { DemoUpdater } from '../demo-updater';
+import type { PythonSidecar } from '../python-sidecar';
 
 export type FileSelectionToken = {
   filePath: string;
@@ -34,6 +35,7 @@ export type MainIpcContext = {
     operationId: ApiInvokeRequest['payload']['operationId'],
   ) => DesktopResult<ApiGetOperationDiagnosticsResponse>;
   getDemoUpdater: () => DemoUpdater | null;
+  getPythonSidecar: () => PythonSidecar | null;
   logEvent: (
     level: 'debug' | 'info' | 'warn' | 'error',
     event: string,

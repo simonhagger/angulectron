@@ -14,6 +14,7 @@ Last reviewed: 2026-02-07
 
 - Global minimum threshold: 80%.
 - Contract and security-critical paths should exceed baseline.
+- Python sidecar runtime tests enforce a stricter threshold (90%) because they guard privileged parser ingress.
 
 ## A11y
 
@@ -46,6 +47,14 @@ Last reviewed: 2026-02-07
   - Platform owns shared harness and global channel conventions.
   - Feature teams own contract tests for channels they introduce.
 
+### Runtime Helper (Python)
+
+- Belongs: local helper endpoint behavior, negative-path validation, safe response envelope shape.
+- Does not belong: renderer UI behavior (covered by UI/e2e tests).
+- Ownership:
+  - Platform owns helper harness and coverage gates.
+  - Feature teams own behavior-specific helper tests for introduced operations.
+
 ### E2E
 
 - Belongs: user-visible flows and critical platform interactions.
@@ -55,3 +64,4 @@ Last reviewed: 2026-02-07
 ## CI Policy
 
 - Failing test gates block merge.
+- `desktop-main:test` includes both TypeScript tests and Python sidecar tests (`test-ts` + `test-python`).

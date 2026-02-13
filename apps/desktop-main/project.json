@@ -17,7 +17,13 @@
         "bundle": false,
         "main": "apps/desktop-main/src/main.ts",
         "tsConfig": "apps/desktop-main/tsconfig.build.json",
-        "assets": ["apps/desktop-main/src/assets"],
+        "assets": [
+          {
+            "input": "apps/desktop-main/src/assets",
+            "glob": "**/*",
+            "output": "apps/desktop-main/src/assets"
+          }
+        ],
         "generatePackageJson": true,
         "esbuildOptions": {
           "sourcemap": true,
@@ -28,6 +34,14 @@
       },
       "configurations": {
         "development": {},
+        "staging": {
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
         "production": {
           "esbuildOptions": {
             "sourcemap": false,
@@ -76,6 +90,9 @@
         "development": {
           "buildTarget": "desktop-main:build:development"
         },
+        "staging": {
+          "buildTarget": "desktop-main:build:staging"
+        },
         "production": {
           "buildTarget": "desktop-main:build:production"
         }
@@ -97,10 +114,22 @@
         "command": "pnpm nx run-many -t build --projects=renderer,desktop-preload,desktop-main && node tools/scripts/smoke-desktop-artifacts.mjs"
       }
     },
-    "test": {
+    "test-ts": {
       "executor": "nx:run-commands",
       "options": {
         "command": "vitest run --config apps/desktop-main/vitest.config.mts"
+      }
+    },
+    "test-python": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/scripts/run-python-sidecar-tests.mjs"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm nx run desktop-main:test-ts && pnpm nx run desktop-main:test-python"
       }
     }
   }
