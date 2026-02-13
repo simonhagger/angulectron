@@ -50,6 +50,10 @@ type ActiveTokens = {
 
 const authTimeoutMs = 180_000;
 const refreshLeadTimeMs = 60_000;
+const discoveryFetchTimeoutMs = 8_000;
+const tokenExchangeFetchTimeoutMs = 12_000;
+const refreshFetchTimeoutMs = 8_000;
+const revocationFetchTimeoutMs = 8_000;
 
 const toBase64Url = (value: Buffer): string =>
   value
@@ -504,11 +508,13 @@ export class OidcService {
       return this.discoveryCache;
     }
 
-    const response = await this.fetchFn(
+    const response = await this.fetchWithTimeout(
       `${this.config.issuer}/.well-known/openid-configuration`,
       {
         method: 'GET',
       },
+      discoveryFetchTimeoutMs,
+      'discovery',
     );
 
     if (!response.ok) {
@@ -546,13 +552,18 @@ export class OidcService {
       body.set('audience', this.config.audience);
     }
 
-    const response = await this.fetchFn(discovery.token_endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const response = await this.fetchWithTimeout(
+      discovery.token_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
       },
-      body: body.toString(),
-    });
+      tokenExchangeFetchTimeoutMs,
+      'token_exchange',
+    );
 
     if (!response.ok) {
       const detail = await response.text();
@@ -605,13 +616,18 @@ export class OidcService {
       body.set('audience', this.config.audience);
     }
 
-    const response = await this.fetchFn(discovery.token_endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const response = await this.fetchWithTimeout(
+      discovery.token_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
       },
-      body: body.toString(),
-    });
+      refreshFetchTimeoutMs,
+      'refresh',
+    );
 
     if (!response.ok) {
       await this.signOut();
@@ -664,13 +680,18 @@ export class OidcService {
     body.set('token_type_hint', 'refresh_token');
     body.set('client_id', this.config.clientId);
 
-    const response = await this.fetchFn(discovery.revocation_endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+    const response = await this.fetchWithTimeout(
+      discovery.revocation_endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: body.toString(),
       },
-      body: body.toString(),
-    });
+      revocationFetchTimeoutMs,
+      'revocation',
+    );
 
     if (!response.ok) {
       throw new Error(
@@ -744,6 +765,31 @@ export class OidcService {
     }
 
     this.scheduleRefresh();
+  }
+
+  private async fetchWithTimeout(
+    input: string,
+    init: RequestInit,
+    timeoutMs: number,
+    operation: 'discovery' | 'token_exchange' | 'refresh' | 'revocation',
+  ): Promise<Response> {
+    const abortController = new AbortController();
+    const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
+    try {
+      return await this.fetchFn(input, {
+        ...init,
+        signal: abortController.signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(
+          `OIDC ${operation} request timed out after ${timeoutMs}ms.`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutHandle);
+    }
   }
 
   private async waitForAuthorizationCode(

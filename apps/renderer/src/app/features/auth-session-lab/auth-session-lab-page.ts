@@ -60,7 +60,7 @@ export class AuthSessionLabPage {
     return JSON.stringify(diagnostics, null, 2);
   });
   readonly isActive = this.authSessionState.isActive;
-  readonly returnUrl = signal('/');
+  readonly returnUrl = signal<string | null>(null);
   readonly scopes = computed(() => this.summary()?.scopes ?? []);
   readonly entitlements = computed(() => this.summary()?.entitlements ?? []);
 
@@ -148,8 +148,9 @@ export class AuthSessionLabPage {
       );
       this.statusTone.set(result.data.initiated ? 'success' : 'info');
       await this.refreshSummary();
-      if (this.isActive()) {
-        await this.router.navigateByUrl(this.returnUrl());
+      const returnUrl = this.returnUrl();
+      if (this.isActive() && returnUrl) {
+        await this.router.navigateByUrl(returnUrl);
       }
     } finally {
       clearTimeout(uiTimeoutHandle);
@@ -218,13 +219,17 @@ export class AuthSessionLabPage {
     }
   }
 
-  private toSafeInternalUrl(url: string | null): string {
+  private toSafeInternalUrl(url: string | null): string | null {
     if (!url || !url.startsWith('/')) {
-      return '/';
+      return null;
     }
 
     if (url.startsWith('//') || /[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)) {
-      return '/';
+      return null;
+    }
+
+    if (url === '/auth-session-lab') {
+      return null;
     }
 
     return url;
@@ -232,15 +237,18 @@ export class AuthSessionLabPage {
 
   private async initializeSessionState() {
     await this.authSessionState.ensureInitialized(this.showTokenDiagnostics());
-    await this.refreshSummary();
-    const summary = this.summary();
-    if (!summary) {
-      this.statusText.set('Desktop bridge unavailable in browser mode.');
-      this.statusTone.set('warn');
+    const result = await this.authSessionState.refreshSummary(
+      this.showTokenDiagnostics(),
+    );
+    if (!result.ok) {
+      this.statusText.set(result.error.message);
+      this.statusTone.set(
+        result.error.code === 'DESKTOP/UNAVAILABLE' ? 'warn' : 'error',
+      );
       return;
     }
 
-    this.applySummaryStatus(summary.state);
+    this.applySummaryStatus(result.data.state);
   }
 
   private applySummaryStatus(state: AuthSessionSummary['state']) {

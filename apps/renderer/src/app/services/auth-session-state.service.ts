@@ -57,12 +57,7 @@ export class AuthSessionStateService {
 
     this.refreshPending.set(true);
     try {
-      const [summaryResult, diagnosticsResult] = await Promise.all([
-        desktop.auth.getSessionSummary(),
-        includeTokenDiagnostics
-          ? desktop.auth.getTokenDiagnostics()
-          : Promise.resolve(null),
-      ]);
+      const summaryResult = await desktop.auth.getSessionSummary();
 
       if (!summaryResult.ok) {
         this.summary.set(null);
@@ -71,10 +66,13 @@ export class AuthSessionStateService {
       }
 
       this.summary.set(summaryResult.data);
-      if (diagnosticsResult && diagnosticsResult.ok) {
-        this.tokenDiagnostics.set(diagnosticsResult.data);
-      } else if (includeTokenDiagnostics) {
-        this.tokenDiagnostics.set(null);
+      if (includeTokenDiagnostics) {
+        const diagnosticsResult = await desktop.auth.getTokenDiagnostics();
+        if (diagnosticsResult.ok) {
+          this.tokenDiagnostics.set(diagnosticsResult.data);
+        } else {
+          this.tokenDiagnostics.set(null);
+        }
       }
 
       return summaryResult;
