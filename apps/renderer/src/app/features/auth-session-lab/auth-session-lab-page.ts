@@ -17,6 +17,7 @@ import type {
   AuthSessionSummary,
 } from '@electron-foundation/contracts';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
+import { AuthSessionStateService } from '../../services/auth-session-state.service';
 
 type StatusTone = 'info' | 'success' | 'warn' | 'error';
 const signInUiPendingMaxMs = 2_000;
@@ -37,18 +38,18 @@ const signInUiPendingMaxMs = 2_000;
 export class AuthSessionLabPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly authSessionState = inject(AuthSessionStateService);
   readonly showTokenDiagnostics = signal(isDevMode());
   readonly desktopAvailable = signal(!!getDesktopApi());
+  readonly sessionInitialized = this.authSessionState.initialized;
   readonly signInPending = signal(false);
   readonly browserFlowPending = signal(false);
-  readonly refreshPending = signal(false);
+  readonly refreshPending = this.authSessionState.refreshPending;
   readonly signOutPending = signal(false);
   readonly statusText = signal('Idle.');
   readonly statusTone = signal<StatusTone>('info');
-  readonly summary = signal<AuthSessionSummary | null>(null);
-  readonly tokenDiagnostics = signal<AuthGetTokenDiagnosticsResponse | null>(
-    null,
-  );
+  readonly summary = this.authSessionState.summary;
+  readonly tokenDiagnostics = this.authSessionState.tokenDiagnostics;
   readonly tokenDiagnosticsJson = computed(() => {
     const diagnostics = this.tokenDiagnostics();
     if (!diagnostics) {
@@ -57,7 +58,7 @@ export class AuthSessionLabPage {
 
     return JSON.stringify(diagnostics, null, 2);
   });
-  readonly isActive = computed(() => this.summary()?.state === 'active');
+  readonly isActive = this.authSessionState.isActive;
   readonly returnUrl = signal('/');
   readonly scopes = computed(() => this.summary()?.scopes ?? []);
   readonly entitlements = computed(() => this.summary()?.entitlements ?? []);
@@ -65,43 +66,23 @@ export class AuthSessionLabPage {
   constructor() {
     const queryReturnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
     this.returnUrl.set(this.toSafeInternalUrl(queryReturnUrl));
+    this.statusText.set('Loading session state...');
+    void this.initializeSessionState();
   }
 
   async refreshSummary() {
-    const desktop = getDesktopApi();
-    if (!desktop) {
-      this.statusText.set('Desktop bridge unavailable in browser mode.');
-      this.statusTone.set('warn');
+    const result = await this.authSessionState.refreshSummary(
+      this.showTokenDiagnostics(),
+    );
+    if (!result.ok) {
+      this.statusText.set(result.error.message);
+      this.statusTone.set(
+        result.error.code === 'DESKTOP/UNAVAILABLE' ? 'warn' : 'error',
+      );
       return;
     }
 
-    this.refreshPending.set(true);
-    try {
-      const [summaryResult, diagnosticsResult] = await Promise.all([
-        desktop.auth.getSessionSummary(),
-        this.showTokenDiagnostics()
-          ? desktop.auth.getTokenDiagnostics()
-          : Promise.resolve(null),
-      ]);
-      if (!summaryResult.ok) {
-        this.statusText.set(summaryResult.error.message);
-        this.statusTone.set('error');
-        return;
-      }
-
-      this.summary.set(summaryResult.data);
-      if (diagnosticsResult && diagnosticsResult.ok) {
-        this.tokenDiagnostics.set(diagnosticsResult.data);
-      } else {
-        this.tokenDiagnostics.set(null);
-      }
-      this.statusText.set(`Session state: ${summaryResult.data.state}`);
-      this.statusTone.set(
-        summaryResult.data.state === 'active' ? 'success' : 'info',
-      );
-    } finally {
-      this.refreshPending.set(false);
-    }
+    this.applySummaryStatus(result.data.state);
   }
 
   async signIn() {
@@ -190,6 +171,11 @@ export class AuthSessionLabPage {
       this.statusTone.set('warn');
       return;
     }
+    if (!this.isActive()) {
+      this.statusText.set('No active session to sign out.');
+      this.statusTone.set('info');
+      return;
+    }
 
     this.signOutPending.set(true);
     try {
@@ -218,5 +204,23 @@ export class AuthSessionLabPage {
     }
 
     return url;
+  }
+
+  private async initializeSessionState() {
+    await this.authSessionState.ensureInitialized(this.showTokenDiagnostics());
+    await this.refreshSummary();
+    const summary = this.summary();
+    if (!summary) {
+      this.statusText.set('Desktop bridge unavailable in browser mode.');
+      this.statusTone.set('warn');
+      return;
+    }
+
+    this.applySummaryStatus(summary.state);
+  }
+
+  private applySummaryStatus(state: AuthSessionSummary['state']) {
+    this.statusText.set(`Session state: ${state}`);
+    this.statusTone.set(state === 'active' ? 'success' : 'info');
   }
 }

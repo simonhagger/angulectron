@@ -16,6 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { distinctUntilChanged, map } from 'rxjs';
 import { getDesktopApi } from '@electron-foundation/desktop-api';
+import { AuthSessionStateService } from './services/auth-session-state.service';
 
 type NavLink = {
   path: string;
@@ -46,6 +47,7 @@ const LABS_MODE_STORAGE_KEY = 'angulectron.labsMode';
 export class App {
   private readonly breakpointObserver = inject(BreakpointObserver);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly authSessionState = inject(AuthSessionStateService);
   private readonly navLinks: NavLink[] = [
     { path: '/', label: 'Home', icon: 'home', exact: true },
     {
@@ -162,6 +164,7 @@ export class App {
 
   constructor() {
     void this.initializeLabsModePolicy();
+    void this.authSessionState.ensureInitialized();
 
     this.breakpointObserver
       .observe('(max-width: 1023px)')
