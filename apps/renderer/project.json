@@ -18,6 +18,11 @@
           {
             "glob": "**/*",
             "input": "apps/renderer/public"
+          },
+          {
+            "glob": "**/i18n/*.json",
+            "input": "apps/renderer/src/app/features",
+            "output": "i18n/features"
           }
         ],
         "styles": [
