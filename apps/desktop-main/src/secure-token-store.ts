@@ -120,12 +120,16 @@ export const createRefreshTokenStore = async (
     try {
       return await createKeytarStore();
     } catch (error) {
+      const fallbackStore = await createFileStore(options);
+      const fallbackLevel =
+        fallbackStore.kind === 'file-encrypted' ? 'info' : 'warn';
       options.logger?.(
-        'warn',
-        `Keytar unavailable; falling back to file-based token store: ${
+        fallbackLevel,
+        `Keytar unavailable; using ${fallbackStore.kind} token store instead: ${
           error instanceof Error ? error.message : String(error)
-        }`,
+        }. Run "pnpm native:rebuild:keytar" to restore keytar in local development.`,
       );
+      return fallbackStore;
     }
   }
 

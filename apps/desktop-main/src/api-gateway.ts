@@ -19,6 +19,7 @@ export type ApiOperation = {
   maxResponseBytes?: number;
   concurrencyLimit?: number;
   minIntervalMs?: number;
+  claimMap?: Record<string, string>;
   auth?:
     | {
         type: 'bearer';
@@ -36,7 +37,56 @@ export type ApiOperation = {
   };
 };
 
-export const defaultApiOperations: Record<ApiOperationId, ApiOperation> = {
+const SAFE_HEADER_NAME_PATTERN = /^x-[a-z0-9-]+$/i;
+const JWT_CLAIM_PATH_PATTERN = /^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*$/;
+
+const resolveConfiguredSecureEndpointUrl = (): string | null => {
+  const configured = process.env.API_SECURE_ENDPOINT_URL_TEMPLATE?.trim();
+  return configured && configured.length > 0 ? configured : null;
+};
+
+const resolveConfiguredSecureEndpointClaimMap = (): Record<string, string> => {
+  const raw = process.env.API_SECURE_ENDPOINT_CLAIM_MAP?.trim();
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const normalized: Record<string, string> = {};
+    for (const [placeholder, claimPath] of Object.entries(parsed)) {
+      if (
+        typeof placeholder !== 'string' ||
+        typeof claimPath !== 'string' ||
+        !JWT_CLAIM_PATH_PATTERN.test(claimPath)
+      ) {
+        continue;
+      }
+      normalized[placeholder] = claimPath;
+    }
+
+    return normalized;
+  } catch {
+    return {};
+  }
+};
+
+const operationConfigurationIssues: Partial<Record<ApiOperationId, string>> = {
+  'call.secure-endpoint':
+    'Set API_SECURE_ENDPOINT_URL_TEMPLATE in .env.local to enable this operation.',
+};
+
+const configuredSecureEndpointUrl = resolveConfiguredSecureEndpointUrl();
+const configuredSecureEndpointClaimMap =
+  resolveConfiguredSecureEndpointClaimMap();
+
+export const defaultApiOperations: Partial<
+  Record<ApiOperationId, ApiOperation>
+> = {
   'status.github': {
     method: 'GET',
     url: 'https://api.github.com/rate_limit',
@@ -46,16 +96,21 @@ export const defaultApiOperations: Record<ApiOperationId, ApiOperation> = {
     minIntervalMs: 300,
     auth: { type: 'none' },
   },
-  'portfolio.user': {
-    method: 'GET',
-    url: 'https://api.adopa.uk/users/{{user_id}}/portfolio',
-    timeoutMs: 10_000,
-    maxResponseBytes: 1_000_000,
-    concurrencyLimit: 2,
-    minIntervalMs: 300,
-    auth: { type: 'oidc' },
-    retry: { maxAttempts: 2, baseDelayMs: 200 },
-  },
+  ...(configuredSecureEndpointUrl
+    ? {
+        'call.secure-endpoint': {
+          method: 'GET',
+          url: configuredSecureEndpointUrl,
+          timeoutMs: 10_000,
+          maxResponseBytes: 1_000_000,
+          concurrencyLimit: 2,
+          minIntervalMs: 300,
+          claimMap: configuredSecureEndpointClaimMap,
+          auth: { type: 'oidc' },
+          retry: { maxAttempts: 2, baseDelayMs: 200 },
+        },
+      }
+    : {}),
 };
 
 type InvokeApiDeps = {
@@ -63,10 +118,26 @@ type InvokeApiDeps = {
   operations?: Partial<Record<ApiOperationId, ApiOperation>>;
 };
 
+type GetApiOperationDiagnosticsDeps = {
+  operations?: Partial<Record<ApiOperationId, ApiOperation>>;
+};
+
 type ApiSuccess = {
   status: number;
   data: unknown;
   contentType?: string;
+  requestPath?: string;
+};
+
+type ApiOperationDiagnostics = {
+  operationId: ApiOperationId;
+  configured: boolean;
+  configurationHint?: string;
+  method?: 'GET' | 'POST';
+  urlTemplate?: string;
+  pathPlaceholders: string[];
+  claimMap: Record<string, string>;
+  authType?: 'none' | 'bearer' | 'oidc';
 };
 
 type OperationRuntimeState = {
@@ -181,6 +252,37 @@ const decodeJwtPayload = (token: string): Record<string, unknown> | null => {
   }
 };
 
+const readJwtClaimByPath = (
+  payload: Record<string, unknown> | null,
+  path: string,
+): string | number | boolean | null | undefined => {
+  if (!payload || !path || !JWT_CLAIM_PATH_PATTERN.test(path)) {
+    return undefined;
+  }
+
+  const segments = path.split('.');
+  let current: unknown = payload;
+
+  for (const segment of segments) {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) {
+      return undefined;
+    }
+
+    current = (current as Record<string, unknown>)[segment];
+  }
+
+  if (
+    typeof current === 'string' ||
+    typeof current === 'number' ||
+    typeof current === 'boolean' ||
+    current === null
+  ) {
+    return current as string | number | boolean | null;
+  }
+
+  return undefined;
+};
+
 const pickTokenDebugClaims = (payload: Record<string, unknown> | null) => {
   if (!payload) {
     return null;
@@ -247,68 +349,14 @@ const invokeSingleAttempt = async (
   const maxResponseBytes =
     operation.maxResponseBytes ?? API_DEFAULT_MAX_RESPONSE_BYTES;
   const providedParams = request.payload.params ?? {};
-  const usedPathParams = new Set<string>();
-  const templatedUrl = operation.url.replace(
-    PATH_PARAM_PATTERN,
-    (_match, rawParamName: string) => {
-      const paramName = String(rawParamName);
-      const paramValue = providedParams[paramName];
-      if (
-        typeof paramValue !== 'string' &&
-        typeof paramValue !== 'number' &&
-        typeof paramValue !== 'boolean'
-      ) {
-        usedPathParams.add(`__missing__${paramName}`);
-        return '';
-      }
 
-      usedPathParams.add(paramName);
-      return encodeURIComponent(String(paramValue));
-    },
-  );
-  const missingPathParams = Array.from(usedPathParams)
-    .filter((key) => key.startsWith('__missing__'))
-    .map((key) => key.replace('__missing__', ''));
-  if (missingPathParams.length > 0) {
-    return asFailure(
-      'API/INVALID_PARAMS',
-      'Required path parameters are missing for API operation.',
-      {
-        operationId: request.payload.operationId,
-        missingPathParams,
-      },
-      false,
-      correlationId,
-    );
-  }
-
-  let requestUrl: URL;
-  try {
-    requestUrl = new URL(templatedUrl);
-  } catch (error) {
-    return asFailure(
-      'API/OPERATION_CONFIG_INVALID',
-      'API operation configuration is invalid.',
-      error,
-      false,
-      correlationId,
-    );
-  }
-  if (operation.method === 'GET' && request.payload.params) {
-    for (const [key, value] of Object.entries(request.payload.params)) {
-      if (usedPathParams.has(key)) {
-        continue;
-      }
-      requestUrl.searchParams.set(key, String(value));
-    }
-  }
+  const auth = operation.auth ?? { type: 'none' as const };
+  let oidcPayload: Record<string, unknown> | null = null;
+  let oidcTokenClaims: ReturnType<typeof pickTokenDebugClaims> | undefined;
 
   const headers = new Headers();
   headers.set('Accept', 'application/json');
-  const requestUrlString = requestUrl.toString();
-  let oidcTokenClaims: ReturnType<typeof pickTokenDebugClaims> | undefined;
 
-  const auth = operation.auth ?? { type: 'none' as const };
   if (auth.type === 'bearer') {
     const token = process.env[auth.tokenEnvVar]?.trim();
     if (!token) {
@@ -342,8 +390,100 @@ const invokeSingleAttempt = async (
     }
 
     headers.set('Authorization', `Bearer ${token}`);
-    oidcTokenClaims = pickTokenDebugClaims(decodeJwtPayload(token));
+    oidcPayload = decodeJwtPayload(token);
+    oidcTokenClaims = pickTokenDebugClaims(oidcPayload);
   }
+
+  if (request.payload.headers) {
+    for (const [key, value] of Object.entries(request.payload.headers)) {
+      if (!SAFE_HEADER_NAME_PATTERN.test(key)) {
+        return asFailure(
+          'API/INVALID_HEADERS',
+          'Request headers contain unsupported header names.',
+          {
+            operationId: request.payload.operationId,
+            header: key,
+          },
+          false,
+          correlationId,
+        );
+      }
+
+      headers.set(key, value);
+    }
+  }
+
+  const usedPathParams = new Set<string>();
+  const missingPathParams: string[] = [];
+  const templatedUrl = operation.url.replace(
+    PATH_PARAM_PATTERN,
+    (_match, rawParamName: string) => {
+      const paramName = String(rawParamName);
+      const directValue = providedParams[paramName];
+      if (
+        typeof directValue === 'string' ||
+        typeof directValue === 'number' ||
+        typeof directValue === 'boolean'
+      ) {
+        usedPathParams.add(paramName);
+        return encodeURIComponent(String(directValue));
+      }
+
+      const mappedClaimPath = operation.claimMap?.[paramName];
+      const claimValue = mappedClaimPath
+        ? readJwtClaimByPath(oidcPayload, mappedClaimPath)
+        : undefined;
+      if (
+        typeof claimValue === 'string' ||
+        typeof claimValue === 'number' ||
+        typeof claimValue === 'boolean'
+      ) {
+        usedPathParams.add(paramName);
+        return encodeURIComponent(String(claimValue));
+      }
+
+      missingPathParams.push(paramName);
+      return '';
+    },
+  );
+
+  if (missingPathParams.length > 0) {
+    return asFailure(
+      'API/INVALID_PARAMS',
+      'Required path parameters are missing for API operation.',
+      {
+        operationId: request.payload.operationId,
+        missingPathParams,
+        claimMap: operation.claimMap ?? {},
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  let requestUrl: URL;
+  try {
+    requestUrl = new URL(templatedUrl);
+  } catch (error) {
+    return asFailure(
+      'API/OPERATION_CONFIG_INVALID',
+      'API operation configuration is invalid.',
+      error,
+      false,
+      correlationId,
+    );
+  }
+
+  if (operation.method === 'GET' && request.payload.params) {
+    for (const [key, value] of Object.entries(request.payload.params)) {
+      if (usedPathParams.has(key)) {
+        continue;
+      }
+      requestUrl.searchParams.set(key, String(value));
+    }
+  }
+
+  const requestUrlString = requestUrl.toString();
 
   const abortController = new AbortController();
   const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
@@ -507,6 +647,7 @@ const invokeSingleAttempt = async (
       status: response.status,
       data: responseData,
       contentType,
+      requestPath: `${requestUrl.pathname}${requestUrl.search}`,
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
@@ -540,6 +681,46 @@ const getOperationState = (operationId: string): OperationRuntimeState => {
   return initial;
 };
 
+const extractPathPlaceholders = (urlTemplate: string): string[] => {
+  const matches = urlTemplate.matchAll(/\{\{([a-zA-Z0-9_]+)\}\}/g);
+  const values = new Set<string>();
+  for (const match of matches) {
+    if (match[1]) {
+      values.add(match[1]);
+    }
+  }
+  return Array.from(values.values());
+};
+
+export const getApiOperationDiagnostics = (
+  operationId: ApiOperationId,
+  deps: GetApiOperationDiagnosticsDeps = {},
+): DesktopResult<ApiOperationDiagnostics> => {
+  const operations = deps.operations ?? defaultApiOperations;
+  const operation = operations[operationId];
+
+  if (!operation) {
+    const configurationHint = operationConfigurationIssues[operationId];
+    return asSuccess({
+      operationId,
+      configured: false,
+      configurationHint,
+      pathPlaceholders: [],
+      claimMap: {},
+    });
+  }
+
+  return asSuccess({
+    operationId,
+    configured: true,
+    method: operation.method,
+    urlTemplate: operation.url,
+    pathPlaceholders: extractPathPlaceholders(operation.url),
+    claimMap: operation.claimMap ?? {},
+    authType: operation.auth?.type ?? 'none',
+  });
+};
+
 export const invokeApiOperation = async (
   request: ApiInvokeRequest,
   deps: InvokeApiDeps = {},
@@ -550,6 +731,21 @@ export const invokeApiOperation = async (
 
   const operation = operations[request.payload.operationId];
   if (!operation) {
+    const configIssue =
+      operationConfigurationIssues[request.payload.operationId];
+    if (configIssue) {
+      return asFailure(
+        'API/OPERATION_NOT_CONFIGURED',
+        'Requested API operation is not configured in this environment.',
+        {
+          operationId: request.payload.operationId,
+          configurationHint: configIssue,
+        },
+        false,
+        correlationId,
+      );
+    }
+
     return asFailure(
       'API/OPERATION_NOT_ALLOWED',
       'Requested API operation is not allowed.',

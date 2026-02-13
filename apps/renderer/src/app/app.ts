@@ -15,6 +15,7 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { distinctUntilChanged, map } from 'rxjs';
+import { getDesktopApi } from '@electron-foundation/desktop-api';
 
 type NavLink = {
   path: string;
@@ -153,12 +154,15 @@ export class App {
   protected readonly title = 'Angulectron';
   protected readonly navOpen = signal(true);
   protected readonly mobileViewport = signal(false);
-  protected readonly labsMode = signal(this.loadLabsModePreference());
+  protected readonly labsMode = signal(false);
+  protected readonly labsModeLocked = signal(false);
   protected readonly visibleNavLinks = computed(() =>
     this.navLinks.filter((item) => this.labsMode() || !item.lab),
   );
 
   constructor() {
+    void this.initializeLabsModePolicy();
+
     this.breakpointObserver
       .observe('(max-width: 1023px)')
       .pipe(
@@ -198,11 +202,34 @@ export class App {
   }
 
   protected toggleLabsMode() {
+    if (this.labsModeLocked()) {
+      return;
+    }
+
     this.labsMode.update((value) => {
       const next = !value;
       this.persistLabsModePreference(next);
       return next;
     });
+  }
+
+  private async initializeLabsModePolicy() {
+    const desktop = getDesktopApi();
+    if (!desktop) {
+      this.labsMode.set(this.loadLabsModePreference());
+      return;
+    }
+
+    const runtime = await desktop.app.getRuntimeVersions();
+    if (!runtime.ok) {
+      this.labsMode.set(this.loadLabsModePreference());
+      return;
+    }
+
+    const forcedLabsMode = runtime.data.appEnvironment !== 'production';
+    this.labsModeLocked.set(true);
+    this.labsMode.set(forcedLabsMode);
+    this.persistLabsModePreference(forcedLabsMode);
   }
 
   private loadLabsModePreference(): boolean {

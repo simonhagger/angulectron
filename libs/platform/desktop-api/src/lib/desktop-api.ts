@@ -1,4 +1,5 @@
 import type {
+  ApiGetOperationDiagnosticsResponse,
   ApiOperationId,
   AuthGetTokenDiagnosticsResponse,
   AuthSessionSummary,
@@ -10,7 +11,12 @@ export interface DesktopAppApi {
   getContractVersion: () => Promise<DesktopResult<ContractVersion>>;
   getVersion: () => Promise<DesktopResult<string>>;
   getRuntimeVersions: () => Promise<
-    DesktopResult<{ electron: string; node: string; chrome: string }>
+    DesktopResult<{
+      electron: string;
+      node: string;
+      chrome: string;
+      appEnvironment: 'development' | 'staging' | 'production';
+    }>
   >;
 }
 
@@ -76,7 +82,13 @@ export interface DesktopExternalApi {
   invoke: (
     operationId: ApiOperationId,
     params?: Record<string, string | number | boolean | null>,
-  ) => Promise<DesktopResult<{ status: number; data: unknown }>>;
+    options?: { headers?: Record<string, string> },
+  ) => Promise<
+    DesktopResult<{ status: number; data: unknown; requestPath?: string }>
+  >;
+  getOperationDiagnostics: (
+    operationId: ApiOperationId,
+  ) => Promise<DesktopResult<ApiGetOperationDiagnosticsResponse>>;
 }
 
 export interface DesktopTelemetryApi {

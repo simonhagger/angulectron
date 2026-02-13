@@ -19,6 +19,7 @@ export const appRuntimeVersionsResponseSchema = z
     electron: z.string().min(1),
     node: z.string().min(1),
     chrome: z.string().min(1),
+    appEnvironment: z.enum(['development', 'staging', 'production']),
   })
   .strict();
 

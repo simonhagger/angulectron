@@ -247,6 +247,13 @@ export class OidcService {
         authorizationUrl.searchParams.set('audience', this.config.audience);
       }
 
+      this.logger?.('info', 'auth.signin.launch', {
+        authorizationHost: authorizationUrl.host,
+        authorizationPath: authorizationUrl.pathname,
+        redirectHost: new URL(redirectUriForRequest).host,
+        redirectPath: new URL(redirectUriForRequest).pathname,
+      });
+
       await this.openExternal(authorizationUrl.toString());
       const code = await callbackResult.waitForCode();
 
@@ -274,7 +281,7 @@ export class OidcService {
         );
       }
 
-      this.applyTokenResponse(tokenResult.data);
+      await this.applyTokenResponse(tokenResult.data);
       this.logger?.('info', 'auth.signin.success', {
         tokenStore: this.tokenStore.kind,
       });
@@ -331,6 +338,18 @@ export class OidcService {
   }
 
   async getSessionSummary(): Promise<DesktopResult<AuthSessionSummary>> {
+    if (this.signInInFlight) {
+      return asSuccess(this.summary);
+    }
+
+    if (!this.tokens) {
+      const refreshed = await this.ensureRefreshAccessToken();
+      if (!refreshed.ok) {
+        return refreshed;
+      }
+      return asSuccess(this.summary);
+    }
+
     if (this.tokens && Date.now() >= this.tokens.accessTokenExpiresAt) {
       const refreshed = await this.ensureRefreshAccessToken();
       if (!refreshed.ok) {
@@ -577,7 +596,7 @@ export class OidcService {
       );
     }
 
-    this.applyTokenResponse({
+    await this.applyTokenResponse({
       access_token: payload.access_token,
       token_type: payload.token_type,
       expires_in: payload.expires_in,
@@ -615,7 +634,7 @@ export class OidcService {
     }
   }
 
-  private applyTokenResponse(tokenResponse: TokenResponse) {
+  private async applyTokenResponse(tokenResponse: TokenResponse) {
     const expiresInSeconds =
       typeof tokenResponse.expires_in === 'number' &&
       Number.isFinite(tokenResponse.expires_in)
@@ -663,7 +682,7 @@ export class OidcService {
     };
 
     if (refreshToken) {
-      void this.tokenStore.set(refreshToken);
+      await this.tokenStore.set(refreshToken);
     }
 
     this.scheduleRefresh();

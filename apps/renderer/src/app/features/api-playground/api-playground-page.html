@@ -17,7 +17,7 @@
         <mat-label>Operation</mat-label>
         <mat-select
           [ngModel]="operation()"
-          (ngModelChange)="operation.set($event)"
+          (ngModelChange)="onOperationChange($event)"
           name="operation"
         >
           @for (operationId of operations; track operationId) {
@@ -37,7 +37,33 @@
         ></textarea>
       </mat-form-field>
 
+      <mat-form-field class="full-width" appearance="outline">
+        <mat-label>Safe Headers JSON (x-*)</mat-label>
+        <textarea
+          matInput
+          rows="4"
+          [ngModel]="headersText()"
+          (ngModelChange)="headersText.set($event)"
+          name="headersText"
+        ></textarea>
+      </mat-form-field>
+
+      <p class="status">
+        For secure-endpoint calls, path placeholders can be supplied from params
+        or mapped JWT claims configured in `.env.local`. If both exist, params
+        take precedence over JWT claim mapping.
+      </p>
+
       <div class="actions">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="refreshDiagnostics()"
+          [disabled]="diagnosticsPending()"
+        >
+          <mat-icon aria-hidden="true">manage_search</mat-icon>
+          Refresh Diagnostics
+        </button>
         <button
           mat-flat-button
           color="primary"
@@ -50,10 +76,26 @@
       </div>
 
       <p class="status">{{ requestState() }}</p>
+      <p class="status">{{ diagnosticsState() }}</p>
 
-      @if (responseStatus() !== null || responseBody()) {
+      @if (operationDiagnosticsBody()) {
       <section class="output">
-        @if (responseStatus() !== null) {
+        <h3>Operation Diagnostics</h3>
+        <pre>{{ operationDiagnosticsBody() }}</pre>
+      </section>
+      } @if (tokenDiagnosticsBody()) {
+      <section class="output">
+        <h3>Token Diagnostics</h3>
+        <pre>{{ tokenDiagnosticsBody() }}</pre>
+      </section>
+      } @if (responseStatus() !== null || responseBody()) {
+      <section class="output">
+        @if (resolvedRequestPath()) {
+        <p>
+          <strong>Resolved Path:</strong>
+          <code>{{ resolvedRequestPath() }}</code>
+        </p>
+        } @if (responseStatus() !== null) {
         <p><strong>Status:</strong> {{ responseStatus() }}</p>
         } @if (responseBody()) {
         <h3>Response Body</h3>

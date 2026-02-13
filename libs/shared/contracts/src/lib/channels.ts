@@ -13,6 +13,7 @@ export const IPC_CHANNELS = {
   storageDeleteItem: 'storage:delete-item',
   storageClearDomain: 'storage:clear-domain',
   apiInvoke: 'api:invoke',
+  apiGetOperationDiagnostics: 'api:get-operation-diagnostics',
   updatesCheck: 'updates:check',
   telemetryTrack: 'telemetry:track',
 } as const;

@@ -8,19 +8,31 @@ import {
   session,
   shell,
   type IpcMainInvokeEvent,
-  type WebContents,
 } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { autoUpdater } from 'electron-updater';
-import { invokeApiOperation, setOidcAccessTokenResolver } from './api-gateway';
+import {
+  getApiOperationDiagnostics,
+  invokeApiOperation,
+  setOidcAccessTokenResolver,
+} from './api-gateway';
+import {
+  createMainWindow as createDesktopMainWindow,
+  isAllowedNavigation,
+} from './desktop-window';
 import { loadOidcConfig } from './oidc-config';
 import { OidcService } from './oidc-service';
+import {
+  resolveAppMetadataVersion,
+  resolveRuntimeFlags,
+} from './runtime-config';
 import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
 import {
+  apiGetOperationDiagnosticsRequestSchema,
   apiInvokeRequestSchema,
   authGetSessionSummaryRequestSchema,
   authGetTokenDiagnosticsRequestSchema,
@@ -44,162 +56,16 @@ import {
 } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 
-const runtimeSmokeEnabled = process.env.RUNTIME_SMOKE === '1';
-const isDevelopment = !app.isPackaged && !runtimeSmokeEnabled;
-const resolveAppEnvironment = (): 'development' | 'staging' | 'production' => {
-  const envValue = process.env.APP_ENV?.trim().toLowerCase();
-  if (
-    envValue === 'development' ||
-    envValue === 'staging' ||
-    envValue === 'production'
-  ) {
-    return envValue;
-  }
-
-  const packageJsonCandidates = [
-    '../../../../package.json',
-    '../../../package.json',
-    '../../package.json',
-    '../package.json',
-  ];
-
-  for (const candidate of packageJsonCandidates) {
-    try {
-      const absolutePath = path.resolve(__dirname, candidate);
-      if (!existsSync(absolutePath)) {
-        continue;
-      }
-
-      const raw = require(absolutePath) as { appEnv?: unknown };
-      if (
-        raw.appEnv === 'development' ||
-        raw.appEnv === 'staging' ||
-        raw.appEnv === 'production'
-      ) {
-        return raw.appEnv;
-      }
-    } catch {
-      // Ignore and continue fallback chain.
-    }
-  }
-
-  return app.isPackaged ? 'production' : 'development';
-};
-
-const resolveIsStagingExecutable = (): boolean => {
-  const executableName = path.basename(process.execPath).toLowerCase();
-  return executableName.includes('staging');
-};
-
-const appEnvironment = resolveAppEnvironment();
-const packagedDevToolsOverride = process.env.DESKTOP_ENABLE_DEVTOOLS;
-const allowPackagedDevTools =
-  app.isPackaged &&
-  (appEnvironment === 'staging' || resolveIsStagingExecutable()) &&
-  packagedDevToolsOverride !== '0';
-const shouldOpenDevTools =
-  !runtimeSmokeEnabled && (isDevelopment || allowPackagedDevTools);
-const rendererDevUrl = process.env.RENDERER_DEV_URL ?? 'http://localhost:4200';
+const {
+  runtimeSmokeEnabled,
+  isDevelopment,
+  appEnvironment,
+  shouldOpenDevTools,
+  rendererDevUrl,
+} = resolveRuntimeFlags(app);
+const navigationPolicy = { isDevelopment, rendererDevUrl };
 const fileTokenTtlMs = 5 * 60 * 1000;
 const fileTokenCleanupIntervalMs = 60 * 1000;
-const runtimeSmokeSettleMs = 4_000;
-const allowedDevHosts = new Set(['localhost', '127.0.0.1']);
-
-const resolveExistingPath = (
-  description: string,
-  candidates: string[],
-): string => {
-  for (const candidate of candidates) {
-    const absolutePath = path.resolve(__dirname, candidate);
-    if (existsSync(absolutePath)) {
-      return absolutePath;
-    }
-  }
-
-  throw new Error(
-    `Unable to resolve ${description}. Checked: ${candidates
-      .map((candidate) => path.resolve(__dirname, candidate))
-      .join(', ')}`,
-  );
-};
-
-const resolveAppMetadataVersion = (): string => {
-  const envVersion = process.env.npm_package_version?.trim();
-  if (envVersion) {
-    return envVersion;
-  }
-
-  const packageJsonCandidates = [
-    '../../../../package.json',
-    '../../../package.json',
-    '../../package.json',
-    '../package.json',
-  ];
-
-  for (const candidate of packageJsonCandidates) {
-    try {
-      const absolutePath = path.resolve(__dirname, candidate);
-      if (!existsSync(absolutePath)) {
-        continue;
-      }
-
-      const raw = require(absolutePath) as { version?: unknown };
-      if (typeof raw.version === 'string' && raw.version.trim().length > 0) {
-        return raw.version.trim();
-      }
-    } catch {
-      // Ignore and continue fallback chain.
-    }
-  }
-
-  return app.getVersion();
-};
-
-const resolvePreloadPath = (): string =>
-  resolveExistingPath('preload script', [
-    '../desktop-preload/main.js',
-    '../apps/desktop-preload/main.js',
-    '../../desktop-preload/main.js',
-    '../../../desktop-preload/main.js',
-    '../../../../desktop-preload/main.js',
-    '../desktop-preload/src/main.js',
-    '../apps/desktop-preload/src/main.js',
-    '../../desktop-preload/src/main.js',
-    '../../../desktop-preload/src/main.js',
-  ]);
-
-const resolveRendererIndexPath = (): string =>
-  resolveExistingPath('renderer index', [
-    '../../../../renderer/browser/index.html',
-    '../renderer/browser/index.html',
-    '../../renderer/browser/index.html',
-    '../../../renderer/browser/index.html',
-  ]);
-
-const resolveWindowIconPath = (): string | undefined => {
-  const appPath = app.getAppPath();
-  const candidates = [
-    path.resolve(process.cwd(), 'build/icon.ico'),
-    path.resolve(process.cwd(), 'apps/renderer/public/favicon.ico'),
-    path.resolve(appPath, 'build/icon.ico'),
-    path.resolve(appPath, 'apps/renderer/public/favicon.ico'),
-    path.resolve(__dirname, '../../../../../build/icon.ico'),
-    path.resolve(__dirname, '../../../../../../build/icon.ico'),
-    path.resolve(__dirname, '../../../../../apps/renderer/public/favicon.ico'),
-    path.resolve(
-      __dirname,
-      '../../../../../../apps/renderer/public/favicon.ico',
-    ),
-  ];
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return undefined;
-};
 
 type FileSelectionToken = {
   filePath: string;
@@ -242,45 +108,6 @@ const logEvent = (
   console.info(line);
 };
 
-const resolveRendererDevUrl = (): URL => {
-  const parsed = new URL(rendererDevUrl);
-  if (parsed.protocol !== 'http:' || !allowedDevHosts.has(parsed.hostname)) {
-    throw new Error(
-      `RENDERER_DEV_URL must use http://localhost or http://127.0.0.1. Received: ${rendererDevUrl}`,
-    );
-  }
-
-  return parsed;
-};
-
-const isAllowedNavigation = (targetUrl: string): boolean => {
-  try {
-    const parsed = new URL(targetUrl);
-    if (isDevelopment) {
-      const allowedDevUrl = resolveRendererDevUrl();
-      return parsed.origin === allowedDevUrl.origin;
-    }
-
-    return parsed.protocol === 'file:';
-  } catch {
-    return false;
-  }
-};
-
-const hardenWebContents = (contents: WebContents) => {
-  contents.setWindowOpenHandler(({ url }) => {
-    logEvent('warn', 'security.window_open_blocked', undefined, { url });
-    return { action: 'deny' };
-  });
-
-  contents.on('will-navigate', (event, url) => {
-    if (!isAllowedNavigation(url)) {
-      event.preventDefault();
-      logEvent('warn', 'security.navigation_blocked', undefined, { url });
-    }
-  });
-};
-
 const startFileTokenCleanup = () => {
   if (tokenCleanupTimer) {
     return;
@@ -313,125 +140,22 @@ const clearFileTokensForWindow = (windowId: number) => {
   }
 };
 
-const enableRuntimeSmokeMode = (window: BrowserWindow) => {
-  const diagnostics: string[] = [];
-  const pushDiagnostic = (message: string) => {
-    diagnostics.push(message);
-  };
-
-  window.webContents.on('console-message', (details) => {
-    if (details.level === 'warning' || details.level === 'error') {
-      const label = details.level === 'warning' ? 'warn' : 'error';
-      pushDiagnostic(
-        `${label} ${details.sourceId}:${details.lineNumber} ${details.message}`,
-      );
-    }
-  });
-
-  window.webContents.on('render-process-gone', (_event, details) => {
-    pushDiagnostic(`render-process-gone: ${details.reason}`);
-  });
-
-  window.webContents.on('did-fail-load', (_event, code, description, url) => {
-    pushDiagnostic(`did-fail-load: ${code} ${description} ${url}`);
-  });
-
-  window.webContents.once('did-finish-load', () => {
-    setTimeout(async () => {
-      try {
-        await window.webContents.executeJavaScript(`
-          (() => {
-            const labels = ['Material', 'Carbon', 'Tailwind'];
-            let delay = 150;
-            for (const label of labels) {
-              setTimeout(() => {
-                const candidates = [...document.querySelectorAll('a,[role="link"],button')];
-                const target = candidates.find((el) =>
-                  (el.textContent || '').toLowerCase().includes(label.toLowerCase())
-                );
-                target?.click();
-              }, delay);
-              delay += 250;
-            }
-          })();
-        `);
-      } catch (error) {
-        pushDiagnostic(
-          `route-probe-failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+const createMainWindow = async (): Promise<BrowserWindow> =>
+  createDesktopMainWindow({
+    isDevelopment,
+    runtimeSmokeEnabled,
+    shouldOpenDevTools,
+    rendererDevUrl,
+    onWindowClosed: (windowId) => {
+      clearFileTokensForWindow(windowId);
+      if (mainWindow?.id === windowId) {
+        mainWindow = null;
       }
-
-      setTimeout(() => {
-        if (diagnostics.length > 0) {
-          console.error('Runtime smoke failed due to renderer diagnostics.');
-          for (const message of diagnostics) {
-            console.error(`- ${message}`);
-          }
-          app.exit(1);
-          return;
-        }
-
-        console.info('Runtime smoke passed: no renderer warnings or errors.');
-        app.exit(0);
-      }, runtimeSmokeSettleMs);
-    }, 250);
-  });
-};
-
-const createMainWindow = async (): Promise<BrowserWindow> => {
-  const windowIconPath = resolveWindowIconPath();
-  const window = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1080,
-    minHeight: 680,
-    show: false,
-    backgroundColor: '#f8f7f1',
-    autoHideMenuBar: true,
-    ...(windowIconPath ? { icon: windowIconPath } : {}),
-    webPreferences: {
-      preload: resolvePreloadPath(),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      experimentalFeatures: false,
+    },
+    logger: (level, event, details) => {
+      logEvent(level, event, undefined, details);
     },
   });
-
-  window.setMenuBarVisibility(false);
-
-  hardenWebContents(window.webContents);
-  if (runtimeSmokeEnabled) {
-    enableRuntimeSmokeMode(window);
-  }
-
-  window.on('closed', () => {
-    clearFileTokensForWindow(window.id);
-    if (mainWindow?.id === window.id) {
-      mainWindow = null;
-    }
-  });
-
-  window.once('ready-to-show', () => {
-    window.show();
-  });
-
-  if (isDevelopment) {
-    await window.loadURL(resolveRendererDevUrl().toString());
-  } else {
-    await window.loadFile(resolveRendererIndexPath());
-  }
-
-  if (shouldOpenDevTools) {
-    window.webContents.openDevTools({ mode: 'detach' });
-  }
-
-  return window;
-};
 
 const getCorrelationId = (payload: unknown): string | undefined => {
   if (
@@ -453,7 +177,8 @@ const assertAuthorizedSender = (
   const senderWindow = BrowserWindow.fromWebContents(event.sender);
   const senderUrl = event.senderFrame?.url ?? event.sender.getURL();
   const authorized =
-    senderWindow?.id === mainWindow?.id && isAllowedNavigation(senderUrl);
+    senderWindow?.id === mainWindow?.id &&
+    isAllowedNavigation(senderUrl, navigationPolicy);
 
   if (!authorized) {
     return asFailure(
@@ -555,6 +280,7 @@ const registerIpcHandlers = () => {
       electron: process.versions.electron,
       node: process.versions.node,
       chrome: process.versions.chrome,
+      appEnvironment,
     });
   });
 
@@ -819,6 +545,30 @@ const registerIpcHandlers = () => {
     }
     return invokeApiOperation(parsed.data);
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.apiGetOperationDiagnostics,
+    async (event, payload) => {
+      const correlationId = getCorrelationId(payload);
+      const unauthorized = assertAuthorizedSender(event, correlationId);
+      if (unauthorized) {
+        return unauthorized;
+      }
+
+      const parsed = apiGetOperationDiagnosticsRequestSchema.safeParse(payload);
+      if (!parsed.success) {
+        return asFailure(
+          'IPC/VALIDATION_FAILED',
+          'IPC payload failed validation.',
+          parsed.error.flatten(),
+          false,
+          correlationId,
+        );
+      }
+
+      return getApiOperationDiagnostics(parsed.data.payload.operationId);
+    },
+  );
 
   ipcMain.handle(IPC_CHANNELS.storageSetItem, (event, payload) => {
     const correlationId = getCorrelationId(payload);
