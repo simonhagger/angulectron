@@ -11,14 +11,11 @@ import {
   type DesktopResult,
 } from '@electron-foundation/contracts';
 import type { OidcConfig } from './oidc-config';
+import {
+  OidcProviderClient,
+  type DiscoveryDocument,
+} from './oidc-provider-client';
 import type { RefreshTokenStore } from './secure-token-store';
-
-type DiscoveryDocument = {
-  authorization_endpoint: string;
-  token_endpoint: string;
-  revocation_endpoint?: string;
-  end_session_endpoint?: string;
-};
 
 type TokenResponse = {
   access_token: string;
@@ -174,9 +171,8 @@ export class OidcService {
   private readonly config: OidcConfig;
   private readonly tokenStore: RefreshTokenStore;
   private readonly openExternal: (url: string) => Promise<void>;
-  private readonly fetchFn: typeof fetch;
+  private readonly providerClient: OidcProviderClient;
   private readonly logger?: OidcServiceOptions['logger'];
-  private discoveryCache: DiscoveryDocument | null = null;
   private summary: AuthSessionSummary = buildSignedOutSummary();
   private tokens: ActiveTokens | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
@@ -188,7 +184,10 @@ export class OidcService {
     this.config = options.config;
     this.tokenStore = options.tokenStore;
     this.openExternal = options.openExternal;
-    this.fetchFn = options.fetchFn ?? fetch;
+    this.providerClient = new OidcProviderClient({
+      issuer: options.config.issuer,
+      fetchFn: options.fetchFn,
+    });
     this.logger = options.logger;
   }
 
@@ -504,35 +503,7 @@ export class OidcService {
   }
 
   private async getDiscovery(): Promise<DiscoveryDocument> {
-    if (this.discoveryCache) {
-      return this.discoveryCache;
-    }
-
-    const response = await this.fetchWithTimeout(
-      `${this.config.issuer}/.well-known/openid-configuration`,
-      {
-        method: 'GET',
-      },
-      discoveryFetchTimeoutMs,
-      'discovery',
-    );
-
-    if (!response.ok) {
-      throw new Error(`OIDC discovery failed (${response.status}).`);
-    }
-
-    const payload = (await response.json()) as Partial<DiscoveryDocument>;
-    if (!payload.authorization_endpoint || !payload.token_endpoint) {
-      throw new Error('OIDC discovery payload is missing required endpoints.');
-    }
-
-    this.discoveryCache = {
-      authorization_endpoint: payload.authorization_endpoint,
-      token_endpoint: payload.token_endpoint,
-      revocation_endpoint: payload.revocation_endpoint,
-      end_session_endpoint: payload.end_session_endpoint,
-    };
-    return this.discoveryCache;
+    return this.providerClient.getDiscovery(discoveryFetchTimeoutMs);
   }
 
   private async exchangeCodeForTokens(input: {
@@ -552,7 +523,7 @@ export class OidcService {
       body.set('audience', this.config.audience);
     }
 
-    const response = await this.fetchWithTimeout(
+    const response = await this.providerClient.requestWithTimeout(
       discovery.token_endpoint,
       {
         method: 'POST',
@@ -616,7 +587,7 @@ export class OidcService {
       body.set('audience', this.config.audience);
     }
 
-    const response = await this.fetchWithTimeout(
+    const response = await this.providerClient.requestWithTimeout(
       discovery.token_endpoint,
       {
         method: 'POST',
@@ -680,7 +651,7 @@ export class OidcService {
     body.set('token_type_hint', 'refresh_token');
     body.set('client_id', this.config.clientId);
 
-    const response = await this.fetchWithTimeout(
+    const response = await this.providerClient.requestWithTimeout(
       discovery.revocation_endpoint,
       {
         method: 'POST',
@@ -765,31 +736,6 @@ export class OidcService {
     }
 
     this.scheduleRefresh();
-  }
-
-  private async fetchWithTimeout(
-    input: string,
-    init: RequestInit,
-    timeoutMs: number,
-    operation: 'discovery' | 'token_exchange' | 'refresh' | 'revocation',
-  ): Promise<Response> {
-    const abortController = new AbortController();
-    const timeoutHandle = setTimeout(() => abortController.abort(), timeoutMs);
-    try {
-      return await this.fetchFn(input, {
-        ...init,
-        signal: abortController.signal,
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(
-          `OIDC ${operation} request timed out after ${timeoutMs}ms.`,
-        );
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeoutHandle);
-    }
   }
 
   private async waitForAuthorizationCode(
