@@ -39,6 +39,7 @@
         <mat-icon aria-hidden="true">menu</mat-icon>
       </button>
       <span class="shell-title">{{ title }}</span>
+      @if (labsFeatureEnabled) {
       <button
         mat-stroked-button
         type="button"
@@ -46,8 +47,10 @@
         (click)="toggleLabsMode()"
         [disabled]="labsModeLocked()"
       >
-        Labs Mode: {{ labsMode() ? 'On' : 'Off' }}
+        {{ labsToggleLabel }} {{ labsMode() ? labsToggleOnLabel :
+        labsToggleOffLabel }}
       </button>
+      }
     </mat-toolbar>
 
     <main class="shell-main" role="main">
