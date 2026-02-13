@@ -37,9 +37,11 @@ export interface DesktopAuthApi {
     DesktopResult<{
       signedOut: boolean;
       mode: 'local' | 'global';
+      refreshTokenPresent: boolean;
       refreshTokenRevoked: boolean;
-      providerLogoutSupported: boolean;
-      providerLogoutInitiated: boolean;
+      revocationSupported: boolean;
+      endSessionSupported: boolean;
+      endSessionInitiated: boolean;
     }>
   >;
   getSessionSummary: () => Promise<DesktopResult<AuthSessionSummary>>;

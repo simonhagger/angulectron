@@ -42,9 +42,11 @@ export const authSignOutResponseSchema = z
   .object({
     signedOut: z.boolean(),
     mode: authSignOutModeSchema,
+    refreshTokenPresent: z.boolean().default(false),
     refreshTokenRevoked: z.boolean().default(false),
-    providerLogoutSupported: z.boolean().default(false),
-    providerLogoutInitiated: z.boolean().default(false),
+    revocationSupported: z.boolean().default(false),
+    endSessionSupported: z.boolean().default(false),
+    endSessionInitiated: z.boolean().default(false),
   })
   .strict();
 

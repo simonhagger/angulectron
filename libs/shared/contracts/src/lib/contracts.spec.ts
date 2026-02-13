@@ -220,9 +220,11 @@ describe('auth contracts', () => {
     const parsed = authSignOutResponseSchema.safeParse({
       signedOut: true,
       mode: 'global',
+      refreshTokenPresent: true,
       refreshTokenRevoked: true,
-      providerLogoutSupported: true,
-      providerLogoutInitiated: true,
+      revocationSupported: true,
+      endSessionSupported: true,
+      endSessionInitiated: true,
     });
 
     expect(parsed.success).toBe(true);

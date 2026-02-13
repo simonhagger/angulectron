@@ -197,15 +197,19 @@ export class AuthSessionLabPage {
 
       const providerMessage =
         result.data.mode === 'global'
-          ? result.data.providerLogoutSupported
-            ? result.data.providerLogoutInitiated
-              ? 'Provider sign-out initiated.'
-              : 'Provider sign-out not initiated.'
-            : 'Provider does not advertise global sign-out support.'
+          ? result.data.endSessionSupported
+            ? result.data.endSessionInitiated
+              ? 'Provider end-session flow was launched in browser.'
+              : 'Provider end-session flow was not launched.'
+            : 'Provider does not advertise an end-session endpoint.'
           : 'Local session cleared.';
-      const revokeMessage = result.data.refreshTokenRevoked
-        ? 'Refresh token revoked.'
-        : 'Refresh token revocation not performed.';
+      const revokeMessage = result.data.revocationSupported
+        ? result.data.refreshTokenPresent
+          ? result.data.refreshTokenRevoked
+            ? 'Refresh token was revoked.'
+            : 'Refresh token revocation failed.'
+          : 'No refresh token was present to revoke.'
+        : 'Provider does not advertise a revocation endpoint.';
       this.statusText.set(`${providerMessage} ${revokeMessage}`);
       this.statusTone.set('info');
       await this.refreshSummary();

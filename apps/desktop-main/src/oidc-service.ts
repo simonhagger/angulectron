@@ -314,20 +314,21 @@ export class OidcService {
   ): Promise<DesktopResult<AuthSignOutResponse>> {
     const refreshToken =
       this.tokens?.refreshToken ?? (await this.tokenStore.get());
+    const refreshTokenPresent = Boolean(refreshToken);
     const idToken = this.tokens?.idToken;
     this.clearRefreshTimer();
     this.tokens = null;
     this.summary = buildSignedOutSummary();
     let refreshTokenRevoked = false;
-    let providerLogoutSupported = false;
-    let providerLogoutInitiated = false;
+    let revocationSupported = false;
+    let endSessionSupported = false;
+    let endSessionInitiated = false;
 
     try {
       if (mode === 'global') {
         const discovery = await this.getDiscovery();
-        providerLogoutSupported =
-          Boolean(discovery.revocation_endpoint) ||
-          Boolean(discovery.end_session_endpoint);
+        revocationSupported = Boolean(discovery.revocation_endpoint);
+        endSessionSupported = Boolean(discovery.end_session_endpoint);
 
         if (refreshToken) {
           const revoked = await this.revokeRefreshTokenIfSupported(
@@ -352,7 +353,7 @@ export class OidcService {
               message: error instanceof Error ? error.message : String(error),
             });
           });
-          providerLogoutInitiated = true;
+          endSessionInitiated = true;
         }
       }
 
@@ -360,9 +361,11 @@ export class OidcService {
       return asSuccess({
         signedOut: true,
         mode,
+        refreshTokenPresent,
         refreshTokenRevoked,
-        providerLogoutSupported,
-        providerLogoutInitiated,
+        revocationSupported,
+        endSessionSupported,
+        endSessionInitiated,
       });
     } catch (error) {
       return asFailure(

@@ -47,9 +47,11 @@ export const registerAuthIpcHandlers = (
         return asSuccess({
           signedOut: true,
           mode: request.payload.mode,
+          refreshTokenPresent: false,
           refreshTokenRevoked: false,
-          providerLogoutSupported: false,
-          providerLogoutInitiated: false,
+          revocationSupported: false,
+          endSessionSupported: false,
+          endSessionInitiated: false,
         });
       }
 

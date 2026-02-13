@@ -78,8 +78,10 @@ describe('OidcService lifecycle', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.mode).toBe('global');
+      expect(result.data.refreshTokenPresent).toBe(true);
       expect(result.data.refreshTokenRevoked).toBe(true);
-      expect(result.data.providerLogoutSupported).toBe(true);
+      expect(result.data.revocationSupported).toBe(true);
+      expect(result.data.endSessionSupported).toBe(false);
     }
     expect(store.clear).toHaveBeenCalledTimes(1);
     expect(fetchFn).toHaveBeenCalledWith(
@@ -125,8 +127,10 @@ describe('OidcService lifecycle', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
+      expect(result.data.refreshTokenPresent).toBe(true);
       expect(result.data.refreshTokenRevoked).toBe(false);
-      expect(result.data.providerLogoutSupported).toBe(true);
+      expect(result.data.revocationSupported).toBe(true);
+      expect(result.data.endSessionSupported).toBe(false);
     }
     expect(store.clear).toHaveBeenCalledTimes(1);
   });
@@ -153,9 +157,11 @@ describe('OidcService lifecycle', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.mode).toBe('local');
+      expect(result.data.refreshTokenPresent).toBe(true);
       expect(result.data.refreshTokenRevoked).toBe(false);
-      expect(result.data.providerLogoutSupported).toBe(false);
-      expect(result.data.providerLogoutInitiated).toBe(false);
+      expect(result.data.revocationSupported).toBe(false);
+      expect(result.data.endSessionSupported).toBe(false);
+      expect(result.data.endSessionInitiated).toBe(false);
     }
     expect(store.clear).toHaveBeenCalledTimes(1);
     expect(fetchFn).not.toHaveBeenCalled();
