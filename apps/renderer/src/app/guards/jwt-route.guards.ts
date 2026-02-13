@@ -11,7 +11,7 @@ import {
   type UrlSegment,
   type UrlTree,
 } from '@angular/router';
-import { getDesktopApi } from '@electron-foundation/desktop-api';
+import { AuthSessionStateService } from '../services/auth-session-state.service';
 
 export interface JwtProtectedRouteComponent {
   canDeactivateJwt?: () => boolean | Promise<boolean>;
@@ -26,12 +26,8 @@ const ensureActiveJwtSession = async (
   returnUrl: string,
 ): Promise<boolean | UrlTree> => {
   const router = inject(Router);
-  const desktop = getDesktopApi();
-  if (!desktop) {
-    return buildAuthUrlTree(router, returnUrl);
-  }
-
-  const response = await desktop.auth.getSessionSummary();
+  const authSessionState = inject(AuthSessionStateService);
+  const response = await authSessionState.refreshSummary();
   if (!response.ok) {
     return buildAuthUrlTree(router, returnUrl);
   }
