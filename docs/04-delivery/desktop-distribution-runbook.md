@@ -16,8 +16,16 @@ Last reviewed: 2026-02-13
 
 Python sidecar notes:
 
-- Current lab implementation runs with system Python (`3.11+`) and does not yet bundle a Python interpreter.
-- If Python is unavailable on target machine, sidecar-dependent lab features must fail with typed diagnostics and not crash desktop startup.
+- Runtime selection prefers bundled Python payload when present; local/dev can still fall back to system Python (`3.11+`) for experimentation.
+- Packaged builds do not fall back to system Python; bundled runtime is required.
+- If no valid runtime is available, sidecar-dependent features must fail with typed diagnostics and not crash desktop startup.
+- Staging builds keep lab routes enabled for verification; production builds strip lab routes/features from bundle surface.
+- Deterministic packaged builds expect a local bundled runtime payload:
+  - `build/python-runtime/<platform>-<arch>/manifest.json`
+  - sidecar dependency pin file: `apps/desktop-main/python-sidecar/requirements-runtime.txt`
+  - staging/production packaging preflight: `pnpm run python-runtime:assert`
+  - preflight validates runtime interpreter and `fitz` import when PyMuPDF is declared
+  - runtime payload copied into `dist/apps/desktop-main/python-runtime/<platform>-<arch>/` via `pnpm run python-runtime:sync-dist`
 
 ## Signing Readiness
 

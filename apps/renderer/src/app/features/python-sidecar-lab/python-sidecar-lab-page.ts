@@ -21,6 +21,7 @@ export class PythonSidecarLabPage {
   readonly pid = signal('N/A');
   readonly pythonCommand = signal('N/A');
   readonly pythonVersion = signal('N/A');
+  readonly pythonExecutable = signal('N/A');
   readonly pymupdfAvailable = signal('Unknown');
   readonly pymupdfVersion = signal('N/A');
   readonly rawDiagnostics = signal('');
@@ -52,6 +53,7 @@ export class PythonSidecarLabPage {
     this.pid.set(data.pid ? String(data.pid) : 'N/A');
     this.pythonCommand.set(data.pythonCommand ?? 'N/A');
     this.pythonVersion.set(data.health?.pythonVersion ?? 'N/A');
+    this.pythonExecutable.set(data.health?.pythonExecutable ?? 'N/A');
     this.pymupdfAvailable.set(
       data.health ? String(data.health.pymupdfAvailable) : 'Unknown',
     );
@@ -118,6 +120,7 @@ export class PythonSidecarLabPage {
     this.inspectedFileSize.set(String(data.fileSizeBytes));
     this.inspectedHeaderHex.set(data.headerHex);
     this.pythonVersion.set(data.pythonVersion);
+    this.pythonExecutable.set(data.pythonExecutable ?? 'N/A');
     this.pymupdfAvailable.set(String(data.pymupdfAvailable));
     this.pymupdfVersion.set(data.pymupdfVersion ?? 'N/A');
     this.rawDiagnostics.set(JSON.stringify(data, null, 2));

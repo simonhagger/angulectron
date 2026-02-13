@@ -65,3 +65,8 @@ playwright-report/
 test-results/
 
 CONTEXT.md
+
+# local bundled python runtime payload (large binaries, machine-local)
+build/python-runtime/*
+!build/python-runtime/README.md
+!build/python-runtime/.gitkeep

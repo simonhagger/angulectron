@@ -6,6 +6,7 @@ type PythonHealth = {
   status: string;
   service: string;
   pythonVersion: string;
+  pythonExecutable: string;
   pymupdfAvailable: boolean;
   pymupdfVersion?: string;
   pymupdfError?: string;
@@ -34,6 +35,7 @@ type PythonInspectPdfResult = {
   fileSizeBytes: number;
   headerHex: string;
   pythonVersion: string;
+  pythonExecutable: string;
   pymupdfAvailable: boolean;
   pymupdfVersion?: string;
   message?: string;
@@ -48,6 +50,8 @@ type PythonSidecarOptions = {
   scriptPath: string;
   host: string;
   port: number;
+  preferredCommand?: CommandCandidate;
+  allowSystemFallback?: boolean;
   startupTimeoutMs?: number;
   logger?: (
     level: 'debug' | 'info' | 'warn' | 'error',
@@ -66,6 +70,8 @@ export class PythonSidecar {
   private readonly scriptPath: string;
   private readonly host: string;
   private readonly port: number;
+  private readonly preferredCommand?: CommandCandidate;
+  private readonly allowSystemFallback: boolean;
   private readonly startupTimeoutMs: number;
   private readonly logger?: PythonSidecarOptions['logger'];
 
@@ -76,6 +82,8 @@ export class PythonSidecar {
     this.scriptPath = options.scriptPath;
     this.host = options.host;
     this.port = options.port;
+    this.preferredCommand = options.preferredCommand;
+    this.allowSystemFallback = options.allowSystemFallback ?? true;
     this.startupTimeoutMs = options.startupTimeoutMs ?? 8_000;
     this.logger = options.logger;
   }
@@ -111,8 +119,20 @@ export class PythonSidecar {
 
     await this.stop();
 
-    let lastMessage = 'No Python interpreter command was successful.';
-    for (const candidate of this.commandCandidates()) {
+    const candidates = this.commandCandidates();
+    if (candidates.length === 0) {
+      return {
+        available: false,
+        started: false,
+        running: false,
+        endpoint: this.endpoint,
+        message:
+          'Bundled Python runtime is unavailable and system fallback is disabled for this build.',
+      };
+    }
+
+    const failureMessages: string[] = [];
+    for (const candidate of candidates) {
       const result = await this.startWithCandidate(candidate);
       if (result.kind === 'success') {
         return {
@@ -125,7 +145,7 @@ export class PythonSidecar {
           health: result.health,
         };
       } else {
-        lastMessage = result.message;
+        failureMessages.push(result.message);
       }
     }
 
@@ -134,7 +154,10 @@ export class PythonSidecar {
       started: false,
       running: false,
       endpoint: this.endpoint,
-      message: lastMessage,
+      message:
+        failureMessages.length > 0
+          ? failureMessages.join(' | ')
+          : 'No Python interpreter command was successful.',
     };
   }
 
@@ -198,20 +221,27 @@ export class PythonSidecar {
   }
 
   private commandCandidates(): CommandCandidate[] {
+    const preferred = this.preferredCommand ? [this.preferredCommand] : [];
+    if (!this.allowSystemFallback) {
+      return preferred;
+    }
+
     const explicit = process.env.PYTHON_SIDECAR_COMMAND;
     if (explicit && explicit.trim().length > 0) {
       const [command, ...args] = explicit.trim().split(/\s+/);
-      return [{ command, args }];
+      return [...preferred, { command, args }];
     }
 
     if (process.platform === 'win32') {
       return [
+        ...preferred,
         { command: 'python', args: [] },
         { command: 'py', args: ['-3'] },
       ];
     }
 
     return [
+      ...preferred,
       { command: 'python3', args: [] },
       { command: 'python', args: [] },
     ];
@@ -239,19 +269,44 @@ export class PythonSidecar {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    child.stderr?.once('data', (chunk: Buffer) => {
+    let stderrMessage: string | null = null;
+    let spawnErrorMessage: string | null = null;
+
+    child.on('error', (error) => {
+      spawnErrorMessage =
+        error instanceof Error ? error.message : String(error);
+    });
+
+    child.stderr?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      if (!text) {
+        return;
+      }
+
+      if (!stderrMessage) {
+        stderrMessage = text.slice(0, 500);
+      }
+
       this.log('warn', 'python.sidecar.stderr', {
         command: candidate.command,
-        message: chunk.toString().slice(0, 500),
+        message: text.slice(0, 500),
       });
     });
 
     const startDeadline = Date.now() + this.startupTimeoutMs;
     while (Date.now() < startDeadline) {
-      if (child.exitCode !== null) {
+      if (spawnErrorMessage) {
         return {
           kind: 'failure',
-          message: `Python command exited early: ${candidate.command}`,
+          message: `Python command failed to start (${candidate.command}): ${spawnErrorMessage}`,
+        };
+      }
+
+      if (child.exitCode !== null) {
+        const stderrSuffix = stderrMessage ? ` (${stderrMessage})` : '';
+        return {
+          kind: 'failure',
+          message: `Python command exited early: ${candidate.command}${stderrSuffix}`,
         };
       }
 

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import platform
+import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
@@ -11,6 +12,7 @@ def _build_health_payload():
         "status": "ok",
         "service": "python-sidecar",
         "pythonVersion": platform.python_version(),
+        "pythonExecutable": os.path.realpath(sys.executable),
         "pymupdfAvailable": False,
     }
     try:

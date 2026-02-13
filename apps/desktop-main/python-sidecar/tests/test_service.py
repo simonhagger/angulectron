@@ -56,6 +56,8 @@ def test_build_health_payload_contains_core_diagnostics():
     assert payload["status"] == "ok"
     assert payload["service"] == "python-sidecar"
     assert "pythonVersion" in payload
+    assert "pythonExecutable" in payload
+    assert isinstance(payload["pythonExecutable"], str)
     assert isinstance(payload["pymupdfAvailable"], bool)
 
 

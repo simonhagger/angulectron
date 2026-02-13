@@ -9,6 +9,7 @@ import {
   ipcMain,
 } from 'electron';
 import path from 'node:path';
+import { promises as fs } from 'node:fs';
 import {
   getApiOperationDiagnostics,
   invokeApiOperation,
@@ -178,6 +179,150 @@ const getStorageGateway = () => {
   return storageGateway;
 };
 
+type PythonRuntimeManifest = {
+  executableRelativePath: string;
+  pythonVersion?: string;
+  packages?: ReadonlyArray<{
+    name: string;
+    version: string;
+  }>;
+};
+
+const pythonRuntimeTarget = `${process.platform}-${process.arch}`;
+
+const toUnpackedPath = (value: string) =>
+  value.replace(/app\.asar(?!\.unpacked)/, 'app.asar.unpacked');
+
+const resolveBundledRuntimeRootPathCandidates = () => {
+  const candidates = [
+    path.join(__dirname, 'python-runtime', pythonRuntimeTarget),
+  ];
+
+  if (app.isPackaged) {
+    candidates.push(
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'dist',
+        'apps',
+        'desktop-main',
+        'python-runtime',
+        pythonRuntimeTarget,
+      ),
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'build',
+        'python-runtime',
+        pythonRuntimeTarget,
+      ),
+      path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'build',
+        'python-runtime',
+        pythonRuntimeTarget,
+      ),
+    );
+  }
+
+  return [...new Set(candidates)];
+};
+
+const loadBundledRuntimeManifest = async () => {
+  const candidates = resolveBundledRuntimeRootPathCandidates();
+  for (const runtimeRootPath of candidates) {
+    const manifestPath = path.join(runtimeRootPath, 'manifest.json');
+    try {
+      const contents = await fs.readFile(manifestPath, 'utf8');
+      const parsed = JSON.parse(contents) as Partial<PythonRuntimeManifest>;
+      if (
+        typeof parsed.executableRelativePath !== 'string' ||
+        parsed.executableRelativePath.trim().length === 0
+      ) {
+        logEvent('warn', 'python.sidecar.runtime_manifest_invalid', undefined, {
+          manifestPath,
+          reason: 'missing executableRelativePath',
+        });
+        continue;
+      }
+
+      return {
+        runtimeRootPath,
+        manifestPath,
+        manifest: parsed as PythonRuntimeManifest,
+      };
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+};
+
+const resolveBundledPythonCommand = async () => {
+  const runtime = await loadBundledRuntimeManifest();
+  if (!runtime) {
+    if (app.isPackaged) {
+      logEvent('warn', 'python.sidecar.runtime_manifest_missing', undefined, {
+        runtimeTarget: pythonRuntimeTarget,
+      });
+    }
+    return null;
+  }
+
+  const executablePath = toUnpackedPath(
+    path.join(runtime.runtimeRootPath, runtime.manifest.executableRelativePath),
+  );
+  const manifestPath = toUnpackedPath(runtime.manifestPath);
+
+  try {
+    await fs.access(executablePath);
+    logEvent('info', 'python.sidecar.runtime_bundled', undefined, {
+      runtimeTarget: pythonRuntimeTarget,
+      manifestPath,
+      executablePath,
+      pythonVersion: runtime.manifest.pythonVersion ?? null,
+      packageCount: runtime.manifest.packages?.length ?? 0,
+    });
+    return {
+      command: executablePath,
+      args: [] as string[],
+    };
+  } catch {
+    logEvent('warn', 'python.sidecar.runtime_executable_missing', undefined, {
+      runtimeTarget: pythonRuntimeTarget,
+      manifestPath,
+      executablePath,
+    });
+    return null;
+  }
+};
+
+const resolvePythonSidecarScriptPath = async () => {
+  const bundledScriptPath = path.join(
+    __dirname,
+    'assets',
+    'python_sidecar',
+    'service.py',
+  );
+
+  if (!app.isPackaged || !bundledScriptPath.includes('.asar')) {
+    return bundledScriptPath;
+  }
+
+  const runtimeDir = path.join(app.getPath('userData'), 'python-sidecar');
+  const runtimeScriptPath = path.join(runtimeDir, 'service.py');
+
+  const scriptContents = await fs.readFile(bundledScriptPath, 'utf8');
+  await fs.mkdir(runtimeDir, { recursive: true });
+  await fs.writeFile(runtimeScriptPath, scriptContents, 'utf8');
+
+  return runtimeScriptPath;
+};
+
 const bootstrap = async () => {
   await app.whenReady();
   startFileTokenCleanup();
@@ -212,10 +357,26 @@ const bootstrap = async () => {
   const oidcConfig = loadOidcConfig();
   demoUpdater = new DemoUpdater(app.getPath('userData'));
   demoUpdater.seedRuntimeWithBaseline();
+  const pythonSidecarScriptPath = await resolvePythonSidecarScriptPath();
+  const bundledPythonCommand = await resolveBundledPythonCommand();
+  const allowSystemFallback = !app.isPackaged;
+  if (app.isPackaged && !bundledPythonCommand) {
+    logEvent('warn', 'python.sidecar.runtime_required_missing', undefined, {
+      runtimeTarget: pythonRuntimeTarget,
+      message:
+        'Packaged build requires bundled runtime. System python fallback is disabled.',
+    });
+  }
+  logEvent('info', 'python.sidecar.script_path', undefined, {
+    scriptPath: pythonSidecarScriptPath,
+    packaged: app.isPackaged,
+  });
   pythonSidecar = new PythonSidecar({
-    scriptPath: path.join(__dirname, 'assets', 'python_sidecar', 'service.py'),
+    scriptPath: pythonSidecarScriptPath,
     host: process.env.PYTHON_SIDECAR_HOST ?? '127.0.0.1',
     port: Number(process.env.PYTHON_SIDECAR_PORT ?? '43124'),
+    preferredCommand: bundledPythonCommand ?? undefined,
+    allowSystemFallback,
     logger: (level, event, details) =>
       logEvent(level, event, undefined, details),
   });

@@ -125,6 +125,7 @@ Flavor behavior:
 - `forge:make:staging`
   - sets `APP_ENV=staging`
   - enables packaged DevTools (`DESKTOP_ENABLE_DEVTOOLS=1`)
+  - builds renderer in `staging` mode so Labs routes remain available for verification
 - `forge:make:production`
   - sets `APP_ENV=production`
   - disables packaged DevTools (`DESKTOP_ENABLE_DEVTOOLS=0`)
@@ -208,6 +209,26 @@ How to run/verify:
 - `Select PDF` then `Inspect Selected PDF` to verify end-to-end file handoff.
 - Run test gate:
   - `pnpm nx run desktop-main:test-python`
+
+Deterministic packaged runtime (staging/production):
+
+- Provide a local bundled runtime payload at:
+  - `build/python-runtime/<platform>-<arch>/`
+  - example: `build/python-runtime/win32-x64/`
+- Pin sidecar dependencies in:
+  - `apps/desktop-main/python-sidecar/requirements-runtime.txt`
+- Fast local bootstrap from your current Python install:
+  - `pnpm run python-runtime:prepare-local`
+- Add `manifest.json` with `executableRelativePath` (see `build/python-runtime/README.md`).
+- Run validation:
+  - `pnpm run python-runtime:assert`
+  - assertion verifies interpreter exists and imports `fitz` when PyMuPDF is declared in manifest
+- Runtime payload is copied into desktop build artifacts by:
+  - `pnpm run build-desktop-main`
+  - `pnpm run forge:make:staging`
+  - `pnpm run forge:make:production`
+- Staging/production package commands fail fast if runtime bundle is missing or invalid.
+- Runtime diagnostics include `pythonExecutable` so packaged builds can prove the sidecar path at runtime.
 
 How to extend for new Python-backed operations:
 

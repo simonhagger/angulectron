@@ -34,6 +34,14 @@
       },
       "configurations": {
         "development": {},
+        "staging": {
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {
+              ".js": ".js"
+            }
+          }
+        },
         "production": {
           "esbuildOptions": {
             "sourcemap": false,
@@ -81,6 +89,9 @@
       "configurations": {
         "development": {
           "buildTarget": "desktop-main:build:development"
+        },
+        "staging": {
+          "buildTarget": "desktop-main:build:staging"
         },
         "production": {
           "buildTarget": "desktop-main:build:production"

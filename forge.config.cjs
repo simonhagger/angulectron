@@ -17,7 +17,10 @@ const hasAppleSigningConfig =
 /** @type {import('@electron-forge/shared-types').ForgeConfig} */
 module.exports = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/python-runtime/**',
+    },
+    ignore: [/^\/build\/python-runtime(\/|$)/],
     derefSymlinks: true,
     icon: './build/icon',
     executableName: EXECUTABLE_NAME,

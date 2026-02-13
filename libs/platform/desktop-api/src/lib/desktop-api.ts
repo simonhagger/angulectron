@@ -92,6 +92,7 @@ export interface DesktopPythonApi {
         status: string;
         service: string;
         pythonVersion: string;
+        pythonExecutable?: string;
         pymupdfAvailable: boolean;
         pymupdfVersion?: string;
         pymupdfError?: string;
@@ -105,6 +106,7 @@ export interface DesktopPythonApi {
       fileSizeBytes: number;
       headerHex: string;
       pythonVersion: string;
+      pythonExecutable?: string;
       pymupdfAvailable: boolean;
       pymupdfVersion?: string;
       message?: string;
