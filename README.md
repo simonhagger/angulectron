@@ -229,3 +229,4 @@ Delivery + governance:
 Canonical policy:
 
 - `docs/03-engineering/git-and-pr-policy.md`
+- `tools/templates/pr-body-template.md` (local PR authoring template)
