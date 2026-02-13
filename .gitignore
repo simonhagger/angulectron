@@ -59,3 +59,5 @@ TASK.md
 # e2e and test artifacts
 playwright-report/
 test-results/
+
+CONTEXT.md
