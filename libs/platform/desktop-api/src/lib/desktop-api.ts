@@ -59,6 +59,21 @@ export interface DesktopUpdatesApi {
     DesktopResult<{
       status: 'available' | 'not-available' | 'error';
       message?: string;
+      source?: 'native' | 'demo';
+      currentVersion?: string;
+      latestVersion?: string;
+      demoFilePath?: string;
+    }>
+  >;
+  applyDemoPatch: () => Promise<
+    DesktopResult<{
+      applied: boolean;
+      status: 'available' | 'not-available' | 'error';
+      message?: string;
+      source: 'demo';
+      currentVersion?: string;
+      latestVersion?: string;
+      demoFilePath?: string;
     }>
   >;
 }

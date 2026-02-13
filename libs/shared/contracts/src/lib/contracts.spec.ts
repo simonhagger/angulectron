@@ -14,6 +14,10 @@ import {
 } from './auth.contract';
 import { readTextFileRequestSchema } from './fs.contract';
 import { storageSetRequestSchema } from './storage.contract';
+import {
+  updatesApplyDemoPatchResponseSchema,
+  updatesCheckResponseSchema,
+} from './updates.contract';
 
 describe('parseOrFailure', () => {
   it('should parse valid values', () => {
@@ -277,6 +281,34 @@ describe('auth contracts', () => {
           aud: 'TOtjISa3Sgz2sDi2',
         },
       },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe('updates contracts', () => {
+  it('accepts update check response with demo metadata', () => {
+    const parsed = updatesCheckResponseSchema.safeParse({
+      status: 'available',
+      source: 'demo',
+      currentVersion: '1.0.0-demo',
+      latestVersion: '1.0.1-demo',
+      demoFilePath: 'C:\\Users\\demo\\update-demo\\runtime\\feature.txt',
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts demo patch response payload', () => {
+    const parsed = updatesApplyDemoPatchResponseSchema.safeParse({
+      applied: true,
+      status: 'not-available',
+      source: 'demo',
+      message: 'Demo patch applied.',
+      currentVersion: '1.0.1-demo',
+      latestVersion: '1.0.1-demo',
+      demoFilePath: 'C:\\Users\\demo\\update-demo\\runtime\\feature.txt',
     });
 
     expect(parsed.success).toBe(true);

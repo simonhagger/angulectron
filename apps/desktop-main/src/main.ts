@@ -28,6 +28,7 @@ import {
 } from './runtime-config';
 import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
+import { DemoUpdater } from './demo-updater';
 import { asFailure } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 
@@ -47,6 +48,7 @@ let tokenCleanupTimer: NodeJS.Timeout | null = null;
 let storageGateway: StorageGateway | null = null;
 let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
+let demoUpdater: DemoUpdater | null = null;
 const APP_VERSION = resolveAppMetadataVersion();
 
 const logEvent = (
@@ -206,6 +208,9 @@ const bootstrap = async () => {
   });
 
   const oidcConfig = loadOidcConfig();
+  demoUpdater = new DemoUpdater(app.getPath('userData'));
+  demoUpdater.seedRuntimeWithBaseline();
+
   if (oidcConfig) {
     const refreshTokenStore = await createRefreshTokenStore({
       userDataPath: app.getPath('userData'),
@@ -249,6 +254,7 @@ const bootstrap = async () => {
     invokeApiOperation: (request) => invokeApiOperation(request),
     getApiOperationDiagnostics: (operationId) =>
       getApiOperationDiagnostics(operationId),
+    getDemoUpdater: () => demoUpdater,
     logEvent,
   });
 

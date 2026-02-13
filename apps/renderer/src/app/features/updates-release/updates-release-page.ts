@@ -17,6 +17,11 @@ export class UpdatesReleasePage {
   readonly appVersion = signal('N/A');
   readonly contractVersion = signal('N/A');
   readonly updateState = signal('Idle.');
+  readonly updateSource = signal<'native' | 'demo' | 'unknown'>('unknown');
+  readonly updateCurrentVersion = signal('N/A');
+  readonly updateLatestVersion = signal('N/A');
+  readonly demoFilePath = signal('');
+  readonly demoPatchState = signal('Idle.');
 
   constructor() {
     void this.loadMetadata();
@@ -36,7 +41,33 @@ export class UpdatesReleasePage {
       return;
     }
 
+    this.updateSource.set(result.data.source ?? 'unknown');
+    this.updateCurrentVersion.set(result.data.currentVersion ?? 'N/A');
+    this.updateLatestVersion.set(result.data.latestVersion ?? 'N/A');
+    this.demoFilePath.set(result.data.demoFilePath ?? '');
     this.updateState.set(result.data.message ?? result.data.status);
+  }
+
+  async applyDemoPatch() {
+    const desktop = getDesktopApi();
+    if (!desktop) {
+      this.demoPatchState.set('Desktop bridge unavailable in browser mode.');
+      return;
+    }
+
+    this.demoPatchState.set('Applying demo patch...');
+    const result = await desktop.updates.applyDemoPatch();
+    if (!result.ok) {
+      this.demoPatchState.set(result.error.message);
+      return;
+    }
+
+    this.updateSource.set(result.data.source);
+    this.updateCurrentVersion.set(result.data.currentVersion ?? 'N/A');
+    this.updateLatestVersion.set(result.data.latestVersion ?? 'N/A');
+    this.demoFilePath.set(result.data.demoFilePath ?? '');
+    this.demoPatchState.set(result.data.message ?? result.data.status);
+    await this.checkForUpdates();
   }
 
   private async loadMetadata() {

@@ -74,6 +74,7 @@ describe('registerIpcHandlers unauthorized sender integration', () => {
       getStorageGateway,
       invokeApiOperation,
       getApiOperationDiagnostics,
+      getDemoUpdater: vi.fn(() => null),
       logEvent: vi.fn(),
     };
 
@@ -86,6 +87,7 @@ describe('registerIpcHandlers unauthorized sender integration', () => {
       IPC_CHANNELS.apiInvoke,
       IPC_CHANNELS.storageGetItem,
       IPC_CHANNELS.updatesCheck,
+      IPC_CHANNELS.updatesApplyDemoPatch,
     ];
 
     for (const channel of privilegedChannels) {
