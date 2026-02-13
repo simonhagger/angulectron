@@ -1,2 +1,3 @@
 pnpm lint-staged
 pnpm i18n-check
+pnpm docs-lint

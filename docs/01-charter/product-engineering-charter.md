@@ -1,5 +1,9 @@
 # Product Engineering Charter
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Mission
 
 Deliver a secure, maintainable, and accessible desktop application platform using Angular 21 + Electron with predictable delivery quality.

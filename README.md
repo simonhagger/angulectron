@@ -1,32 +1,68 @@
 # Angulectron Workspace
 
-Angular + Electron desktop foundation built as an Nx monorepo.
+Angular 21 + Electron desktop foundation built as an Nx monorepo.
 
-## What This Repository Is
+## Who This Is For
 
-This repo provides a secure, typed desktop application baseline with:
+- Human engineers onboarding to the desktop platform.
+- AI coding agents operating inside this workspace.
 
-- Angular 21 renderer (`apps/renderer`)
-- Electron main process (`apps/desktop-main`)
-- Electron preload bridge (`apps/desktop-preload`)
-- Shared IPC contracts (`libs/shared/contracts`)
-- Typed renderer desktop API (`libs/platform/desktop-api`)
-- UI libraries for Material, primitives, and Carbon adapters (`libs/ui/*`)
+## Repository Purpose
 
-Core design goal: keep the renderer unprivileged and route all privileged operations through preload + main with validated contracts.
+This repository is a secure, typed baseline for desktop applications with strict privilege boundaries:
+
+- Renderer UI: `apps/renderer`
+- Electron main process: `apps/desktop-main`
+- Electron preload bridge: `apps/desktop-preload`
+- E2E tests: `apps/renderer-e2e`
+- Shared IPC contracts: `libs/shared/contracts`
+- Typed desktop API surface for renderer: `libs/platform/desktop-api`
+
+Core design principle:
+
+- Renderer is untrusted.
+- Privileged capabilities terminate in preload/main.
+- Contracts are validated and versioned.
 
 ## Runtime Model
 
-1. Renderer calls `window.desktop.*` via `libs/platform/desktop-api`.
-2. Preload validates and forwards requests over IPC.
-3. Main process validates again and executes privileged operations.
-4. Response returns as typed `DesktopResult<T>` envelopes.
+1. Renderer calls `window.desktop.*` via `@electron-foundation/desktop-api`.
+2. Preload validates request/response envelopes and invokes IPC.
+3. Main validates payloads again and performs privileged work.
+4. Responses return as `DesktopResult<T>`.
 
-Security defaults in desktop runtime include:
+Security defaults:
 
 - `contextIsolation: true`
 - `sandbox: true`
 - `nodeIntegration: false`
+
+## Feature Surface (Current)
+
+Renderer routes include:
+
+- Home and diagnostics/lab flows (`/`, `/ipc-diagnostics`, `/telemetry-console`, `/auth-session-lab`)
+- UI system showcases (`/material-showcase`, `/carbon-showcase`, `/tailwind-showcase`, `/material-carbon-lab`)
+- Data/form/workbench flows (`/data-table-workbench`, `/form-validation-lab`, `/async-validation-lab`)
+- File/storage/API/update tooling (`/file-tools`, `/file-workflow-studio`, `/storage-explorer`, `/api-playground`, `/updates-release`)
+
+Desktop API surface includes:
+
+- `desktop.app.*` (version/runtime diagnostics)
+- `desktop.auth.*` (sign-in/out, session summary, token diagnostics)
+- `desktop.dialog.openFile()` + `desktop.fs.readTextFile()`
+- `desktop.storage.*`
+- `desktop.api.invoke()`
+- `desktop.updates.check()`
+- `desktop.telemetry.track()`
+
+## Expected Behaviors
+
+- Renderer must never access Node/Electron APIs directly.
+- All privileged IPC calls must be validated in preload and main.
+- Error responses should use typed envelopes with correlation IDs.
+- Auth tokens stay out of renderer; bearer handling occurs in main process.
+- Frontend should use Angular v21 patterns by default unless explicitly agreed otherwise.
 
 ## Prerequisites
 
@@ -37,37 +73,43 @@ Security defaults in desktop runtime include:
 
 ```bash
 pnpm install
+pnpm exec playwright install chromium
 ```
 
-## Common Commands
+Notes:
 
-Core workflow:
+- Playwright browser binaries are local environment artifacts, not tracked in git.
+- E2E is configured to run against a clean test server on `http://localhost:4300`.
+- On Windows, if you see `Keytar unavailable` warnings, run `pnpm native:rebuild:keytar`.
+
+## Day-One Commands
+
+Desktop development (Windows):
 
 ```bash
-pnpm install
 pnpm desktop:dev:win
 ```
 
-Quality and CI-style checks:
+Renderer-only development:
+
+```bash
+pnpm renderer:serve
+```
+
+## Quality Commands
 
 ```bash
 pnpm lint
 pnpm unit-test
 pnpm integration-test
 pnpm e2e-smoke
+pnpm a11y-e2e
+pnpm i18n-check
 pnpm build
 pnpm ci:local
 ```
 
-Targeted dev commands:
-
-```bash
-pnpm renderer:serve
-pnpm desktop:serve-all
-pnpm workspace:refresh:win
-```
-
-Packaging commands:
+## Packaging Commands
 
 ```bash
 pnpm forge:make
@@ -75,117 +117,115 @@ pnpm forge:make:staging
 pnpm forge:make:production
 ```
 
-Build flavor behavior:
+Flavor behavior:
 
 - `forge:make:staging`
   - sets `APP_ENV=staging`
   - enables packaged DevTools (`DESKTOP_ENABLE_DEVTOOLS=1`)
-  - outputs a staging executable name (`Angulectron-Staging.exe`)
 - `forge:make:production`
   - sets `APP_ENV=production`
   - disables packaged DevTools (`DESKTOP_ENABLE_DEVTOOLS=0`)
-  - outputs locked-down production artifacts
 
-Packaging notes:
-
-- Packaging runs `forge:clean` first to remove stale outputs from `out/`.
-- Windows distributable is ZIP-based (no interactive installer prompts).
-- Output ZIP location:
-  - `out/make/zip/win32/x64/`
-  - filename pattern: `@electron-foundation-source-win32-x64-<version>.zip`
-- Extract the ZIP and run the generated executable from the extracted folder.
-- Custom app icon source path:
-  - `build/icon.ico`
-
-## OIDC Authentication (Desktop)
-
-OIDC support is implemented in main/preload with Authorization Code + PKCE.
+## OIDC Configuration (Desktop)
 
 Required environment variables:
 
 - `OIDC_ISSUER`
 - `OIDC_CLIENT_ID`
-- `OIDC_REDIRECT_URI` (loopback URI, for example `http://127.0.0.1:42813/callback`)
+- `OIDC_REDIRECT_URI` (loopback, example: `http://127.0.0.1:42813/callback`)
 - `OIDC_SCOPES` (must include `openid`)
 
 Optional:
 
 - `OIDC_AUDIENCE`
-- `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1` (development-only fallback when OS secure storage is unavailable)
+- `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1` (development fallback only)
 
-Recommended local setup:
+Local setup:
 
 1. Copy `.env.example` to `.env.local`.
-2. Fill in your OIDC values.
+2. Add OIDC values.
 3. Run `pnpm desktop:dev:win`.
 
-`desktop:dev:win` now auto-loads `.env` and `.env.local` (with `.env.local` taking precedence).
+Token persistence behavior:
 
-Runtime behavior:
+- Windows preference order: `keytar` -> encrypted file store (Electron `safeStorage`) -> plaintext file store only when `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1`.
+- If `keytar` native binding is missing, run:
+  - `pnpm native:rebuild:keytar`
 
-- Refresh tokens are stored in OS secure storage on Windows (`keytar`) with encrypted file fallback.
-- Renderer can only call `desktop.auth.signIn()`, `desktop.auth.signOut()`, and `desktop.auth.getSessionSummary()`.
-- Access token attachment for secured API operations occurs in main process only.
+## Bring Your Own Secure API Endpoint
 
-Temporary compatibility note:
+The `call.secure-endpoint` API operation is endpoint-configurable and does not rely on a hardcoded private URL.
 
-- Current Clerk OAuth flow may issue JWT access tokens without API `aud` claim in this tenant.
-- AWS JWT authorizer is temporarily configured to accept both:
-  - API audience (`YOUR_API_AUDIENCE`)
-  - OAuth client id (`YOUR_OAUTH_CLIENT_ID`)
-- This is tracked for removal in `docs/05-governance/backlog.md` (`BL-014`) and `docs/05-governance/oidc-auth-backlog.md`.
+Set in `.env.local`:
+
+- `API_SECURE_ENDPOINT_URL_TEMPLATE`
+- `API_SECURE_ENDPOINT_CLAIM_MAP` (optional JSON map of placeholder -> JWT claim path)
+
+Requirements:
+
+- Must be `https://`.
+- Placeholder values can come from request params and/or mapped JWT claims.
+- Endpoint should accept bearer JWT from the desktop OIDC flow.
+
+Examples:
+
+- `API_SECURE_ENDPOINT_URL_TEMPLATE=https://your-api.example.com/users/{{user_id}}/portfolio`
+- `API_SECURE_ENDPOINT_CLAIM_MAP={"user_id":"sub","tenant_id":"org.id"}`
+
+If not configured, calling `call.secure-endpoint` returns a typed `API/OPERATION_NOT_CONFIGURED` failure.
 
 ## Repository Layout
 
-Top-level:
-
 - `apps/` runnable applications
 - `libs/` reusable libraries
-- `tools/` scripts and utilities
-- `docs/` architecture, engineering standards, delivery, governance
+- `tools/` scripts/utilities
+- `docs/` architecture, standards, delivery, governance
 
-Key projects:
+## Human + Agent Working Rules
 
-- `apps/renderer` Angular shell + routed feature pages
-- `apps/desktop-main` Electron privileged runtime
-- `apps/desktop-preload` secure renderer bridge
-- `apps/renderer-e2e` Playwright E2E tests
+- Use Nx-driven commands (`pnpm nx ...` or repo scripts wrapping Nx).
+- Respect app/lib boundaries and platform tags.
+- Use short-lived branches and PR workflow; do not push directly to `main`.
+- Keep changes minimal and behavior-preserving unless explicitly changing behavior.
+- For security-sensitive changes, include review artifacts and negative-path tests.
 
 ## Documentation Map
 
 Start here:
 
-- Docs index: `docs/docs-index.md`
-- Onboarding guide: `docs/03-engineering/onboarding-guide.md`
+- `docs/docs-index.md`
+- `docs/03-engineering/onboarding-guide.md`
 
-Architecture and standards:
+Architecture:
 
-- Solution architecture: `docs/02-architecture/solution-architecture.md`
-- Repo topology and boundaries: `docs/02-architecture/repo-topology-and-boundaries.md`
-- Security architecture: `docs/02-architecture/security-architecture.md`
-- IPC contract standard: `docs/02-architecture/ipc-contract-standard.md`
-- UI system governance: `docs/02-architecture/ui-system-governance.md`
+- `docs/02-architecture/solution-architecture.md`
+- `docs/02-architecture/repo-topology-and-boundaries.md`
+- `docs/02-architecture/security-architecture.md`
+- `docs/02-architecture/ipc-contract-standard.md`
 
-Engineering rules:
+Engineering:
 
-- Coding standards: `docs/03-engineering/coding-standards.md`
-- Testing strategy: `docs/03-engineering/testing-strategy.md`
-- Reliability and error handling: `docs/03-engineering/reliability-and-error-handling.md`
-- Observability and diagnostics: `docs/03-engineering/observability-and-diagnostics.md`
-- Security review workflow: `docs/03-engineering/security-review-workflow.md`
+- `docs/03-engineering/coding-standards.md`
+- `docs/03-engineering/testing-strategy.md`
+- `docs/03-engineering/reliability-and-error-handling.md`
+- `docs/03-engineering/observability-and-diagnostics.md`
+- `docs/03-engineering/security-review-workflow.md`
 
-Process and delivery:
+Delivery + governance:
 
-- Git and PR policy: `docs/03-engineering/git-and-pr-policy.md`
-- CI/CD spec: `docs/04-delivery/ci-cd-spec.md`
-- Release management: `docs/04-delivery/release-management.md`
-- Definition of Done: `docs/05-governance/definition-of-done.md`
+- `docs/04-delivery/ci-cd-spec.md`
+- `docs/04-delivery/release-management.md`
+- `docs/05-governance/definition-of-done.md`
+- `docs/05-governance/backlog.md`
+- `CURRENT-SPRINT.md`
 
-## Contribution Rules (Critical)
+## Contribution Policy (Critical)
 
-- Do not push directly to `main`.
-- Use short-lived branches (`feat/*`, `fix/*`, `chore/*`).
-- Merge via PR only after required checks and approvals.
-- Use Conventional Commits.
+- No direct commits to `main`.
+- Branch naming: `feat/*`, `fix/*`, `chore/*`.
+- Merge by PR after required checks and approvals.
+- Conventional Commits required.
 
-Source of truth: `docs/03-engineering/git-and-pr-policy.md`.
+Canonical policy:
+
+- `docs/03-engineering/git-and-pr-policy.md`

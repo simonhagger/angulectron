@@ -1,5 +1,9 @@
 # UI System Governance
 
+Owner: Platform Engineering + UI  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Primary Stack
 
 - Angular Material is the default component system.

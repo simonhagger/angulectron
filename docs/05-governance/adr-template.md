@@ -1,5 +1,9 @@
 # ADR-XXXX: Title
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Status
 
 Proposed | Accepted | Rejected | Superseded

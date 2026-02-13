@@ -1,5 +1,9 @@
 # Solution Architecture
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## High-Level Model
 
 - `apps/renderer`: Angular standalone application shell.

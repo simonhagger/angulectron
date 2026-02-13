@@ -1,5 +1,9 @@
 # Coding Standards
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Angular
 
 - Standalone components only.
