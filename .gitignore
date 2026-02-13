@@ -49,6 +49,7 @@ vitest.config.*.timestamp*
 
 FILE_INDEX.txt
 FEEDBACK.md
+TASK.md
 
 # local environment configuration
 .env*

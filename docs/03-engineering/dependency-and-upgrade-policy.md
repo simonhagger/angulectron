@@ -1,5 +1,9 @@
 # Dependency And Upgrade Policy
 
+Owner: Dev Experience + Security  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Automation
 
 - Renovate runs weekly.

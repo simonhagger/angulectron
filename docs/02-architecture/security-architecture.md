@@ -1,5 +1,9 @@
 # Security Architecture
 
+Owner: Platform Engineering + Security  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Electron Hardening Baseline
 
 - `contextIsolation: true`

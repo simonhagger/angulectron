@@ -1,5 +1,9 @@
 # Desktop Distribution Runbook
 
+Owner: Release Engineering + Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Packaging
 
 - Build renderer + desktop main + desktop preload.

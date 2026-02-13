@@ -1,5 +1,9 @@
 # System Context
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Actors
 
 - End user operating a Windows desktop application.

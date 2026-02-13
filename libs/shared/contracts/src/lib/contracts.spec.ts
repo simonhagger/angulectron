@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { parseOrFailure } from './contracts';
-import { apiInvokeRequestSchema } from './api.contract';
+import {
+  apiGetOperationDiagnosticsResponseSchema,
+  apiInvokeRequestSchema,
+} from './api.contract';
+import { appRuntimeVersionsResponseSchema } from './app.contract';
 import {
   authGetTokenDiagnosticsResponseSchema,
   authGetSessionSummaryResponseSchema,
@@ -33,6 +37,19 @@ describe('parseOrFailure', () => {
       expect(result.error.correlationId).toBe('corr-x');
       expect(result.error.retryable).toBe(true);
     }
+  });
+});
+
+describe('appRuntimeVersionsResponseSchema', () => {
+  it('accepts runtime versions with app environment', () => {
+    const parsed = appRuntimeVersionsResponseSchema.safeParse({
+      electron: '40.2.1',
+      node: '24.13.0',
+      chrome: '140.0.0.0',
+      appEnvironment: 'staging',
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });
 
@@ -74,10 +91,28 @@ describe('apiInvokeRequestSchema', () => {
         params: {
           includeMeta: true,
         },
+        headers: {
+          'x-trace-id': 'trace-1',
+        },
       },
     });
 
     expect(parsed.success).toBe(true);
+  });
+
+  it('rejects unsafe header names', () => {
+    const parsed = apiInvokeRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-3b',
+      payload: {
+        operationId: 'call.secure-endpoint',
+        headers: {
+          authorization: 'token',
+        },
+      },
+    });
+
+    expect(parsed.success).toBe(false);
   });
 
   it('rejects empty operation names', () => {
@@ -90,6 +125,22 @@ describe('apiInvokeRequestSchema', () => {
     });
 
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe('apiGetOperationDiagnosticsResponseSchema', () => {
+  it('accepts configured operation diagnostics payloads', () => {
+    const parsed = apiGetOperationDiagnosticsResponseSchema.safeParse({
+      operationId: 'call.secure-endpoint',
+      configured: true,
+      method: 'GET',
+      urlTemplate: 'https://api.example.com/users/{{user_id}}/portfolio',
+      pathPlaceholders: ['user_id'],
+      claimMap: { user_id: 'sub' },
+      authType: 'oidc',
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });
 

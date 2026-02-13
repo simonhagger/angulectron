@@ -1,5 +1,9 @@
 # State Management Standard
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Default Pattern
 
 - Signals + feature-scoped services.

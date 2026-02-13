@@ -3,6 +3,8 @@ import { z, type ZodType } from 'zod';
 import type { DesktopApi } from '@electron-foundation/desktop-api';
 import { toStructuredLogLine } from '@electron-foundation/common';
 import {
+  apiGetOperationDiagnosticsRequestSchema,
+  apiGetOperationDiagnosticsResponseSchema,
   apiInvokeRequestSchema,
   apiInvokeResponseSchema,
   appRuntimeVersionsRequestSchema,
@@ -393,7 +395,7 @@ const desktopApi: DesktopApi = {
     },
   },
   api: {
-    async invoke(operationId, params) {
+    async invoke(operationId, params, options) {
       const correlationId = createCorrelationId();
       const request = apiInvokeRequestSchema.parse({
         contractVersion: CONTRACT_VERSION,
@@ -401,6 +403,7 @@ const desktopApi: DesktopApi = {
         payload: {
           operationId,
           params,
+          headers: options?.headers,
         },
       });
 
@@ -409,6 +412,23 @@ const desktopApi: DesktopApi = {
         request,
         correlationId,
         apiInvokeResponseSchema,
+      );
+    },
+    async getOperationDiagnostics(operationId) {
+      const correlationId = createCorrelationId();
+      const request = apiGetOperationDiagnosticsRequestSchema.parse({
+        contractVersion: CONTRACT_VERSION,
+        correlationId,
+        payload: {
+          operationId,
+        },
+      });
+
+      return invoke(
+        IPC_CHANNELS.apiGetOperationDiagnostics,
+        request,
+        correlationId,
+        apiGetOperationDiagnosticsResponseSchema,
       );
     },
   },

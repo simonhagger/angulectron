@@ -5,6 +5,7 @@ import type {
   DesktopResult,
 } from '@electron-foundation/contracts';
 import {
+  getApiOperationDiagnostics,
   invokeApiOperation,
   setOidcAccessTokenResolver,
   type ApiOperation,
@@ -70,6 +71,30 @@ describe('invokeApiOperation', () => {
     const error = expectFailure(result);
     expect(error.code).toBe('API/OPERATION_NOT_ALLOWED');
     expect(error.correlationId).toBe('corr-test');
+  });
+
+  it('returns operation-not-configured when BYO endpoint is not provided', async () => {
+    const original = process.env.API_SECURE_ENDPOINT_URL_TEMPLATE;
+    delete process.env.API_SECURE_ENDPOINT_URL_TEMPLATE;
+
+    const result = await invokeApiOperation(
+      baseRequest('call.secure-endpoint'),
+      {
+        operations: {
+          'status.github': {
+            method: 'GET',
+            url: 'https://api.github.com/rate_limit',
+          },
+        },
+      },
+    );
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/OPERATION_NOT_CONFIGURED');
+
+    if (typeof original === 'string') {
+      process.env.API_SECURE_ENDPOINT_URL_TEMPLATE = original;
+    }
   });
 
   it('rejects insecure destinations', async () => {
@@ -150,6 +175,7 @@ describe('invokeApiOperation', () => {
     if (result.ok) {
       expect(result.data.status).toBe(200);
       expect(result.data.data).toEqual({ hello: 'world' });
+      expect(result.data.requestPath).toBe('/ok');
     }
   });
 
@@ -270,9 +296,9 @@ describe('invokeApiOperation', () => {
 
   it('returns auth-required when backend rejects wrong-audience oidc token', async () => {
     const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
-      'portfolio.user': {
+      'call.secure-endpoint': {
         method: 'GET',
-        url: 'https://api.example.com/users/{{user_id}}/portfolio',
+        url: 'https://api.example.com/{{user_id}}',
         auth: {
           type: 'oidc',
         },
@@ -295,8 +321,9 @@ describe('invokeApiOperation', () => {
       );
       const payload = JSON.parse(payloadJson) as { aud?: unknown };
       const isValidAudience =
-        payload.aud === 'api.adopa.uk' ||
-        (Array.isArray(payload.aud) && payload.aud.includes('api.adopa.uk'));
+        payload.aud === 'api://secure-endpoint' ||
+        (Array.isArray(payload.aud) &&
+          payload.aud.includes('api://secure-endpoint'));
 
       if (!isValidAudience) {
         return new Response(JSON.stringify({ message: 'Unauthorized' }), {
@@ -316,7 +343,7 @@ describe('invokeApiOperation', () => {
         contractVersion: '1.0.0',
         correlationId: 'corr-test',
         payload: {
-          operationId: 'portfolio.user',
+          operationId: 'call.secure-endpoint',
           params: { user_id: 'user-1' },
         },
       },
@@ -332,9 +359,9 @@ describe('invokeApiOperation', () => {
 
   it('returns success when backend accepts valid-audience oidc token', async () => {
     const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
-      'portfolio.user': {
+      'call.secure-endpoint': {
         method: 'GET',
-        url: 'https://api.example.com/users/{{user_id}}/portfolio',
+        url: 'https://api.example.com/{{user_id}}',
         auth: {
           type: 'oidc',
         },
@@ -344,7 +371,7 @@ describe('invokeApiOperation', () => {
       createJwt({
         iss: 'https://issuer.example.com',
         sub: 'user-1',
-        aud: ['api.adopa.uk'],
+        aud: ['api://secure-endpoint'],
       }),
     );
 
@@ -359,7 +386,7 @@ describe('invokeApiOperation', () => {
         contractVersion: '1.0.0',
         correlationId: 'corr-test',
         payload: {
-          operationId: 'portfolio.user',
+          operationId: 'call.secure-endpoint',
           params: { user_id: 'user-1' },
         },
       },
@@ -374,9 +401,9 @@ describe('invokeApiOperation', () => {
 
   it('injects path params into operation url and omits them from query string', async () => {
     const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
-      'portfolio.user': {
+      'call.secure-endpoint': {
         method: 'GET',
-        url: 'https://api.example.com/users/{{user_id}}/portfolio',
+        url: 'https://api.example.com/{{user_id}}',
         auth: {
           type: 'oidc',
         },
@@ -400,7 +427,7 @@ describe('invokeApiOperation', () => {
         contractVersion: '1.0.0',
         correlationId: 'corr-test',
         payload: {
-          operationId: 'portfolio.user',
+          operationId: 'call.secure-endpoint',
           params: {
             user_id: 'user-123',
             include: 'positions',
@@ -414,16 +441,16 @@ describe('invokeApiOperation', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(requestedUrl).toContain('/users/user-123/portfolio');
+    expect(requestedUrl).toContain('/user-123');
     expect(requestedUrl).toContain('include=positions');
     expect(requestedUrl).not.toContain('user_id=');
   });
 
   it('returns invalid-params when required path placeholders are missing', async () => {
     const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
-      'portfolio.user': {
+      'call.secure-endpoint': {
         method: 'GET',
-        url: 'https://api.example.com/users/{{user_id}}/portfolio',
+        url: 'https://api.example.com/{{user_id}}',
       },
     };
 
@@ -432,7 +459,7 @@ describe('invokeApiOperation', () => {
         contractVersion: '1.0.0',
         correlationId: 'corr-test',
         payload: {
-          operationId: 'portfolio.user',
+          operationId: 'call.secure-endpoint',
           params: {
             include: 'positions',
           },
@@ -445,6 +472,77 @@ describe('invokeApiOperation', () => {
 
     const error = expectFailure(result);
     expect(error.code).toBe('API/INVALID_PARAMS');
+  });
+
+  it('maps configured jwt claim paths into endpoint placeholders', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'call.secure-endpoint': {
+        method: 'GET',
+        url: 'https://api.example.com/{{user_id}}/tenant/{{tenant_id}}',
+        claimMap: {
+          user_id: 'sub',
+          tenant_id: 'org.id',
+        },
+        auth: {
+          type: 'oidc',
+        },
+      },
+    };
+    setOidcAccessTokenResolver(() =>
+      createJwt({
+        sub: 'user-from-jwt',
+        org: { id: 'tenant-from-jwt' },
+      }),
+    );
+
+    let requestedUrl = '';
+    const fetchFn: typeof fetch = async (input) => {
+      requestedUrl = String(input);
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const result = await invokeApiOperation(
+      baseRequest('call.secure-endpoint'),
+      {
+        operations,
+        fetchFn,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(requestedUrl).toContain('/user-from-jwt/tenant/tenant-from-jwt');
+  });
+
+  it('rejects unsafe request header names', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'call.secure-endpoint': {
+        method: 'GET',
+        url: 'https://api.example.com/{{user_id}}',
+      },
+    };
+
+    const result = await invokeApiOperation(
+      {
+        contractVersion: '1.0.0',
+        correlationId: 'corr-test',
+        payload: {
+          operationId: 'call.secure-endpoint',
+          params: { user_id: 'user-1' },
+          headers: {
+            authorization: 'bad-override',
+          },
+        },
+      },
+      {
+        operations,
+      },
+    );
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/INVALID_HEADERS');
   });
 
   it('retries GET requests for retryable errors', async () => {
@@ -499,5 +597,42 @@ describe('invokeApiOperation', () => {
     const error = expectFailure(result);
     expect(error.code).toBe('API/OFFLINE');
     expect(attempts).toBe(1);
+  });
+});
+
+describe('getApiOperationDiagnostics', () => {
+  it('returns configured diagnostics for known operations', () => {
+    const result = getApiOperationDiagnostics('call.secure-endpoint', {
+      operations: {
+        'call.secure-endpoint': {
+          method: 'GET',
+          url: 'https://api.example.com/users/{{user_id}}/tenant/{{tenant_id}}',
+          claimMap: { user_id: 'sub' },
+          auth: { type: 'oidc' },
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.configured).toBe(true);
+      expect(result.data.pathPlaceholders).toEqual(['user_id', 'tenant_id']);
+      expect(result.data.claimMap).toEqual({ user_id: 'sub' });
+      expect(result.data.authType).toBe('oidc');
+    }
+  });
+
+  it('returns unconfigured diagnostics when operation is not configured', () => {
+    const result = getApiOperationDiagnostics('call.secure-endpoint', {
+      operations: {},
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.configured).toBe(false);
+      expect(result.data.configurationHint).toContain(
+        'API_SECURE_ENDPOINT_URL_TEMPLATE',
+      );
+    }
   });
 });

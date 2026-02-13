@@ -1,5 +1,9 @@
 # A11y And I18n Standard
 
+Owner: Frontend + Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Accessibility
 
 - Target: WCAG 2.2 AA minimum.

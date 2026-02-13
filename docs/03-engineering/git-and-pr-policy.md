@@ -1,5 +1,9 @@
 # Git And PR Policy
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Branching Model
 
 - `main` is protected.

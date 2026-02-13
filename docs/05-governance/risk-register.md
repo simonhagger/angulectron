@@ -1,5 +1,9 @@
 # Risk Register
 
+Owner: Platform Engineering + Security  
+Review cadence: Weekly  
+Last reviewed: 2026-02-13
+
 | ID    | Risk                                         | Impact | Mitigation                                      | Owner    |
 | ----- | -------------------------------------------- | ------ | ----------------------------------------------- | -------- |
 | R-001 | Electron security misconfiguration           | High   | Enforce preload-only bridge and secure defaults | Platform |

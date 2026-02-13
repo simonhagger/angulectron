@@ -40,6 +40,7 @@ export class AuthSessionLabPage {
   readonly showTokenDiagnostics = signal(isDevMode());
   readonly desktopAvailable = signal(!!getDesktopApi());
   readonly signInPending = signal(false);
+  readonly browserFlowPending = signal(false);
   readonly refreshPending = signal(false);
   readonly signOutPending = signal(false);
   readonly statusText = signal('Idle.');
@@ -126,18 +127,16 @@ export class AuthSessionLabPage {
     }
 
     this.signInPending.set(true);
-    let uiPendingReleased = false;
-    const releaseUiPending = () => {
-      if (uiPendingReleased) {
-        return;
-      }
-      uiPendingReleased = true;
-      this.signInPending.set(false);
-    };
+    this.browserFlowPending.set(false);
+    this.statusText.set(
+      'Sign-in started. Continue in your browser window, then return to the app.',
+    );
+    this.statusTone.set('info');
     const uiTimeoutHandle = setTimeout(() => {
-      releaseUiPending();
+      this.signInPending.set(false);
+      this.browserFlowPending.set(true);
       this.statusText.set(
-        'Continue sign-in in the browser window. You can retry now or refresh summary after completion.',
+        'Browser sign-in is still in progress. If you cancelled in browser, choose "I cancelled sign-in" and retry.',
       );
       this.statusTone.set('info');
     }, signInUiPendingMaxMs);
@@ -146,11 +145,20 @@ export class AuthSessionLabPage {
       const result = await desktop.auth.signIn();
       clearTimeout(uiTimeoutHandle);
       if (!result.ok) {
-        this.statusText.set(result.error.message);
-        this.statusTone.set('error');
+        if (result.error.code === 'AUTH/SIGNIN_IN_PROGRESS') {
+          this.browserFlowPending.set(true);
+          this.statusText.set(
+            'A sign-in flow is already in progress in browser. Complete or cancel it, then retry.',
+          );
+          this.statusTone.set('info');
+        } else {
+          this.statusText.set(result.error.message);
+          this.statusTone.set('error');
+        }
         return;
       }
 
+      this.browserFlowPending.set(false);
       this.statusText.set(
         result.data.initiated
           ? 'Sign-in completed.'
@@ -163,8 +171,16 @@ export class AuthSessionLabPage {
       }
     } finally {
       clearTimeout(uiTimeoutHandle);
-      releaseUiPending();
+      this.signInPending.set(false);
     }
+  }
+
+  acknowledgeBrowserCancel() {
+    this.browserFlowPending.set(false);
+    this.statusText.set(
+      'Browser sign-in marked as cancelled. You can retry sign-in.',
+    );
+    this.statusTone.set('info');
   }
 
   async signOut() {

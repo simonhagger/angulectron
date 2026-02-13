@@ -1,5 +1,9 @@
 # Release Management
 
+Owner: Release Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Versioning
 
 - Conventional Commits + Changesets.

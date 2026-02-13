@@ -1,11 +1,16 @@
 # CI/CD Spec
 
+Owner: Dev Experience  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Platform
 
 - GitHub Actions.
 
 ## Required Jobs
 
+- `security-checklist-gate` (PR only)
 - `format:check`
 - `lint`
 - `typecheck`
@@ -18,7 +23,8 @@
 - `build-desktop`
 - `dependency-audit`
 - `license-compliance`
-- `artifact-publish`
+- `perf-check`
+- `artifact-publish` (push to `main` only)
 
 ## Caching
 
@@ -27,4 +33,5 @@
 
 ## Artifacts
 
-- Desktop build artifacts uploaded on `main` push.
+- Performance report artifact uploaded by `perf-check`.
+- Desktop build artifacts uploaded on `main` push by `artifact-publish`.

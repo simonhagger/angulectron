@@ -1,5 +1,9 @@
 # IPC Contract Standard
 
+Owner: Platform Engineering  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Contract Requirements
 
 - Every request carries `contractVersion`.

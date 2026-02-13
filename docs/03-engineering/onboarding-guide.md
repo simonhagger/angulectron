@@ -1,5 +1,9 @@
 # Onboarding Guide (Human + AI)
 
+Owner: Dev Experience  
+Review cadence: Quarterly  
+Last reviewed: 2026-02-13
+
 ## Purpose
 
 This guide is the fastest way to understand and work safely in this repository.

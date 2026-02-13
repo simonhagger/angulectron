@@ -24,10 +24,20 @@
           mat-flat-button
           type="button"
           (click)="signIn()"
-          [disabled]="!desktopAvailable() || isActive()"
+          [disabled]="!desktopAvailable() || isActive() || signInPending() || browserFlowPending() || refreshPending() || signOutPending()"
         >
           Sign In
         </button>
+        @if (browserFlowPending()) {
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="acknowledgeBrowserCancel()"
+          [disabled]="signInPending()"
+        >
+          I cancelled sign-in
+        </button>
+        }
         <button
           mat-stroked-button
           type="button"
