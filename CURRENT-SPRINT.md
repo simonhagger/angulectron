@@ -1,18 +1,25 @@
 # Current Sprint
 
-Sprint window: 2026-02-13 onward (Sprint 3)  
-Owner: Platform Engineering + Security + Frontend  
+Sprint window: 2026-02-14 onward (Sprint 4)  
+Owner: Platform Engineering + Security  
 Status: Active
 
 ## Sprint Goal
 
-Finish remaining high-value hardening work without re-opening completed Sprint 1/2 scope.
+Increase security and runtime determinism in privileged execution paths before additional feature expansion.
 
-## In Scope (Committed)
+## In Scope (Committed, Highest Value First)
 
-- `BL-028` Enforce robust file signature validation parity across all privileged ingress paths (remaining scope beyond Python sidecar baseline).
+- `BL-028` Enforce robust file signature validation parity across all privileged ingress paths.
+- `BL-033` Centralize privileged file ingress policy across all IPC file routes.
 - `BL-029` Standardize official Python runtime distribution for sidecar bundling (artifact + checksum + CI reproducibility).
-- `BL-020` Continue incremental renderer i18n migration for non-lab production-facing surfaces.
+- `BL-032` Standardize IPC handler failure envelope and correlation guarantees.
+
+## Out of Scope (This Sprint)
+
+- `BL-020` Renderer i18n uplift deferred while single-maintainer workflow remains.
+- `BL-034` / `BL-035` i18n architecture enhancements deferred.
+- `BL-038` sidecar transport ADR deferred unless risk profile changes.
 
 ## Explicitly Completed (Do Not Re-Scope)
 
@@ -31,48 +38,48 @@ Finish remaining high-value hardening work without re-opening completed Sprint 1
 
 ## Execution Plan (Coherent + Testable)
 
-1. `BL-028A` Privileged ingress parity
+1. `BL-033A` Shared ingress policy module
 
-- Scope: apply centralized extension + signature validation policy to remaining privileged file ingress routes.
+- Scope: introduce one shared policy for extension/signature/size validation and consume it from all privileged file ingress handlers.
 - Proof:
   - `pnpm nx run desktop-main:test`
   - `pnpm nx run desktop-preload:build`
 
-2. `BL-028B` Security telemetry + docs
+2. `BL-028A` Close parity gaps + fail-closed behavior
 
-- Scope: add structured security events for signature mismatch / rejected file ingress and document supported types.
+- Scope: remove remaining route-by-route differences, enforce consistent rejection semantics, and add structured security events.
 - Proof:
   - `pnpm nx run desktop-main:test`
   - `pnpm docs-lint`
 
-3. `BL-029A` Official Python artifact sourcing
+3. `BL-029A` Official artifact + checksum flow
 
-- Scope: replace machine-local source dependency with a pinned official distribution artifact + checksum verification.
+- Scope: source Python runtime from pinned official artifact, verify checksum, and prepare deterministic runtime bundle inputs.
 - Proof:
   - `pnpm run python-runtime:prepare-local`
   - `pnpm run python-runtime:assert`
 
 4. `BL-029B` CI reproducible runtime assembly
 
-- Scope: ensure runtime bundle can be assembled deterministically in CI from pinned artifact + pinned requirements.
+- Scope: guarantee package builds use prepared runtime artifact path and pinned runtime requirements in CI.
 - Proof:
   - `pnpm run build-desktop-main`
   - `pnpm forge:make:staging`
 
-5. `BL-020A` Incremental i18n uplift (non-lab priority)
+5. `BL-032A` IPC failure envelope normalization
 
-- Scope: migrate remaining hardcoded renderer strings in non-lab routes to transloco keys/locales.
+- Scope: ensure validated handler factory normalizes validation and unexpected runtime failures into a single safe contract with correlation IDs.
 - Proof:
-  - `pnpm i18n-check`
-  - `pnpm nx run renderer:build`
+  - `pnpm nx run desktop-main:test`
+  - `pnpm nx run desktop-preload:test`
 
 ## Exit Criteria
 
-- `BL-028` remaining scope closed and status moved to `Done`.
-- `BL-029` implementation design agreed and initial artifact-based implementation landed.
-- `BL-020` moved from `Proposed` to `Planned` or `Done` with tracked remaining scope.
+- `BL-028` and `BL-033` moved to `Done`.
+- `BL-029` moved to `Done` or `In Progress` with artifact/checksum path merged and CI proof complete.
+- `BL-032` moved to `Done` with integration test coverage proving envelope consistency.
 - CI remains green on PR and post-merge paths.
 
 ## Progress Log
 
-- 2026-02-13: Sprint 3 initialized to focus only on remaining backlog items after Sprint 2 completion.
+- 2026-02-14: Sprint reprioritized to security/runtime determinism; i18n work deferred.

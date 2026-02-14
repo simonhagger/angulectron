@@ -1,6 +1,4 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
-import { BrowserWindow, type IpcMain, type IpcMainInvokeEvent } from 'electron';
+import { type IpcMain } from 'electron';
 import {
   asFailure,
   asSuccess,
@@ -10,64 +8,14 @@ import {
   pythonStopRequestSchema,
 } from '@electron-foundation/contracts';
 import type { MainIpcContext } from './handler-context';
+import { consumeSelectedFileToken } from './consume-selected-file-token';
+import { evaluateFileIngressPolicy } from './file-ingress-policy';
 import { registerValidatedHandler } from './register-validated-handler';
 
 export const registerPythonIpcHandlers = (
   ipcMain: IpcMain,
   context: MainIpcContext,
 ) => {
-  const resolveFileTokenPath = async (
-    event: IpcMainInvokeEvent,
-    fileToken: string,
-    correlationId?: string,
-  ) => {
-    const selected = context.selectedFileTokens.get(fileToken);
-    if (!selected || selected.expiresAt <= Date.now()) {
-      context.selectedFileTokens.delete(fileToken);
-      return asFailure(
-        'FS/INVALID_TOKEN',
-        'The selected file token is invalid or expired.',
-        undefined,
-        false,
-        correlationId,
-      );
-    }
-
-    const senderWindowId = BrowserWindow.fromWebContents(event.sender)?.id;
-    if (senderWindowId !== selected.windowId) {
-      context.selectedFileTokens.delete(fileToken);
-      return asFailure(
-        'FS/INVALID_TOKEN_SCOPE',
-        'Selected file token was issued for a different window.',
-        {
-          senderWindowId: senderWindowId ?? null,
-          tokenWindowId: selected.windowId,
-        },
-        false,
-        correlationId,
-      );
-    }
-
-    context.selectedFileTokens.delete(fileToken);
-    return asSuccess({ path: selected.filePath });
-  };
-
-  const looksLikePdf = async (filePath: string) => {
-    const file = await fs.open(filePath, 'r');
-    try {
-      const header = Buffer.alloc(5);
-      const readResult = await file.read(header, 0, header.length, 0);
-      const bytesRead = readResult.bytesRead;
-      const headerSlice = header.subarray(0, bytesRead);
-      return {
-        valid: headerSlice.toString('ascii') === '%PDF-',
-        headerHex: headerSlice.toString('hex'),
-      };
-    } finally {
-      await file.close();
-    }
-  };
-
   registerValidatedHandler({
     ipcMain,
     channel: IPC_CHANNELS.pythonProbe,
@@ -106,34 +54,41 @@ export const registerPythonIpcHandlers = (
         );
       }
 
-      const resolved = await resolveFileTokenPath(
+      const consumed = consumeSelectedFileToken(
         event,
         request.payload.fileToken,
+        context,
         request.correlationId,
       );
-      if (!resolved.ok) {
-        return resolved;
+      if (!consumed.ok) {
+        return consumed;
       }
 
-      const filePath = resolved.data.path;
-      if (path.extname(filePath).toLowerCase() !== '.pdf') {
-        return asFailure(
-          'PYTHON/UNSUPPORTED_FILE_TYPE',
-          'Only PDF files are supported for this operation.',
-          { fileName: path.basename(filePath) },
-          false,
-          request.correlationId,
-        );
-      }
+      const policy = await evaluateFileIngressPolicy(
+        consumed.data.filePath,
+        'pdfInspect',
+      );
+      if (policy.kind !== 'ok') {
+        if (policy.kind === 'unsupported-extension') {
+          return asFailure(
+            'PYTHON/UNSUPPORTED_FILE_TYPE',
+            'Only PDF files are supported for this operation.',
+            {
+              fileName: policy.fileName,
+              extension: policy.extension,
+            },
+            false,
+            request.correlationId,
+          );
+        }
 
-      const header = await looksLikePdf(filePath);
-      if (!header.valid) {
         return asFailure(
           'PYTHON/FILE_SIGNATURE_MISMATCH',
           'Selected file does not match expected PDF signature.',
           {
-            fileName: path.basename(filePath),
-            headerHex: header.headerHex,
+            fileName: policy.fileName,
+            headerHex: policy.headerHex,
+            expectedHex: policy.expectedHex,
           },
           false,
           request.correlationId,
@@ -141,14 +96,14 @@ export const registerPythonIpcHandlers = (
       }
 
       try {
-        const diagnostics = await sidecar.inspectPdf(filePath);
+        const diagnostics = await sidecar.inspectPdf(consumed.data.filePath);
         return asSuccess(diagnostics);
       } catch (error) {
         return asFailure(
           'PYTHON/INSPECT_FAILED',
           'Python sidecar failed to inspect selected PDF.',
           {
-            fileName: path.basename(filePath),
+            fileName: consumed.data.fileName,
             message: error instanceof Error ? error.message : String(error),
           },
           false,
