@@ -10,6 +10,8 @@ const rootDir = path.resolve(
 );
 const runtimeTarget =
   process.env.PYTHON_RUNTIME_TARGET ?? `${process.platform}-${process.arch}`;
+const allowUnofficialSource =
+  process.env.PYTHON_RUNTIME_ALLOW_UNOFFICIAL_SOURCE === '1';
 const runtimeRoot = path.join(
   rootDir,
   'build',
@@ -65,6 +67,41 @@ if (!existsSync(executablePath)) {
     ].join('\n'),
   );
   process.exit(1);
+}
+
+const source = manifest.source ?? null;
+if (!allowUnofficialSource) {
+  if (
+    !source ||
+    typeof source !== 'object' ||
+    source.kind !== 'official-artifact'
+  ) {
+    console.error(
+      [
+        'python-runtime assertion failed: runtime source must be official-artifact.',
+        'Set PYTHON_RUNTIME_ALLOW_UNOFFICIAL_SOURCE=1 only for local emergency overrides.',
+        `Manifest: ${manifestPath}`,
+      ].join('\n'),
+    );
+    process.exit(1);
+  }
+
+  const artifact = source.artifact;
+  if (
+    !artifact ||
+    typeof artifact !== 'object' ||
+    typeof artifact.url !== 'string' ||
+    typeof artifact.sha256 !== 'string' ||
+    artifact.sha256.trim().length === 0
+  ) {
+    console.error(
+      [
+        'python-runtime assertion failed: official-artifact source metadata missing url/sha256.',
+        `Manifest: ${manifestPath}`,
+      ].join('\n'),
+    );
+    process.exit(1);
+  }
 }
 
 const manifestPackages = Array.isArray(manifest.packages)

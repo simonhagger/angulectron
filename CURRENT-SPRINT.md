@@ -85,3 +85,4 @@ Increase security and runtime determinism in privileged execution paths before a
 - 2026-02-14: Sprint reprioritized to security/runtime determinism; i18n work deferred.
 - 2026-02-14: Implemented shared file token consumption and centralized ingress policy (`BL-033` / `BL-028` progress) with new handler tests and successful `desktop:dev:win` verification.
 - 2026-02-14: Implemented validated handler exception normalization (`BL-032` progress): unexpected sync/async handler failures now return `IPC/HANDLER_FAILED` with correlation IDs and structured logging.
+- 2026-02-14: Started `BL-029A` implementation: added pinned official Python artifact catalog + SHA256 verification flow in runtime prep/assert scripts, regenerated runtime bundle from official source, and validated `python-runtime:assert` + `build-desktop-main`.
