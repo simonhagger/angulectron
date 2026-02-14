@@ -59,6 +59,8 @@ TASK.md
 .env*
 !.env.example
 !.env.*.example
+runtime-config.env
+runtime-config.json
 
 # e2e and test artifacts
 playwright-report/

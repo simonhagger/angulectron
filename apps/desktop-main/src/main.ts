@@ -27,6 +27,7 @@ import {
   resolveAppMetadataVersion,
   resolveRuntimeFlags,
 } from './runtime-config';
+import { loadUserRuntimeConfig } from './runtime-user-config';
 import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
 import { DemoUpdater } from './demo-updater';
@@ -353,6 +354,20 @@ const bootstrap = async () => {
       ? (cipherText) => safeStorage.decryptString(cipherText)
       : undefined,
   });
+
+  const runtimeConfig = loadUserRuntimeConfig(app.getPath('userData'));
+  if (runtimeConfig.parseError) {
+    logEvent('warn', 'runtime.config_file_parse_failed', undefined, {
+      sourcePath: runtimeConfig.sourcePath,
+      message: runtimeConfig.parseError,
+    });
+  } else if (runtimeConfig.sourcePath) {
+    logEvent('info', 'runtime.config_file_loaded', undefined, {
+      sourcePath: runtimeConfig.sourcePath,
+      appliedKeys: runtimeConfig.appliedKeys,
+      skippedExistingKeys: runtimeConfig.skippedExistingKeys,
+    });
+  }
 
   const oidcConfig = loadOidcConfig();
   demoUpdater = new DemoUpdater(app.getPath('userData'));
