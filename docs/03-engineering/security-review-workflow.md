@@ -94,17 +94,18 @@ Security review is required for any change that introduces or modifies:
 
 ### BYO secure endpoint pattern (`call.secure-endpoint`)
 
-- Endpoint target must be configured through environment, never hardcoded:
-  - `API_SECURE_ENDPOINT_URL_TEMPLATE`
-  - optional `API_SECURE_ENDPOINT_CLAIM_MAP` (JSON map of `placeholder -> jwt.claim.path`)
+- Endpoint target must be configured through runtime settings/config, never hardcoded:
+  - `Settings > API > secureEndpointUrlTemplate`
+  - optional `Settings > API > secureEndpointClaimMap` (map of `placeholder -> jwt.claim.path`)
+  - packaged fallback file: `%APPDATA%\Angulectron\config\runtime-config.json`
 - Endpoint URL must be `https://` only.
 - URL placeholders use `{{placeholder}}` and resolve in this order:
   - request params supplied by renderer
-  - mapped JWT claim value from `API_SECURE_ENDPOINT_CLAIM_MAP`
+  - mapped JWT claim value from `secureEndpointClaimMap`
 - Renderer-provided headers are allowlisted to `x-*` names only; privileged headers (for example `Authorization`) are not overridable.
 - OIDC bearer token is attached in main process only; renderer never receives token material.
 - Failure behavior must be typed and explicit:
-  - missing env config -> `API/OPERATION_NOT_CONFIGURED`
+  - missing runtime API config -> `API/OPERATION_NOT_CONFIGURED`
   - missing path placeholder values -> `API/INVALID_PARAMS`
   - unsafe headers -> `API/INVALID_HEADERS`
 - Review evidence for this pattern should include:

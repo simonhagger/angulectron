@@ -1,7 +1,9 @@
 # Current Sprint
 
-Sprint window: 2026-02-14 onward (Sprint 4)  
 Owner: Platform Engineering + Security  
+Review cadence: Weekly  
+Last reviewed: 2026-02-14  
+Sprint window: 2026-02-14 onward (Sprint 4)  
 Status: Active
 
 ## Sprint Goal

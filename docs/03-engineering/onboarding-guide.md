@@ -170,6 +170,8 @@ Reference: `docs/05-governance/definition-of-done.md`
 - Preferred task execution: Nx (`pnpm nx ...`)
 - On Windows, use `pnpm desktop:dev:win` for one-command desktop launch
 - If Electron ever behaves like Node, clear `ELECTRON_RUN_AS_NODE`
+- OIDC/API runtime setup is managed in-app via `Settings` (`Auth`, `API`) and can be imported from `examples/config/*.json`
+- Packaged runtime configuration file path: `%APPDATA%\Angulectron\config\runtime-config.json`
 
 ## Troubleshooting
 
