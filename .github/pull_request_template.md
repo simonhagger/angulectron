@@ -32,10 +32,11 @@
 
 IMPORTANT:
 
-- If this PR touches `apps/desktop-main/**`, `apps/desktop-preload/**`, `libs/shared/contracts/**`, `.github/workflows/**`, or `docs/02-architecture/security-architecture.md`, the two items below MUST be checked to pass CI.
+- If this PR touches `apps/desktop-main/**`, `apps/desktop-preload/**`, `libs/shared/contracts/**`, `.github/workflows/**`, or `docs/02-architecture/security-architecture.md`, the three items below MUST be checked to pass CI.
 
 - [ ] Security review completed
 - [ ] Threat model updated or N/A explained
+- [ ] Confirmed no secrets/sensitive data present in committed files
 
 ### Security Notes
 

@@ -1,12 +1,16 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   cpSync,
+  createWriteStream,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { get } from 'node:https';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,6 +37,18 @@ const requirementsFilePath = process.env.PYTHON_RUNTIME_REQUIREMENTS
       'python-sidecar',
       'requirements-runtime.txt',
     );
+const artifactCatalogPath = path.join(
+  rootDir,
+  'tools',
+  'python-runtime-artifacts.json',
+);
+const artifactCacheRoot = path.join(
+  rootDir,
+  'build',
+  'python-runtime',
+  '_artifacts',
+  runtimeTarget,
+);
 const prunePaths = [
   'Doc',
   'Tools',
@@ -40,6 +56,129 @@ const prunePaths = [
   path.join('Lib', 'idlelib', 'Icons'),
   path.join('tcl', 'tk8.6', 'demos'),
 ];
+
+const loadArtifactConfig = () => {
+  if (!existsSync(artifactCatalogPath)) {
+    return null;
+  }
+
+  const raw = JSON.parse(readFileSync(artifactCatalogPath, 'utf8'));
+  const targetConfig = raw?.targets?.[runtimeTarget];
+  if (!targetConfig || typeof targetConfig !== 'object') {
+    return null;
+  }
+
+  if (
+    typeof targetConfig.url !== 'string' ||
+    typeof targetConfig.sha256 !== 'string' ||
+    typeof targetConfig.archiveFileName !== 'string'
+  ) {
+    throw new Error(
+      `Invalid artifact catalog entry for target ${runtimeTarget}.`,
+    );
+  }
+
+  return {
+    distribution: String(targetConfig.distribution ?? 'unknown'),
+    pythonVersion: String(targetConfig.pythonVersion ?? ''),
+    archiveType: String(targetConfig.archiveType ?? 'zip'),
+    archiveFileName: targetConfig.archiveFileName,
+    url: targetConfig.url,
+    sha256: targetConfig.sha256.toLowerCase(),
+    executableName: String(targetConfig.executableName ?? 'python.exe'),
+  };
+};
+
+const sha256File = (filePath) => {
+  const hash = createHash('sha256');
+  hash.update(readFileSync(filePath));
+  return hash.digest('hex').toLowerCase();
+};
+
+const downloadFile = (url, destinationPath) =>
+  new Promise((resolve, reject) => {
+    const request = get(url, (response) => {
+      if (
+        response.statusCode &&
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        response.headers.location
+      ) {
+        const redirectUrl = new URL(response.headers.location, url).toString();
+        response.resume();
+        downloadFile(redirectUrl, destinationPath).then(resolve).catch(reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(
+          new Error(
+            `Failed to download runtime artifact (${response.statusCode ?? 'unknown'}): ${url}`,
+          ),
+        );
+        return;
+      }
+
+      mkdirSync(path.dirname(destinationPath), { recursive: true });
+      const stream = createWriteStream(destinationPath);
+      response.pipe(stream);
+      stream.on('finish', () => {
+        stream.close();
+        resolve(undefined);
+      });
+      stream.on('error', (error) => reject(error));
+    });
+
+    request.on('error', (error) => reject(error));
+  });
+
+const extractArchiveToDir = (archivePath, destinationPath) => {
+  rmSync(destinationPath, { recursive: true, force: true });
+  mkdirSync(destinationPath, { recursive: true });
+
+  if (process.platform === 'win32') {
+    execFileSync('tar', ['-xf', archivePath, '-C', destinationPath], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+    return;
+  }
+
+  throw new Error(
+    `Runtime artifact extraction is not implemented for platform ${process.platform}.`,
+  );
+};
+
+const enableEmbeddedSitePackages = (runtimeDir) => {
+  const entries = existsSync(runtimeDir) ? readdirSync(runtimeDir) : [];
+  const pthFiles = entries.filter((entry) =>
+    entry.toLowerCase().endsWith('._pth'),
+  );
+
+  for (const fileName of pthFiles) {
+    const pthPath = path.join(runtimeDir, fileName);
+    const lines = readFileSync(pthPath, 'utf8').split(/\r?\n/);
+    const hasImportSite = lines.some(
+      (line) => line.trim() === 'import site' || line.trim() === '#import site',
+    );
+    const hasSitePackages = lines.some(
+      (line) => line.trim() === 'Lib/site-packages',
+    );
+
+    const updatedLines = lines.map((line) =>
+      line.trim() === '#import site' ? 'import site' : line,
+    );
+    if (!hasImportSite) {
+      updatedLines.push('import site');
+    }
+    if (!hasSitePackages) {
+      updatedLines.splice(1, 0, 'Lib/site-packages');
+    }
+
+    writeFileSync(pthPath, `${updatedLines.join('\n')}\n`, 'utf8');
+  }
+};
 
 const resolvePythonCommand = () => {
   if (process.env.PYTHON) {
@@ -66,9 +205,44 @@ const pythonExecutable = execFileSync(
   { cwd: rootDir, encoding: 'utf8' },
 ).trim();
 
-const sourceDir = process.env.PYTHON_RUNTIME_SOURCE_DIR
+const artifactConfig = loadArtifactConfig();
+const sourceOverrideDir = process.env.PYTHON_RUNTIME_SOURCE_DIR
   ? path.resolve(rootDir, process.env.PYTHON_RUNTIME_SOURCE_DIR)
-  : path.dirname(pythonExecutable);
+  : null;
+const sourceDir =
+  sourceOverrideDir ?? path.join(artifactCacheRoot, 'extracted');
+
+if (!sourceOverrideDir) {
+  if (!artifactConfig) {
+    throw new Error(
+      `No official artifact catalog entry found for target ${runtimeTarget}. Set PYTHON_RUNTIME_SOURCE_DIR to override locally.`,
+    );
+  }
+
+  const artifactPath = path.join(
+    artifactCacheRoot,
+    artifactConfig.archiveFileName,
+  );
+  const downloadedHash = existsSync(artifactPath)
+    ? sha256File(artifactPath)
+    : null;
+  if (downloadedHash !== artifactConfig.sha256) {
+    if (existsSync(artifactPath)) {
+      rmSync(artifactPath, { force: true });
+    }
+    console.info(`Downloading runtime artifact: ${artifactConfig.url}`);
+    await downloadFile(artifactConfig.url, artifactPath);
+  }
+
+  const verifiedHash = sha256File(artifactPath);
+  if (verifiedHash !== artifactConfig.sha256) {
+    throw new Error(
+      `Artifact checksum mismatch for ${artifactConfig.archiveFileName}. expected=${artifactConfig.sha256} actual=${verifiedHash}`,
+    );
+  }
+
+  extractArchiveToDir(artifactPath, sourceDir);
+}
 
 const parseRequirementPackageNames = (requirementsPath) => {
   if (!existsSync(requirementsPath)) {
@@ -89,6 +263,7 @@ const parseRequirementPackageNames = (requirementsPath) => {
 rmSync(outputRoot, { recursive: true, force: true });
 mkdirSync(outputRoot, { recursive: true });
 cpSync(sourceDir, outputRuntimeDir, { recursive: true });
+enableEmbeddedSitePackages(outputRuntimeDir);
 
 for (const relativePath of prunePaths) {
   rmSync(path.join(outputRuntimeDir, relativePath), {
@@ -102,9 +277,10 @@ mkdirSync(outputSitePackagesDir, { recursive: true });
 
 const executableName =
   process.platform === 'win32'
-    ? path.basename(pythonExecutable).toLowerCase().endsWith('.exe')
-      ? path.basename(pythonExecutable)
-      : 'python.exe'
+    ? (artifactConfig?.executableName ??
+      (path.basename(pythonExecutable).toLowerCase().endsWith('.exe')
+        ? path.basename(pythonExecutable)
+        : 'python.exe'))
     : path.basename(pythonExecutable);
 const runtimePythonExecutablePath = path.join(outputRuntimeDir, executableName);
 
@@ -173,8 +349,21 @@ const manifest = {
     ? path.relative(rootDir, requirementsFilePath).replaceAll('\\', '/')
     : null,
   source: {
+    kind: sourceOverrideDir ? 'local-override' : 'official-artifact',
     pythonExecutable,
     sourceDir,
+    runtimeTarget,
+    artifact:
+      sourceOverrideDir || !artifactConfig
+        ? null
+        : {
+            distribution: artifactConfig.distribution,
+            pythonVersion: artifactConfig.pythonVersion,
+            url: artifactConfig.url,
+            archiveFileName: artifactConfig.archiveFileName,
+            archiveType: artifactConfig.archiveType,
+            sha256: artifactConfig.sha256,
+          },
   },
 };
 

@@ -10,6 +10,8 @@ import {
   readTextFileRequestSchema,
 } from '@electron-foundation/contracts';
 import type { MainIpcContext } from './handler-context';
+import { consumeSelectedFileToken } from './consume-selected-file-token';
+import { evaluateFileIngressPolicy } from './file-ingress-policy';
 import { registerValidatedHandler } from './register-validated-handler';
 
 export const registerFileIpcHandlers = (
@@ -66,38 +68,49 @@ export const registerFileIpcHandlers = (
     context,
     handler: async (event, request) => {
       try {
-        const selected = context.selectedFileTokens.get(
+        const consumed = consumeSelectedFileToken(
+          event,
           request.payload.fileToken,
+          context,
+          request.correlationId,
         );
-        if (!selected || selected.expiresAt <= Date.now()) {
-          context.selectedFileTokens.delete(request.payload.fileToken);
-          return asFailure(
-            'FS/INVALID_TOKEN',
-            'The selected file token is invalid or expired.',
-            undefined,
-            false,
-            request.correlationId,
-          );
+        if (!consumed.ok) {
+          return consumed;
         }
 
-        const senderWindowId = BrowserWindow.fromWebContents(event.sender)?.id;
-        if (senderWindowId !== selected.windowId) {
-          context.selectedFileTokens.delete(request.payload.fileToken);
+        const policy = await evaluateFileIngressPolicy(
+          consumed.data.filePath,
+          'textRead',
+        );
+        if (policy.kind !== 'ok') {
+          if (policy.kind === 'unsupported-extension') {
+            return asFailure(
+              'FS/UNSUPPORTED_FILE_TYPE',
+              'Selected file type is not supported for text read.',
+              {
+                fileName: policy.fileName,
+                extension: policy.extension,
+                allowedExtensions: policy.allowedExtensions,
+              },
+              false,
+              request.correlationId,
+            );
+          }
+
           return asFailure(
-            'FS/INVALID_TOKEN_SCOPE',
-            'Selected file token was issued for a different window.',
+            'FS/FILE_SIGNATURE_MISMATCH',
+            'Selected file signature did not match expected content.',
             {
-              senderWindowId: senderWindowId ?? null,
-              tokenWindowId: selected.windowId,
+              fileName: policy.fileName,
+              headerHex: policy.headerHex,
+              expectedHex: policy.expectedHex,
             },
             false,
             request.correlationId,
           );
         }
 
-        context.selectedFileTokens.delete(request.payload.fileToken);
-
-        const content = await fs.readFile(selected.filePath, {
+        const content = await fs.readFile(consumed.data.filePath, {
           encoding: request.payload.encoding,
         });
 

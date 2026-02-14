@@ -1,114 +1,88 @@
 # Current Sprint
 
-Sprint window: 2026-02-13 onward (Sprint 2)  
-Owner: Platform Engineering + Security + Frontend  
-Status: Active (core scope complete; stretch pending)
+Sprint window: 2026-02-14 onward (Sprint 4)  
+Owner: Platform Engineering + Security  
+Status: Active
 
 ## Sprint Goal
 
-Advance post-refactor hardening by improving auth lifecycle completeness, IPC integration confidence, and API contract typing safety.
+Increase security and runtime determinism in privileged execution paths before additional feature expansion.
 
-## In Scope (Committed)
+## In Scope (Committed, Highest Value First)
+
+- `BL-028` Enforce robust file signature validation parity across all privileged ingress paths.
+- `BL-033` Centralize privileged file ingress policy across all IPC file routes.
+- `BL-029` Standardize official Python runtime distribution for sidecar bundling (artifact + checksum + CI reproducibility).
+- `BL-032` Standardize IPC handler failure envelope and correlation guarantees.
+
+## Out of Scope (This Sprint)
+
+- `BL-020` Renderer i18n uplift deferred while single-maintainer workflow remains.
+- `BL-034` / `BL-035` i18n architecture enhancements deferred.
+- `BL-038` sidecar transport ADR deferred unless risk profile changes.
+
+## Explicitly Completed (Do Not Re-Scope)
 
 - `BL-015` Add IdP global sign-out and token revocation flow.
+- `BL-021` Consolidate renderer route/nav metadata into a single typed registry.
 - `BL-023` Expand IPC integration harness for preload-main real handler paths.
 - `BL-025` Strengthen compile-time typing for API operation contracts end-to-end.
+- `BL-026` Exclude lab routes/features from production bundle surface.
+- `BL-027` Provide deterministic bundled update demo patch cycle.
+- `BL-030` Deterministic packaged Python sidecar runtime baseline.
+- CI hardening: targeted `format:check` base fetch now uses `FETCH_HEAD` to avoid non-fast-forward failures.
 
-## Stretch Scope (If Capacity Allows)
+## Blocked / External Dependency
 
-- `BL-020` Complete renderer i18n migration for hardcoded user-facing strings.
+- `BL-014` remains blocked by IdP vendor token audience behavior.
 
-## Additional Delivered Work (Unplanned but Completed)
+## Execution Plan (Coherent + Testable)
 
-- Production hardening: exclude lab routes/navigation from production bundle surface.
-- Update model proof: deterministic bundled-file demo patch cycle (`v1` to `v2`) with integrity check and UI diagnostics.
+1. `BL-033A` Shared ingress policy module
 
-## Highest Priority Follow-Up
-
-- `BL-028` Enforce robust file signature validation for privileged file ingress (extension + header/magic validation with fail-closed behavior before parser execution).
-
-## Out Of Scope (This Sprint)
-
-- `BL-019`, `BL-022`, `BL-024`.
-
-## Execution Plan (Coherent + Individually Testable)
-
-### Workstream A: `BL-015` auth sign-out completeness
-
-1. `BL-015A` Implement explicit sign-out mode handling in main auth service.
-
-- Scope: introduce local-only vs provider/global sign-out behavior, including revocation/end-session where supported by IdP metadata/config.
-- Done when: sign-out path can deterministically return local clear success and provider sign-out status without exposing secrets.
-- Proof:
-  - `pnpm nx run desktop-main:test`
-  - `pnpm nx run desktop-main:build`
-
-2. `BL-015B` Surface sign-out mode + outcome through preload and renderer UX.
-
-- Scope: extend preload/renderer flow to request mode and render user-safe outcomes (local cleared, provider signed out, provider not supported).
-- Done when: Auth Session Lab can execute both paths and show accurate status transitions.
-- Proof:
-  - `pnpm nx run renderer:test`
-  - `pnpm nx run renderer:build`
-
-### Workstream B: `BL-023` IPC integration hardening
-
-3. `BL-023A` Add unauthorized sender integration tests with real handlers.
-
-- Scope: test real handler registration path rejects wrong window/frame sender consistently across privileged channels.
-- Done when: unauthorized sender rejection is covered by integration tests, not only unit-level wrapper tests.
-- Proof:
-  - `pnpm nx run desktop-main:test`
-
-4. `BL-023B` Add correlation-id and timeout propagation integration tests.
-
-- Scope: verify correlation-id continuity and timeout envelope behavior across preload invoke client and main IPC handlers.
-- Done when: tests assert stable error codes/correlation behavior for timeout and malformed/failed invoke cases.
+- Scope: introduce one shared policy for extension/signature/size validation and consume it from all privileged file ingress handlers.
 - Proof:
   - `pnpm nx run desktop-main:test`
   - `pnpm nx run desktop-preload:build`
 
-### Workstream C: `BL-025` API typing end-to-end
+2. `BL-028A` Close parity gaps + fail-closed behavior
 
-5. `BL-025A` Introduce operation-to-request/response type map in contracts.
-
-- Scope: define typed operation map and export helper types for operation params/result payloads.
-- Done when: operations can be referenced by key with compile-time request/response inference.
+- Scope: remove remaining route-by-route differences, enforce consistent rejection semantics, and add structured security events.
 - Proof:
-  - `pnpm nx run contracts:test`
-  - `pnpm nx run contracts:build`
-
-6. `BL-025B` Consume typed operation map in preload + main API gateway interfaces.
-
-- Scope: remove stringly-typed call sites in preload and gateway boundaries where operation payload types can be inferred.
-- Done when: `desktop.api.invoke` and main gateway wiring compile with mapped operation types and unchanged runtime behavior.
-- Proof:
-  - `pnpm nx run desktop-preload:build`
   - `pnpm nx run desktop-main:test`
-  - `pnpm nx run renderer:build`
+  - `pnpm docs-lint`
 
-### Cross-cut verification gate (after each merged unit)
+3. `BL-029A` Official artifact + checksum flow
 
-- `pnpm unit-test`
-- `pnpm integration-test`
-- `pnpm runtime:smoke`
+- Scope: source Python runtime from pinned official artifact, verify checksum, and prepare deterministic runtime bundle inputs.
+- Proof:
+  - `pnpm run python-runtime:prepare-local`
+  - `pnpm run python-runtime:assert`
+
+4. `BL-029B` CI reproducible runtime assembly
+
+- Scope: guarantee package builds use prepared runtime artifact path and pinned runtime requirements in CI.
+- Proof:
+  - `pnpm run build-desktop-main`
+  - `pnpm forge:make:staging`
+
+5. `BL-032A` IPC failure envelope normalization
+
+- Scope: ensure validated handler factory normalizes validation and unexpected runtime failures into a single safe contract with correlation IDs.
+- Proof:
+  - `pnpm nx run desktop-main:test`
+  - `pnpm nx run desktop-preload:test`
 
 ## Exit Criteria
 
-- `BL-015`, `BL-023`, and `BL-025` merged through PR workflow with security checklist completed.
-- Existing CI quality gates remain green.
-- Docs updated for any changed contracts/flows.
+- `BL-028` and `BL-033` moved to `Done`.
+- `BL-029` moved to `Done` or `In Progress` with artifact/checksum path merged and CI proof complete.
+- `BL-032` moved to `Done` with integration test coverage proving envelope consistency.
+- CI remains green on PR and post-merge paths.
 
 ## Progress Log
 
-- 2026-02-13: Sprint 1 closure confirmed (`BL-016`, `BL-017`, `BL-018` complete with cross-cut verification).
-- 2026-02-13: Sprint 2 initialized with committed scope (`BL-015`, `BL-023`, `BL-025`) and stretch (`BL-020`).
-- 2026-02-13: Completed `BL-015A` by introducing explicit sign-out mode (`local` or `global`) and detailed sign-out outcomes in auth contracts, desktop-main service flow, and IPC handling.
-- 2026-02-13: Completed `BL-015B` baseline by propagating sign-out mode through preload and Auth Session Lab UX with separate local/global controls and provider outcome messaging.
-- 2026-02-13: Completed `BL-023A` by adding real-handler unauthorized-sender integration coverage in `apps/desktop-main/src/ipc/register-ipc-handlers.spec.ts`.
-- 2026-02-13: Completed `BL-023B` by adding preload invoke-client tests for malformed responses, timeout behavior, and invoke failures with correlation-id assertions (`apps/desktop-preload/src/invoke-client.spec.ts`) and wiring `desktop-preload:test` target.
-- 2026-02-13: Completed `BL-025A` and `BL-025B` baseline by adding operation type maps in contracts and consuming typed operation params/result signatures in desktop API/preload invoke surfaces.
-- 2026-02-13: Auth lifecycle stabilization pass completed: bounded OIDC network timeouts in main auth service, auth-page initialization now surfaces true IPC errors, token diagnostics sequencing fixed to avoid startup race, and auth-lab redirect behavior corrected to honor only explicit external `returnUrl`.
-- 2026-02-13: Production hardening completed by replacing production route/shell config to exclude lab routes and lab navigation/toggle from production artifacts.
-- 2026-02-13: Added bundled update demo proof flow: app startup seeds local runtime demo file to `1.0.0-demo`, update check detects bundled `1.0.1-demo`, apply action validates sha256 and overwrites local demo file, and renderer surfaces source/version/path diagnostics.
-- 2026-02-13: Completed `BL-021` by adding a typed renderer route registry (`app-route-registry.ts`) that derives both `app.routes.ts` and `APP_SHELL_CONFIG.navLinks`, removing duplicated route/nav metadata while retaining production route/shell file replacements.
+- 2026-02-14: Sprint reprioritized to security/runtime determinism; i18n work deferred.
+- 2026-02-14: Implemented shared file token consumption and centralized ingress policy (`BL-033` / `BL-028` progress) with new handler tests and successful `desktop:dev:win` verification.
+- 2026-02-14: Implemented validated handler exception normalization (`BL-032` progress): unexpected sync/async handler failures now return `IPC/HANDLER_FAILED` with correlation IDs and structured logging.
+- 2026-02-14: Started `BL-029A` implementation: added pinned official Python artifact catalog + SHA256 verification flow in runtime prep/assert scripts, regenerated runtime bundle from official source, and validated `python-runtime:assert` + `build-desktop-main`.

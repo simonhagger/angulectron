@@ -7,6 +7,8 @@ import {
 } from '@electron-foundation/contracts';
 import { createCorrelationId, invokeIpc } from '../invoke-client';
 
+const dialogOpenTimeoutMs = 120_000;
+
 export const createDialogApi = (): DesktopDialogApi => ({
   async openFile(request = {}) {
     const correlationId = createCorrelationId();
@@ -21,6 +23,7 @@ export const createDialogApi = (): DesktopDialogApi => ({
       payload,
       correlationId,
       openFileDialogResponseSchema,
+      dialogOpenTimeoutMs,
     );
   },
 });

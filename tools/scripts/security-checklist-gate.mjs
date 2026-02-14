@@ -57,14 +57,21 @@ const hasSecurityReview = /- \[x\] Security review completed/i.test(body);
 const hasThreatModel = /- \[x\] Threat model updated or N\/A explained/i.test(
   body,
 );
+const hasNoSecretsConfirmation =
+  /- \[x\] Confirmed no secrets\/sensitive data present in committed files/i.test(
+    body,
+  );
 
-if (!hasSecurityReview || !hasThreatModel) {
+if (!hasSecurityReview || !hasThreatModel || !hasNoSecretsConfirmation) {
   console.error(
     'Security-sensitive change requires completed security checklist in PR body.',
   );
   console.error('Expected checked items:');
   console.error('- [x] Security review completed');
   console.error('- [x] Threat model updated or N/A explained');
+  console.error(
+    '- [x] Confirmed no secrets/sensitive data present in committed files',
+  );
   process.exit(1);
 }
 

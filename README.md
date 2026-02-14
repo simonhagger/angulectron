@@ -156,6 +156,60 @@ Token persistence behavior:
 - If `keytar` native binding is missing, run:
   - `pnpm native:rebuild:keytar`
 
+### Packaged Runtime Config File (Windows)
+
+Packaged builds do not read `.env.local` automatically.  
+Instead, place one runtime config file at:
+
+- `%APPDATA%\Angulectron\config\runtime-config.env`
+- or `%APPDATA%\Angulectron\config\runtime-config.json`
+
+Supported keys (allowlisted):
+
+- `OIDC_ISSUER`
+- `OIDC_CLIENT_ID`
+- `OIDC_REDIRECT_URI`
+- `OIDC_SCOPES` (must include `openid`)
+
+Optional:
+
+- `OIDC_AUDIENCE`
+- `OIDC_ALLOWED_SIGNOUT_ORIGINS` (space/comma separated allowlist for global sign-out redirects)
+- `API_SECURE_ENDPOINT_URL_TEMPLATE`
+- `API_SECURE_ENDPOINT_CLAIM_MAP`
+
+Example `runtime-config.env`:
+
+```env
+OIDC_ISSUER=https://your-issuer.example.com
+OIDC_CLIENT_ID=your-client-id
+OIDC_REDIRECT_URI=http://127.0.0.1:42813/callback
+OIDC_SCOPES=openid profile email offline_access
+OIDC_AUDIENCE=api.your-domain.example
+API_SECURE_ENDPOINT_URL_TEMPLATE=https://api.your-domain.example/users/{{user_id}}/portfolio
+API_SECURE_ENDPOINT_CLAIM_MAP={"user_id":"sub"}
+```
+
+Example `runtime-config.json`:
+
+```json
+{
+  "OIDC_ISSUER": "https://your-issuer.example.com",
+  "OIDC_CLIENT_ID": "your-client-id",
+  "OIDC_REDIRECT_URI": "http://127.0.0.1:42813/callback",
+  "OIDC_SCOPES": "openid profile email offline_access",
+  "OIDC_AUDIENCE": "api.your-domain.example",
+  "API_SECURE_ENDPOINT_URL_TEMPLATE": "https://api.your-domain.example/users/{{user_id}}/portfolio",
+  "API_SECURE_ENDPOINT_CLAIM_MAP": "{\"user_id\":\"sub\"}"
+}
+```
+
+Notes:
+
+- Restart the app after changing runtime config files.
+- Process environment variables still take precedence over file values if both are set.
+- Do not put client secrets into renderer or checked-in files; this flow assumes desktop public-client PKCE.
+
 ## Bring Your Own Secure API Endpoint
 
 The `call.secure-endpoint` API operation is endpoint-configurable and does not rely on a hardcoded private URL.
@@ -212,17 +266,21 @@ How to run/verify:
 
 Deterministic packaged runtime (staging/production):
 
-- Provide a local bundled runtime payload at:
+- Runtime source is pinned via official artifact catalog:
+  - `tools/python-runtime-artifacts.json`
+- Prepare runtime payload from pinned artifact:
+  - `pnpm run python-runtime:prepare-local`
+- Prepared payload is written to:
   - `build/python-runtime/<platform>-<arch>/`
   - example: `build/python-runtime/win32-x64/`
 - Pin sidecar dependencies in:
   - `apps/desktop-main/python-sidecar/requirements-runtime.txt`
-- Fast local bootstrap from your current Python install:
-  - `pnpm run python-runtime:prepare-local`
-- Add `manifest.json` with `executableRelativePath` (see `build/python-runtime/README.md`).
 - Run validation:
   - `pnpm run python-runtime:assert`
-  - assertion verifies interpreter exists and imports `fitz` when PyMuPDF is declared in manifest
+  - assertion verifies interpreter exists, source policy is `official-artifact` by default, and imports `fitz` when PyMuPDF is declared in manifest
+- Optional local emergency override:
+  - `PYTHON_RUNTIME_SOURCE_DIR=...` to provide a local source directory
+  - `PYTHON_RUNTIME_ALLOW_UNOFFICIAL_SOURCE=1` if assertion must permit non-official source manifests
 - Runtime payload is copied into desktop build artifacts by:
   - `pnpm run build-desktop-main`
   - `pnpm run forge:make:staging`
