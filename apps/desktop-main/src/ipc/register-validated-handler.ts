@@ -23,22 +23,41 @@ export const registerValidatedHandler = <TSchema extends z.ZodTypeAny>({
 }: RegisterValidatedHandlerArgs<TSchema>) => {
   ipcMain.handle(channel, async (event, payload) => {
     const correlationId = context.getCorrelationId(payload);
-    const unauthorized = context.assertAuthorizedSender(event, correlationId);
-    if (unauthorized) {
-      return unauthorized;
-    }
+    try {
+      const unauthorized = context.assertAuthorizedSender(event, correlationId);
+      if (unauthorized) {
+        return unauthorized;
+      }
 
-    const parsed = schema.safeParse(payload);
-    if (!parsed.success) {
+      const parsed = schema.safeParse(payload);
+      if (!parsed.success) {
+        return asFailure(
+          'IPC/VALIDATION_FAILED',
+          'IPC payload failed validation.',
+          parsed.error.flatten(),
+          false,
+          correlationId,
+        );
+      }
+
+      return await handler(event, parsed.data);
+    } catch (error) {
+      context.logEvent(
+        'error',
+        'ipc.handler_unhandled_exception',
+        correlationId,
+        {
+          channel,
+          message: error instanceof Error ? error.message : String(error),
+        },
+      );
       return asFailure(
-        'IPC/VALIDATION_FAILED',
-        'IPC payload failed validation.',
-        parsed.error.flatten(),
+        'IPC/HANDLER_FAILED',
+        'IPC handler execution failed.',
+        { channel },
         false,
         correlationId,
       );
     }
-
-    return handler(event, parsed.data);
   });
 };
