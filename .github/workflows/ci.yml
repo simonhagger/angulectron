@@ -170,6 +170,36 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm i18n-check
 
+  docs-lint:
+    name: docs-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm docs-lint
+
+  no-dotenv-files:
+    name: no-dotenv-files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.13.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile=false
+      - run: pnpm no-dotenv-files
+
   build-renderer:
     name: build-renderer
     runs-on: ubuntu-latest
@@ -263,6 +293,8 @@ jobs:
       - e2e-smoke
       - a11y-e2e
       - i18n-check
+      - docs-lint
+      - no-dotenv-files
       - build-renderer
       - build-desktop
       - dependency-audit
