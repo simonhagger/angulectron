@@ -267,14 +267,14 @@ describe('auth contracts', () => {
     const parsed = authGetTokenDiagnosticsResponseSchema.safeParse({
       sessionState: 'active',
       bearerSource: 'access_token',
-      expectedAudience: 'api.adopa.uk',
+      expectedAudience: 'api.example.com',
       accessToken: {
         present: true,
         format: 'jwt',
         claims: {
-          iss: 'https://willing-elephant-20.clerk.accounts.dev',
+          iss: 'https://issuer.example.com',
           sub: 'user_abc',
-          aud: ['api.adopa.uk'],
+          aud: ['api.example.com'],
           exp: 1770903664,
           iat: 1770900000,
         },
@@ -283,7 +283,7 @@ describe('auth contracts', () => {
         present: true,
         format: 'jwt',
         claims: {
-          aud: 'TOtjISa3Sgz2sDi2',
+          aud: 'desktop-client-id',
         },
       },
     });
