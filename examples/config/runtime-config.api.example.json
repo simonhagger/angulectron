@@ -1,0 +1,6 @@
+{
+  "secureEndpointUrlTemplate": "https://api.your-domain.example/resources/{{resource_id}}",
+  "secureEndpointClaimMap": {
+    "resource_id": "sub"
+  }
+}

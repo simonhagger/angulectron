@@ -19,6 +19,13 @@ export const IPC_CHANNELS = {
   pythonProbe: 'python:probe',
   pythonInspectPdf: 'python:inspect-pdf',
   pythonStop: 'python:stop',
+  settingsGetRuntimeConfig: 'settings:get-runtime-config',
+  settingsSaveFeatureConfig: 'settings:save-feature-config',
+  settingsResetFeatureConfig: 'settings:reset-feature-config',
+  settingsImportFeatureConfig: 'settings:import-feature-config',
+  settingsExportFeatureConfig: 'settings:export-feature-config',
+  settingsImportRuntimeConfig: 'settings:import-runtime-config',
+  settingsExportRuntimeConfig: 'settings:export-runtime-config',
   telemetryTrack: 'telemetry:track',
 } as const;
 

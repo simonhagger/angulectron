@@ -1,12 +1,22 @@
 import type {
   ApiGetOperationDiagnosticsResponse,
+  ApiFeatureConfig,
   ApiOperationId,
   ApiOperationParamsById,
   ApiOperationResponseDataById,
+  AppFeatureConfig,
   AuthGetTokenDiagnosticsResponse,
+  AuthFeatureConfig,
   AuthSessionSummary,
   ContractVersion,
   DesktopResult,
+  RuntimeConfigDocument,
+  RuntimeConfigFeatureKey,
+  SettingsExportFeatureConfigResponse,
+  SettingsExportRuntimeConfigResponse,
+  SettingsImportFeatureConfigResponse,
+  SettingsImportRuntimeConfigResponse,
+  SettingsRuntimeConfigStateResponse,
 } from '@electron-foundation/contracts';
 
 export interface DesktopAppApi {
@@ -172,6 +182,37 @@ export interface DesktopTelemetryApi {
   ) => Promise<DesktopResult<{ accepted: boolean }>>;
 }
 
+type RuntimeConfigFeatureConfigByKey = {
+  app: AppFeatureConfig;
+  auth: AuthFeatureConfig;
+  api: ApiFeatureConfig;
+};
+
+export interface DesktopSettingsApi {
+  getRuntimeConfig: () => Promise<
+    DesktopResult<SettingsRuntimeConfigStateResponse>
+  >;
+  saveFeatureConfig: <TFeature extends RuntimeConfigFeatureKey>(
+    feature: TFeature,
+    config: RuntimeConfigFeatureConfigByKey[TFeature],
+  ) => Promise<DesktopResult<SettingsRuntimeConfigStateResponse>>;
+  resetFeatureConfig: (
+    feature: RuntimeConfigFeatureKey,
+  ) => Promise<DesktopResult<SettingsRuntimeConfigStateResponse>>;
+  importFeatureConfig: (
+    feature: RuntimeConfigFeatureKey,
+  ) => Promise<DesktopResult<SettingsImportFeatureConfigResponse>>;
+  exportFeatureConfig: (
+    feature: RuntimeConfigFeatureKey,
+  ) => Promise<DesktopResult<SettingsExportFeatureConfigResponse>>;
+  importRuntimeConfig: () => Promise<
+    DesktopResult<SettingsImportRuntimeConfigResponse>
+  >;
+  exportRuntimeConfig: () => Promise<
+    DesktopResult<SettingsExportRuntimeConfigResponse>
+  >;
+}
+
 export interface DesktopApi {
   app: DesktopAppApi;
   auth: DesktopAuthApi;
@@ -182,6 +223,7 @@ export interface DesktopApi {
   updates: DesktopUpdatesApi;
   python: DesktopPythonApi;
   telemetry: DesktopTelemetryApi;
+  settings: DesktopSettingsApi;
 }
 
 export const getDesktopApi = (): DesktopApi | null => {

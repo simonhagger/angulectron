@@ -1,0 +1,38 @@
+<mat-card appearance="outlined" class="settings-feature-card">
+  <h3>App Settings</h3>
+  <p>
+    App-level runtime settings are reserved for global behavior flags and future
+    platform controls.
+  </p>
+  <p>
+    Use <strong>API</strong> for secure endpoint configuration and
+    <strong>Auth</strong> for OIDC settings.
+  </p>
+
+  <div class="settings-actions" role="group" aria-label="App settings actions">
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="settings.resetFeatureConfig('app')"
+      [disabled]="settings.busy()"
+    >
+      Reset App Section
+    </button>
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="settings.importFeatureConfig('app')"
+      [disabled]="settings.busy()"
+    >
+      Import App Section
+    </button>
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="settings.exportFeatureConfig('app')"
+      [disabled]="settings.busy()"
+    >
+      Export App Section
+    </button>
+  </div>
+</mat-card>

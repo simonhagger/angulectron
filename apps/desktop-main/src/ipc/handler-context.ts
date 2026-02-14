@@ -9,6 +9,7 @@ import type { OidcService } from '../oidc-service';
 import type { StorageGateway } from '../storage-gateway';
 import type { DemoUpdater } from '../demo-updater';
 import type { PythonSidecar } from '../python-sidecar';
+import type { RuntimeSettingsStore } from '../runtime-settings-store';
 
 export type FileSelectionToken = {
   filePath: string;
@@ -36,6 +37,7 @@ export type MainIpcContext = {
   ) => DesktopResult<ApiGetOperationDiagnosticsResponse>;
   getDemoUpdater: () => DemoUpdater | null;
   getPythonSidecar: () => PythonSidecar | null;
+  getRuntimeSettingsStore: () => RuntimeSettingsStore;
   logEvent: (
     level: 'debug' | 'info' | 'warn' | 'error',
     event: string,

@@ -23,6 +23,11 @@ import {
   pythonProbeResponseSchema,
   pythonStopResponseSchema,
 } from './python.contract';
+import {
+  settingsImportFeatureConfigResponseSchema,
+  settingsRuntimeConfigStateResponseSchema,
+  settingsSaveFeatureConfigRequestSchema,
+} from './settings.contract';
 
 describe('parseOrFailure', () => {
   it('should parse valid values', () => {
@@ -362,6 +367,74 @@ describe('python contracts', () => {
       pymupdfAvailable: true,
       pymupdfVersion: '1.26.7',
       message: 'PDF inspected successfully.',
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe('settings contracts', () => {
+  it('accepts save auth feature config requests', () => {
+    const parsed = settingsSaveFeatureConfigRequestSchema.safeParse({
+      contractVersion: '1.0.0',
+      correlationId: 'corr-settings-1',
+      payload: {
+        feature: 'auth',
+        config: {
+          issuer: 'https://issuer.example.com',
+          clientId: 'desktop-client',
+          redirectUri: 'http://127.0.0.1:42813/callback',
+          scopes: 'openid profile email offline_access',
+          apiBearerTokenSource: 'access_token',
+        },
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts runtime config state responses', () => {
+    const parsed = settingsRuntimeConfigStateResponseSchema.safeParse({
+      sourcePath:
+        'C:\\Users\\demo\\AppData\\Roaming\\Angulectron\\config\\runtime-config.json',
+      exists: true,
+      config: {
+        version: 1,
+        api: {
+          secureEndpointUrlTemplate:
+            'https://api.example.com/resources/{{resource_id}}',
+          secureEndpointClaimMap: {
+            resource_id: 'sub',
+          },
+        },
+        auth: {
+          issuer: 'https://issuer.example.com',
+          clientId: 'desktop-client',
+          redirectUri: 'http://127.0.0.1:42813/callback',
+          scopes: 'openid profile email offline_access',
+        },
+      },
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it('accepts import feature responses', () => {
+    const parsed = settingsImportFeatureConfigResponseSchema.safeParse({
+      canceled: false,
+      imported: true,
+      feature: 'api',
+      sourcePath: 'C:\\backup\\runtime-config.api.json',
+      config: {
+        version: 1,
+        api: {
+          secureEndpointUrlTemplate:
+            'https://api.example.com/resources/{{resource_id}}',
+          secureEndpointClaimMap: {
+            resource_id: 'sub',
+          },
+        },
+      },
     });
 
     expect(parsed.success).toBe(true);

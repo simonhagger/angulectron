@@ -1,0 +1,46 @@
+.settings-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.settings-header,
+.settings-nav {
+  padding: 1rem;
+}
+
+.settings-header h2 {
+  margin: 0;
+}
+
+.settings-header p {
+  margin: 0.25rem 0;
+}
+
+.settings-meta {
+  margin-top: 0.75rem;
+}
+
+.settings-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.status {
+  margin-top: 0.75rem;
+}
+
+.warning {
+  color: #b3261e;
+}
+
+.settings-nav nav {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.active-link {
+  font-weight: 600;
+}

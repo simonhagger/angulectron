@@ -5,6 +5,7 @@ import { registerAppIpcHandlers } from './app-handlers';
 import { registerAuthIpcHandlers } from './auth-handlers';
 import { registerFileIpcHandlers } from './file-handlers';
 import { registerStorageIpcHandlers } from './storage-handlers';
+import { registerSettingsIpcHandlers } from './settings-handlers';
 import { registerTelemetryIpcHandlers } from './telemetry-handlers';
 import { registerUpdatesIpcHandlers } from './updates-handlers';
 import { registerPythonIpcHandlers } from './python-handlers';
@@ -18,6 +19,7 @@ export const registerIpcHandlers = (
   registerFileIpcHandlers(ipcMain, context);
   registerApiIpcHandlers(ipcMain, context);
   registerStorageIpcHandlers(ipcMain, context);
+  registerSettingsIpcHandlers(ipcMain, context);
   registerUpdatesIpcHandlers(ipcMain, context);
   registerPythonIpcHandlers(ipcMain, context);
   registerTelemetryIpcHandlers(ipcMain, context);

@@ -1,0 +1,94 @@
+<mat-card appearance="outlined" class="settings-feature-card">
+  <h3>Auth Settings</h3>
+  <p>Configure OIDC runtime settings for desktop sign-in behavior.</p>
+
+  <form class="settings-form" [formGroup]="form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Issuer URL</mat-label>
+      <input
+        matInput
+        formControlName="issuer"
+        placeholder="https://issuer.example.com"
+      />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Client ID</mat-label>
+      <input matInput formControlName="clientId" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Redirect URI</mat-label>
+      <input
+        matInput
+        formControlName="redirectUri"
+        placeholder="http://127.0.0.1:42813/callback"
+      />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Scopes</mat-label>
+      <input matInput formControlName="scopes" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Audience</mat-label>
+      <input matInput formControlName="audience" />
+    </mat-form-field>
+
+    <mat-checkbox formControlName="sendAudienceInAuthorize">
+      Send audience in authorize request
+    </mat-checkbox>
+
+    <mat-form-field appearance="outline">
+      <mat-label>API bearer token source</mat-label>
+      <mat-select formControlName="apiBearerTokenSource">
+        <mat-option value="access_token">access_token</mat-option>
+        <mat-option value="id_token">id_token</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Allowed sign-out origins</mat-label>
+      <input
+        matInput
+        formControlName="allowedSignOutOrigins"
+        placeholder="https://app.example.com,https://localhost:4200"
+      />
+    </mat-form-field>
+
+    <div
+      class="settings-actions"
+      role="group"
+      aria-label="Auth settings actions"
+    >
+      <button mat-flat-button type="submit" [disabled]="settings.busy()">
+        Save
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="settings.resetFeatureConfig('auth')"
+        [disabled]="settings.busy()"
+      >
+        Reset
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="settings.importFeatureConfig('auth')"
+        [disabled]="settings.busy()"
+      >
+        Import
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="settings.exportFeatureConfig('auth')"
+        [disabled]="settings.busy()"
+      >
+        Export
+      </button>
+    </div>
+  </form>
+</mat-card>

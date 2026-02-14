@@ -13,6 +13,7 @@ import { promises as fs } from 'node:fs';
 import {
   getApiOperationDiagnostics,
   invokeApiOperation,
+  refreshDefaultApiOperationsFromEnv,
   setOidcAccessTokenResolver,
 } from './api-gateway';
 import {
@@ -34,6 +35,7 @@ import { DemoUpdater } from './demo-updater';
 import { PythonSidecar } from './python-sidecar';
 import { asFailure } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
+import { RuntimeSettingsStore } from './runtime-settings-store';
 
 const {
   runtimeSmokeEnabled,
@@ -53,6 +55,7 @@ let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
 let demoUpdater: DemoUpdater | null = null;
 let pythonSidecar: PythonSidecar | null = null;
+let runtimeSettingsStore: RuntimeSettingsStore | null = null;
 const APP_VERSION = resolveAppMetadataVersion();
 
 const logEvent = (
@@ -178,6 +181,14 @@ const getStorageGateway = () => {
   }
 
   return storageGateway;
+};
+
+const getRuntimeSettingsStore = () => {
+  if (!runtimeSettingsStore) {
+    throw new Error('Runtime settings store is not initialized');
+  }
+
+  return runtimeSettingsStore;
 };
 
 type PythonRuntimeManifest = {
@@ -355,6 +366,8 @@ const bootstrap = async () => {
       : undefined,
   });
 
+  runtimeSettingsStore = new RuntimeSettingsStore(app.getPath('userData'));
+
   const runtimeConfig = loadUserRuntimeConfig(app.getPath('userData'));
   if (runtimeConfig.parseError) {
     logEvent('warn', 'runtime.config_file_parse_failed', undefined, {
@@ -368,6 +381,7 @@ const bootstrap = async () => {
       skippedExistingKeys: runtimeConfig.skippedExistingKeys,
     });
   }
+  refreshDefaultApiOperationsFromEnv();
 
   const oidcConfig = loadOidcConfig();
   demoUpdater = new DemoUpdater(app.getPath('userData'));
@@ -441,6 +455,7 @@ const bootstrap = async () => {
       getApiOperationDiagnostics(operationId),
     getDemoUpdater: () => demoUpdater,
     getPythonSidecar: () => pythonSidecar,
+    getRuntimeSettingsStore,
     logEvent,
   });
 

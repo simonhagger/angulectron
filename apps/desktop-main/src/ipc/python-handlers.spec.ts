@@ -90,6 +90,9 @@ describe('registerPythonIpcHandlers', () => {
     getApiOperationDiagnostics: vi.fn(),
     getDemoUpdater: vi.fn(() => null),
     getPythonSidecar: options.sidecar ?? vi.fn(() => null),
+    getRuntimeSettingsStore: vi.fn(() => {
+      throw new Error('not-used');
+    }),
     logEvent: vi.fn(),
   });
 

@@ -76,6 +76,9 @@ describe('registerIpcHandlers unauthorized sender integration', () => {
       getApiOperationDiagnostics,
       getDemoUpdater: vi.fn(() => null),
       getPythonSidecar: vi.fn(() => null),
+      getRuntimeSettingsStore: vi.fn(() => {
+        throw new Error('not-used');
+      }),
       logEvent: vi.fn(),
     };
 

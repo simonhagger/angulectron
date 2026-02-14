@@ -630,9 +630,8 @@ describe('getApiOperationDiagnostics', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.configured).toBe(false);
-      expect(result.data.configurationHint).toContain(
-        'API_SECURE_ENDPOINT_URL_TEMPLATE',
-      );
+      expect(result.data.configurationHint).toContain('Settings');
+      expect(result.data.configurationHint).toContain('runtime-config.json');
     }
   });
 });

@@ -74,6 +74,7 @@
           "outputHashing": "all"
         },
         "development": {
+          "index": "apps/renderer/src/index.development.html",
           "baseHref": "/",
           "optimization": false,
           "extractLicenses": false,
