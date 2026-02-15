@@ -91,4 +91,35 @@ describe('invokeIpc', () => {
       expect(result.error.correlationId).toBe('corr-4');
     }
   });
+
+  it('preserves IPC/HANDLER_FAILED envelope from main process without remapping', async () => {
+    vi.mocked(ipcRenderer.invoke).mockResolvedValue({
+      ok: false,
+      error: {
+        code: 'IPC/HANDLER_FAILED',
+        message: 'IPC handler execution failed.',
+        details: { channel: 'storage:get-item' },
+        retryable: false,
+        correlationId: 'corr-5',
+      },
+    });
+
+    const result = await invokeIpc(
+      'storage:get-item',
+      { contractVersion: '1.0.0', correlationId: 'corr-5', payload: {} },
+      'corr-5',
+      responseSchema,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        code: 'IPC/HANDLER_FAILED',
+        message: 'IPC handler execution failed.',
+        details: { channel: 'storage:get-item' },
+        retryable: false,
+        correlationId: 'corr-5',
+      },
+    });
+  });
 });
