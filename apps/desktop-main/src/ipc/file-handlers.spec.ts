@@ -113,7 +113,8 @@ describe('registerFileIpcHandlers', () => {
       ],
     ]);
 
-    const handlers = registerHandlers(createContext(selectedFileTokens));
+    const context = createContext(selectedFileTokens);
+    const handlers = registerHandlers(context);
     const readHandler = handlers.get(IPC_CHANNELS.fsReadTextFile);
     expect(readHandler).toBeDefined();
 
@@ -147,7 +148,8 @@ describe('registerFileIpcHandlers', () => {
       ],
     ]);
 
-    const handlers = registerHandlers(createContext(selectedFileTokens));
+    const context = createContext(selectedFileTokens);
+    const handlers = registerHandlers(context);
     const readHandler = handlers.get(IPC_CHANNELS.fsReadTextFile);
     expect(readHandler).toBeDefined();
 
@@ -166,6 +168,17 @@ describe('registerFileIpcHandlers', () => {
         correlationId: 'corr-fs-read-bad-ext',
       },
     });
+    expect(context.logEvent).toHaveBeenCalledWith(
+      'warn',
+      'security.file_ingress_rejected',
+      'corr-fs-read-bad-ext',
+      expect.objectContaining({
+        channel: IPC_CHANNELS.fsReadTextFile,
+        policy: 'textRead',
+        reason: 'unsupported-extension',
+        extension: '.pdf',
+      }),
+    );
     expect(selectedFileTokens.has('token-2')).toBe(false);
   });
 });

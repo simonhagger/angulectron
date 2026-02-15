@@ -22,6 +22,9 @@ const FILE_INGRESS_POLICIES: Record<string, FileIngressPolicy> = {
       offset: 0,
     },
   },
+  settingsJsonImport: {
+    allowedExtensions: ['.json'],
+  },
 };
 
 export type FileIngressPolicyName = keyof typeof FILE_INGRESS_POLICIES;
@@ -43,6 +46,11 @@ export type FileIngressPolicyResult =
       headerHex: string;
       expectedHex: string;
     };
+
+export type FileIngressPolicyRejection = Exclude<
+  FileIngressPolicyResult,
+  { kind: 'ok' }
+>;
 
 const readSignatureWindowHex = async (
   filePath: string,

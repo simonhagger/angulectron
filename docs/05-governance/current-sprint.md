@@ -2,7 +2,7 @@
 
 Owner: Platform Engineering + Security  
 Review cadence: Weekly  
-Last reviewed: 2026-02-14  
+Last reviewed: 2026-02-15  
 Sprint window: 2026-02-14 onward (Sprint 4)  
 Status: Active
 
@@ -22,6 +22,25 @@ Increase security and runtime determinism in privileged execution paths before a
 - `BL-020` Renderer i18n uplift deferred while single-maintainer workflow remains.
 - `BL-034` / `BL-035` i18n architecture enhancements deferred.
 - `BL-038` sidecar transport ADR deferred unless risk profile changes.
+
+## High-Value Intake From Backlog (Pass 2)
+
+- `BL-039` Replace placeholder CODEOWNERS entries with real maintainers.
+  - Rationale: highest governance/security leverage with low implementation risk; directly improves review accountability.
+  - Fit: can be completed in parallel with current sprint without changing runtime behavior.
+- `BL-042` Define and enforce TypeScript coverage thresholds in CI.
+  - Rationale: prevents silent quality regression after current security/runtime hardening.
+  - Fit: best taken once `BL-028` / `BL-032` stabilization is complete to avoid noisy threshold churn.
+- `BL-031` Refactor desktop-main composition root into focused runtime modules.
+  - Rationale: high architecture value and aligns with maintainability of privileged runtime paths.
+  - Fit: should start after current in-scope security/determinism items exit to avoid competing risk in `desktop-main`.
+
+## Delivery Status (Current Sprint Scope)
+
+- `BL-033` Centralized policy in active use across privileged file ingress handlers (`fs`, `python`, `settings import`) with shared rejection logging surface.
+- `BL-028` Parity improved with explicit fail-closed settings import enforcement (`.json` only) and uniform reject diagnostics (`security.file_ingress_rejected`).
+- `BL-029` remains in progress (`BL-029A` implemented; `BL-029B` CI reproducibility path still pending completion proof).
+- `BL-032` remains in progress (validated handler normalization delivered; remaining preload-main integration assertion closure pending).
 
 ## Explicitly Completed (Do Not Re-Scope)
 
@@ -77,7 +96,7 @@ Increase security and runtime determinism in privileged execution paths before a
 
 ## Exit Criteria
 
-- `BL-028` and `BL-033` moved to `Done`.
+- `BL-028` and `BL-033` moved to `Done` once remaining parity audit confirms no uncovered privileged ingress routes.
 - `BL-029` moved to `Done` or `In Progress` with artifact/checksum path merged and CI proof complete.
 - `BL-032` moved to `Done` with integration test coverage proving envelope consistency.
 - CI remains green on PR and post-merge paths.
@@ -88,3 +107,7 @@ Increase security and runtime determinism in privileged execution paths before a
 - 2026-02-14: Implemented shared file token consumption and centralized ingress policy (`BL-033` / `BL-028` progress) with new handler tests and successful `desktop:dev:win` verification.
 - 2026-02-14: Implemented validated handler exception normalization (`BL-032` progress): unexpected sync/async handler failures now return `IPC/HANDLER_FAILED` with correlation IDs and structured logging.
 - 2026-02-14: Started `BL-029A` implementation: added pinned official Python artifact catalog + SHA256 verification flow in runtime prep/assert scripts, regenerated runtime bundle from official source, and validated `python-runtime:assert` + `build-desktop-main`.
+- 2026-02-15: Backlog intake completed from independent refactor review; new governance/quality candidates (`BL-039` to `BL-045`) added to backlog and triaged for sprint-fit.
+- 2026-02-15: Implemented centralized ingress rejection telemetry across `fs`, `python`, and `settings import` handlers (`security.file_ingress_rejected`) with correlation IDs and normalized policy/reason details.
+- 2026-02-15: Added fail-closed settings import ingress enforcement via shared policy (`settingsJsonImport`, `.json` only) and test coverage for feature/runtime import rejection paths.
+- 2026-02-15: Validation completed for this slice: `pnpm nx run desktop-main:test`, `pnpm nx run desktop-preload:build`, plus manual smoke logs confirming uniform reject-event shape across handlers.

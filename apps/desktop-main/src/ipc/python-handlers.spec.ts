@@ -121,14 +121,13 @@ describe('registerPythonIpcHandlers', () => {
       message: 'PDF inspected by python sidecar.',
     }));
 
-    const handlers = registerHandlers(
-      createContext({
-        selectedFileTokens,
-        sidecar: vi.fn(() => ({
-          inspectPdf,
-        })) as MainIpcContext['getPythonSidecar'],
-      }),
-    );
+    const context = createContext({
+      selectedFileTokens,
+      sidecar: vi.fn(() => ({
+        inspectPdf,
+      })) as MainIpcContext['getPythonSidecar'],
+    });
+    const handlers = registerHandlers(context);
 
     const inspectHandler = handlers.get(IPC_CHANNELS.pythonInspectPdf);
     expect(inspectHandler).toBeDefined();
@@ -166,14 +165,13 @@ describe('registerPythonIpcHandlers', () => {
 
     const inspectPdf = vi.fn();
 
-    const handlers = registerHandlers(
-      createContext({
-        selectedFileTokens,
-        sidecar: vi.fn(() => ({
-          inspectPdf,
-        })) as MainIpcContext['getPythonSidecar'],
-      }),
-    );
+    const context = createContext({
+      selectedFileTokens,
+      sidecar: vi.fn(() => ({
+        inspectPdf,
+      })) as MainIpcContext['getPythonSidecar'],
+    });
+    const handlers = registerHandlers(context);
 
     const inspectHandler = handlers.get(IPC_CHANNELS.pythonInspectPdf);
     const response = await inspectHandler!(
@@ -188,6 +186,16 @@ describe('registerPythonIpcHandlers', () => {
         correlationId: 'corr-pdf-bad-sig',
       },
     });
+    expect(context.logEvent).toHaveBeenCalledWith(
+      'warn',
+      'security.file_ingress_rejected',
+      'corr-pdf-bad-sig',
+      expect.objectContaining({
+        channel: IPC_CHANNELS.pythonInspectPdf,
+        policy: 'pdfInspect',
+        reason: 'signature-mismatch',
+      }),
+    );
     expect(inspectPdf).not.toHaveBeenCalled();
     expect(selectedFileTokens.has('token-2')).toBe(false);
   });

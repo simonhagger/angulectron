@@ -18,6 +18,7 @@ import {
   settingsSaveFeatureConfigRequestSchema,
 } from '@electron-foundation/contracts';
 import type { MainIpcContext } from './handler-context';
+import { evaluateFileIngressPolicy } from './file-ingress-policy';
 import { registerValidatedHandler } from './register-validated-handler';
 import { syncRuntimeConfigDocumentToEnv } from '../runtime-user-config';
 import { refreshDefaultApiOperationsFromEnv } from '../api-gateway';
@@ -103,6 +104,51 @@ export const registerSettingsIpcHandlers = (
           imported: false,
           feature: request.payload.feature,
         });
+      }
+
+      const ingress = await evaluateFileIngressPolicy(
+        sourcePath,
+        'settingsJsonImport',
+      );
+      if (ingress.kind !== 'ok') {
+        context.logEvent(
+          'warn',
+          'security.file_ingress_rejected',
+          request.correlationId,
+          {
+            channel: IPC_CHANNELS.settingsImportFeatureConfig,
+            policy: 'settingsJsonImport',
+            reason: ingress.kind,
+            fileName: ingress.fileName,
+            ...(ingress.kind === 'unsupported-extension'
+              ? {
+                  extension: ingress.extension,
+                  allowedExtensions: ingress.allowedExtensions,
+                }
+              : {
+                  headerHex: ingress.headerHex,
+                  expectedHex: ingress.expectedHex,
+                }),
+          },
+        );
+        return asFailure(
+          'SETTINGS/UNSUPPORTED_FILE_TYPE',
+          'Only JSON files are supported for settings import.',
+          {
+            fileName: ingress.fileName,
+            ...(ingress.kind === 'unsupported-extension'
+              ? {
+                  extension: ingress.extension,
+                  allowedExtensions: ingress.allowedExtensions,
+                }
+              : {
+                  headerHex: ingress.headerHex,
+                  expectedHex: ingress.expectedHex,
+                }),
+          },
+          false,
+          request.correlationId,
+        );
       }
 
       try {
@@ -207,6 +253,51 @@ export const registerSettingsIpcHandlers = (
           canceled: true,
           imported: false,
         });
+      }
+
+      const ingress = await evaluateFileIngressPolicy(
+        sourcePath,
+        'settingsJsonImport',
+      );
+      if (ingress.kind !== 'ok') {
+        context.logEvent(
+          'warn',
+          'security.file_ingress_rejected',
+          request.correlationId,
+          {
+            channel: IPC_CHANNELS.settingsImportRuntimeConfig,
+            policy: 'settingsJsonImport',
+            reason: ingress.kind,
+            fileName: ingress.fileName,
+            ...(ingress.kind === 'unsupported-extension'
+              ? {
+                  extension: ingress.extension,
+                  allowedExtensions: ingress.allowedExtensions,
+                }
+              : {
+                  headerHex: ingress.headerHex,
+                  expectedHex: ingress.expectedHex,
+                }),
+          },
+        );
+        return asFailure(
+          'SETTINGS/UNSUPPORTED_FILE_TYPE',
+          'Only JSON files are supported for settings import.',
+          {
+            fileName: ingress.fileName,
+            ...(ingress.kind === 'unsupported-extension'
+              ? {
+                  extension: ingress.extension,
+                  allowedExtensions: ingress.allowedExtensions,
+                }
+              : {
+                  headerHex: ingress.headerHex,
+                  expectedHex: ingress.expectedHex,
+                }),
+          },
+          false,
+          request.correlationId,
+        );
       }
 
       try {
