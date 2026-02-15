@@ -2,8 +2,8 @@
 
 Owner: Platform Engineering + Security  
 Review cadence: Weekly  
-Last reviewed: 2026-02-12  
-Source: `TASK.md`
+Last reviewed: 2026-02-14  
+Source: Task inbox (local, untracked)
 
 ## Objective
 
@@ -173,19 +173,20 @@ Priority: Medium
 
 Tasks:
 
-- Add centralized auth config:
-  - `OIDC_ISSUER`
-  - `OIDC_CLIENT_ID`
-  - `OIDC_REDIRECT_URI`
-  - `OIDC_SCOPES`
-  - `OIDC_AUDIENCE`
+- Add centralized auth settings and import/export support:
+  - `issuer`
+  - `clientId`
+  - `redirectUri`
+  - `scopes`
+  - `audience`
+  - optional `sendAudienceInAuthorize`, `apiBearerTokenSource`, `allowedSignOutOrigins`
 - Validate config on startup with explicit failure classification.
 - Document Clerk baseline and Cognito migration mapping.
 
 Acceptance tests:
 
 - App fails fast with actionable diagnostics for invalid/missing OIDC config.
-- Same code path works with two config fixtures (Clerk-like and Cognito-like metadata).
+- Same code path works with two runtime settings fixtures (Clerk-like and Cognito-like metadata).
 - No code changes required to switch provider in local environment.
 
 ## Phase 7: Test + CI Hardening
@@ -223,4 +224,4 @@ Acceptance tests:
 - Removal condition:
   - Clerk issues access tokens with `aud` including `YOUR_API_AUDIENCE` (and required scopes when available).
   - AWS authorizer audience list is reduced to API audience only.
-  - Desktop flow validation passes with `OIDC_API_BEARER_TOKEN_SOURCE=access_token`.
+  - Desktop flow validation passes with `apiBearerTokenSource=access_token`.

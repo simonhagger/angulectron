@@ -2,7 +2,7 @@
 
 Owner: Platform Engineering  
 Review cadence: Quarterly  
-Last reviewed: 2026-02-13
+Last reviewed: 2026-02-14
 
 ## Start Here
 
@@ -42,6 +42,7 @@ Read these first, in order:
 | `docs/04-delivery/desktop-distribution-runbook.md`      | Delivery + Packaging  | Release Engineering + Platform Engineering | Quarterly      |
 | `docs/05-governance/definition-of-done.md`              | Governance            | Platform Engineering                       | Quarterly      |
 | `docs/05-governance/backlog.md`                         | Governance Backlog    | Platform Engineering                       | Weekly         |
+| `docs/05-governance/current-sprint.md`                  | Sprint Plan           | Platform Engineering + Security            | Weekly         |
 | `docs/05-governance/oidc-auth-backlog.md`               | Identity Backlog      | Platform Engineering + Security            | Weekly         |
 | `docs/05-governance/risk-register.md`                   | Governance Risk       | Platform Engineering + Security            | Weekly         |
 | `docs/05-governance/decision-log.md`                    | Governance Decisions  | Platform Engineering                       | Weekly         |

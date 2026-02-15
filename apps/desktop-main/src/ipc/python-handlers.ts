@@ -69,6 +69,26 @@ export const registerPythonIpcHandlers = (
         'pdfInspect',
       );
       if (policy.kind !== 'ok') {
+        context.logEvent(
+          'warn',
+          'security.file_ingress_rejected',
+          request.correlationId,
+          {
+            channel: IPC_CHANNELS.pythonInspectPdf,
+            policy: 'pdfInspect',
+            reason: policy.kind,
+            fileName: policy.fileName,
+            ...(policy.kind === 'unsupported-extension'
+              ? {
+                  extension: policy.extension,
+                  allowedExtensions: policy.allowedExtensions,
+                }
+              : {
+                  headerHex: policy.headerHex,
+                  expectedHex: policy.expectedHex,
+                }),
+          },
+        );
         if (policy.kind === 'unsupported-extension') {
           return asFailure(
             'PYTHON/UNSUPPORTED_FILE_TYPE',

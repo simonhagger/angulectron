@@ -77,40 +77,49 @@ const resolveConfiguredSecureEndpointClaimMap = (): Record<string, string> => {
 
 const operationConfigurationIssues: Partial<Record<ApiOperationId, string>> = {
   'call.secure-endpoint':
-    'Set API_SECURE_ENDPOINT_URL_TEMPLATE in .env.local to enable this operation.',
+    'Set API secure endpoint configuration in Settings or runtime-config.json to enable this operation.',
 };
 
-const configuredSecureEndpointUrl = resolveConfiguredSecureEndpointUrl();
-const configuredSecureEndpointClaimMap =
-  resolveConfiguredSecureEndpointClaimMap();
-
-export const defaultApiOperations: Partial<
+const resolveDefaultApiOperations = (): Partial<
   Record<ApiOperationId, ApiOperation>
-> = {
-  'status.github': {
-    method: 'GET',
-    url: 'https://api.github.com/rate_limit',
-    timeoutMs: 8_000,
-    maxResponseBytes: 256_000,
-    concurrencyLimit: 2,
-    minIntervalMs: 300,
-    auth: { type: 'none' },
-  },
-  ...(configuredSecureEndpointUrl
-    ? {
-        'call.secure-endpoint': {
-          method: 'GET',
-          url: configuredSecureEndpointUrl,
-          timeoutMs: 10_000,
-          maxResponseBytes: 1_000_000,
-          concurrencyLimit: 2,
-          minIntervalMs: 300,
-          claimMap: configuredSecureEndpointClaimMap,
-          auth: { type: 'oidc' },
-          retry: { maxAttempts: 2, baseDelayMs: 200 },
-        },
-      }
-    : {}),
+> => {
+  const configuredSecureEndpointUrl = resolveConfiguredSecureEndpointUrl();
+  const configuredSecureEndpointClaimMap =
+    resolveConfiguredSecureEndpointClaimMap();
+
+  return {
+    'status.github': {
+      method: 'GET',
+      url: 'https://api.github.com/rate_limit',
+      timeoutMs: 8_000,
+      maxResponseBytes: 256_000,
+      concurrencyLimit: 2,
+      minIntervalMs: 300,
+      auth: { type: 'none' },
+    },
+    ...(configuredSecureEndpointUrl
+      ? {
+          'call.secure-endpoint': {
+            method: 'GET',
+            url: configuredSecureEndpointUrl,
+            timeoutMs: 10_000,
+            maxResponseBytes: 1_000_000,
+            concurrencyLimit: 2,
+            minIntervalMs: 300,
+            claimMap: configuredSecureEndpointClaimMap,
+            auth: { type: 'oidc' },
+            retry: { maxAttempts: 2, baseDelayMs: 200 },
+          },
+        }
+      : {}),
+  };
+};
+
+export let defaultApiOperations: Partial<Record<ApiOperationId, ApiOperation>> =
+  resolveDefaultApiOperations();
+
+export const refreshDefaultApiOperationsFromEnv = () => {
+  defaultApiOperations = resolveDefaultApiOperations();
 };
 
 type InvokeApiDeps = {

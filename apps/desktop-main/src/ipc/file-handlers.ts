@@ -83,6 +83,26 @@ export const registerFileIpcHandlers = (
           'textRead',
         );
         if (policy.kind !== 'ok') {
+          context.logEvent(
+            'warn',
+            'security.file_ingress_rejected',
+            request.correlationId,
+            {
+              channel: IPC_CHANNELS.fsReadTextFile,
+              policy: 'textRead',
+              reason: policy.kind,
+              fileName: policy.fileName,
+              ...(policy.kind === 'unsupported-extension'
+                ? {
+                    extension: policy.extension,
+                    allowedExtensions: policy.allowedExtensions,
+                  }
+                : {
+                    headerHex: policy.headerHex,
+                    expectedHex: policy.expectedHex,
+                  }),
+            },
+          );
           if (policy.kind === 'unsupported-extension') {
             return asFailure(
               'FS/UNSUPPORTED_FILE_TYPE',

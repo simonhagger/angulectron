@@ -19,5 +19,8 @@ export const APP_SHELL_CONFIG: AppShellConfig = {
   labsToggleLabel: '',
   labsToggleOnLabel: '',
   labsToggleOffLabel: '',
-  navLinks: [{ path: '/', label: 'Home', icon: 'home', exact: true }],
+  navLinks: [
+    { path: '/', label: 'Home', icon: 'home', exact: true },
+    { path: '/settings', label: 'Settings', icon: 'settings' },
+  ],
 };

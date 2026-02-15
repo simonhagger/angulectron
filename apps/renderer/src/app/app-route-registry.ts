@@ -50,6 +50,53 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     }),
   },
   {
+    path: 'settings',
+    label: 'Settings',
+    icon: 'settings',
+    lab: false,
+    nav: true,
+    toRoute: () => ({
+      path: 'settings',
+      children: [
+        {
+          path: '',
+          pathMatch: 'full',
+          redirectTo: 'app',
+        },
+        {
+          path: '',
+          loadComponent: () =>
+            import('./features/settings/settings-page').then(
+              (m) => m.SettingsPage,
+            ),
+          children: [
+            {
+              path: 'app',
+              loadComponent: () =>
+                import(
+                  './features/settings/settings-app/settings-app-page'
+                ).then((m) => m.SettingsAppPage),
+            },
+            {
+              path: 'api',
+              loadComponent: () =>
+                import(
+                  './features/settings/settings-api/settings-api-page'
+                ).then((m) => m.SettingsApiPage),
+            },
+            {
+              path: 'auth',
+              loadComponent: () =>
+                import(
+                  './features/settings/settings-auth/settings-auth-page'
+                ).then((m) => m.SettingsAuthPage),
+            },
+          ],
+        },
+      ],
+    }),
+  },
+  {
     path: 'material-showcase',
     label: 'Material Showcase',
     icon: 'palette',

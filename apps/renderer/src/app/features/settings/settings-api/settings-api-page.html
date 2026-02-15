@@ -1,0 +1,91 @@
+<mat-card appearance="outlined" class="settings-feature-card">
+  <h3>API Settings</h3>
+  <p>
+    Configure secure endpoint URL templates and map URL placeholders to JWT
+    claim paths.
+  </p>
+
+  <form class="settings-form" [formGroup]="form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Secure endpoint URL template</mat-label>
+      <input
+        matInput
+        formControlName="secureEndpointUrlTemplate"
+        [attr.placeholder]="'https://api.example.com/resources/{{resource_id}}'"
+        (input)="onUrlTemplateChanged($any($event.target).value)"
+      />
+    </mat-form-field>
+
+    <section class="mapping-section">
+      <h4>Detected placeholders</h4>
+      @if (mappingRows().length === 0) {
+      <p>No placeholders detected in URL template.</p>
+      } @else {
+      <div class="mapping-grid" role="table" aria-label="Claim mapping table">
+        <div class="mapping-row mapping-header" role="row">
+          <span role="columnheader">Placeholder</span>
+          <span role="columnheader">JWT claim path</span>
+        </div>
+        @for (row of mappingRows(); track row.placeholder) {
+        <div class="mapping-row" role="row">
+          <span class="placeholder-chip">{{ row.placeholder }}</span>
+          <mat-form-field appearance="outline">
+            <mat-label>Claim path</mat-label>
+            <input
+              matInput
+              [(ngModel)]="row.claimPath"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="updateResolvedPreview()"
+              placeholder="sub"
+            />
+          </mat-form-field>
+        </div>
+        }
+      </div>
+      }
+    </section>
+
+    <section class="preview-section">
+      <h4>Resolved path preview</h4>
+      <p>{{ resolvedPreview() }}</p>
+    </section>
+
+    <div
+      class="settings-actions"
+      role="group"
+      aria-label="API settings actions"
+    >
+      <button mat-flat-button type="submit" [disabled]="settings.busy()">
+        Save
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="settings.resetFeatureConfig('api')"
+        [disabled]="settings.busy()"
+      >
+        Reset
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="settings.importFeatureConfig('api')"
+        [disabled]="settings.busy()"
+      >
+        Import
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="settings.exportFeatureConfig('api')"
+        [disabled]="settings.busy()"
+      >
+        Export
+      </button>
+    </div>
+
+    @if (localStatus()) {
+    <p class="status">{{ localStatus() }}</p>
+    }
+  </form>
+</mat-card>

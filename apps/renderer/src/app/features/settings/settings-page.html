@@ -1,0 +1,58 @@
+<section class="settings-layout">
+  <mat-card appearance="outlined" class="settings-header">
+    <h2>Settings</h2>
+    <p>
+      Manage runtime configuration for this desktop app, including per-feature
+      import/export and full-config backup.
+    </p>
+
+    <div class="settings-meta">
+      <p><strong>Config path:</strong> {{ settings.sourcePath() }}</p>
+      <p>
+        <strong>Config exists:</strong> {{ settings.exists() ? 'yes' : 'no' }}
+      </p>
+    </div>
+
+    <div
+      class="settings-actions"
+      role="group"
+      aria-label="Runtime config actions"
+    >
+      <button
+        mat-stroked-button
+        (click)="settings.refresh()"
+        [disabled]="settings.busy()"
+      >
+        Refresh
+      </button>
+      <button
+        mat-stroked-button
+        (click)="settings.importRuntimeConfig()"
+        [disabled]="settings.busy()"
+      >
+        Import Full Config
+      </button>
+      <button
+        mat-stroked-button
+        (click)="settings.exportRuntimeConfig()"
+        [disabled]="settings.busy()"
+      >
+        Export Full Config
+      </button>
+    </div>
+
+    <p class="status" [class.warning]="!settings.desktopAvailable()">
+      {{ settings.status() }}
+    </p>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="settings-nav">
+    <nav>
+      <a mat-button routerLink="app" routerLinkActive="active-link">App</a>
+      <a mat-button routerLink="api" routerLinkActive="active-link">API</a>
+      <a mat-button routerLink="auth" routerLinkActive="active-link">Auth</a>
+    </nav>
+  </mat-card>
+
+  <router-outlet />
+</section>

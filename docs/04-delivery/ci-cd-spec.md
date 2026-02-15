@@ -19,6 +19,8 @@ Last reviewed: 2026-02-13
 - `e2e-smoke`
 - `a11y-e2e`
 - `i18n-check`
+- `docs-lint`
+- `no-dotenv-files`
 - `build-renderer`
 - `build-desktop`
 - `dependency-audit`

@@ -132,23 +132,26 @@ Flavor behavior:
 
 ## OIDC Configuration (Desktop)
 
-Required environment variables:
+Primary setup path:
 
-- `OIDC_ISSUER`
-- `OIDC_CLIENT_ID`
-- `OIDC_REDIRECT_URI` (loopback, example: `http://127.0.0.1:42813/callback`)
-- `OIDC_SCOPES` (must include `openid`)
+1. Start the app with `pnpm desktop:dev:win`.
+2. Open `Settings > Auth`.
+3. Enter OIDC values and save.
+4. Optionally import `examples/config/runtime-config.auth.example.json`.
 
-Optional:
+Required Auth settings:
 
-- `OIDC_AUDIENCE`
-- `OIDC_ALLOW_INSECURE_TOKEN_STORAGE=1` (development fallback only)
+- `issuer`
+- `clientId`
+- `redirectUri` (loopback, example: `http://127.0.0.1:42813/callback`)
+- `scopes` (must include `openid`)
 
-Local setup:
+Optional Auth settings:
 
-1. Copy `.env.example` to `.env.local`.
-2. Add OIDC values.
-3. Run `pnpm desktop:dev:win`.
+- `audience`
+- `allowedSignOutOrigins`
+- `sendAudienceInAuthorize`
+- `apiBearerTokenSource`
 
 Token persistence behavior:
 
@@ -158,49 +161,35 @@ Token persistence behavior:
 
 ### Packaged Runtime Config File (Windows)
 
-Packaged builds do not read `.env.local` automatically.  
+Packaged builds read JSON runtime configuration only.  
 Instead, place one runtime config file at:
 
-- `%APPDATA%\Angulectron\config\runtime-config.env`
-- or `%APPDATA%\Angulectron\config\runtime-config.json`
+- `%APPDATA%\Angulectron\config\runtime-config.json`
 
-Supported keys (allowlisted):
+Supported shapes:
 
-- `OIDC_ISSUER`
-- `OIDC_CLIENT_ID`
-- `OIDC_REDIRECT_URI`
-- `OIDC_SCOPES` (must include `openid`)
+- flat allowlisted env-style keys (for compatibility), or
+- nested feature config shape (`app`, `auth`, `api`) used by Settings.
 
-Optional:
-
-- `OIDC_AUDIENCE`
-- `OIDC_ALLOWED_SIGNOUT_ORIGINS` (space/comma separated allowlist for global sign-out redirects)
-- `API_SECURE_ENDPOINT_URL_TEMPLATE`
-- `API_SECURE_ENDPOINT_CLAIM_MAP`
-
-Example `runtime-config.env`:
-
-```env
-OIDC_ISSUER=https://your-issuer.example.com
-OIDC_CLIENT_ID=your-client-id
-OIDC_REDIRECT_URI=http://127.0.0.1:42813/callback
-OIDC_SCOPES=openid profile email offline_access
-OIDC_AUDIENCE=api.your-domain.example
-API_SECURE_ENDPOINT_URL_TEMPLATE=https://api.your-domain.example/users/{{user_id}}/portfolio
-API_SECURE_ENDPOINT_CLAIM_MAP={"user_id":"sub"}
-```
-
-Example `runtime-config.json`:
+Example `runtime-config.json` (nested):
 
 ```json
 {
-  "OIDC_ISSUER": "https://your-issuer.example.com",
-  "OIDC_CLIENT_ID": "your-client-id",
-  "OIDC_REDIRECT_URI": "http://127.0.0.1:42813/callback",
-  "OIDC_SCOPES": "openid profile email offline_access",
-  "OIDC_AUDIENCE": "api.your-domain.example",
-  "API_SECURE_ENDPOINT_URL_TEMPLATE": "https://api.your-domain.example/users/{{user_id}}/portfolio",
-  "API_SECURE_ENDPOINT_CLAIM_MAP": "{\"user_id\":\"sub\"}"
+  "version": 1,
+  "app": {},
+  "auth": {
+    "issuer": "https://your-issuer.example.com",
+    "clientId": "your-client-id",
+    "redirectUri": "http://127.0.0.1:42813/callback",
+    "scopes": "openid profile email offline_access",
+    "audience": "api.your-domain.example"
+  },
+  "api": {
+    "secureEndpointUrlTemplate": "https://api.your-domain.example/resources/{{resource_id}}",
+    "secureEndpointClaimMap": {
+      "resource_id": "sub"
+    }
+  }
 }
 ```
 
@@ -209,15 +198,17 @@ Notes:
 - Restart the app after changing runtime config files.
 - Process environment variables still take precedence over file values if both are set.
 - Do not put client secrets into renderer or checked-in files; this flow assumes desktop public-client PKCE.
+- In desktop runtime, use the `Settings` page for guided per-feature and full-config import/export flows (`App`, `Auth`, and `API` settings).
+- Example import files are provided under `examples/config/`.
 
 ## Bring Your Own Secure API Endpoint
 
 The `call.secure-endpoint` API operation is endpoint-configurable and does not rely on a hardcoded private URL.
 
-Set in `.env.local`:
+Set in `Settings > API` (or import `examples/config/runtime-config.api.example.json`):
 
-- `API_SECURE_ENDPOINT_URL_TEMPLATE`
-- `API_SECURE_ENDPOINT_CLAIM_MAP` (optional JSON map of placeholder -> JWT claim path)
+- `secureEndpointUrlTemplate`
+- `secureEndpointClaimMap` (optional map of placeholder -> JWT claim path)
 
 Requirements:
 
@@ -227,8 +218,8 @@ Requirements:
 
 Examples:
 
-- `API_SECURE_ENDPOINT_URL_TEMPLATE=https://your-api.example.com/users/{{user_id}}/portfolio`
-- `API_SECURE_ENDPOINT_CLAIM_MAP={"user_id":"sub","tenant_id":"org.id"}`
+- `secureEndpointUrlTemplate=https://your-api.example.com/resources/{{resource_id}}`
+- `secureEndpointClaimMap={"resource_id":"sub","tenant_id":"org.id"}`
 
 If not configured, calling `call.secure-endpoint` returns a typed `API/OPERATION_NOT_CONFIGURED` failure.
 
@@ -339,7 +330,7 @@ Delivery + governance:
 - `docs/04-delivery/release-management.md`
 - `docs/05-governance/definition-of-done.md`
 - `docs/05-governance/backlog.md`
-- `CURRENT-SPRINT.md`
+- `docs/05-governance/current-sprint.md`
 
 ## Contribution Policy (Critical)
 

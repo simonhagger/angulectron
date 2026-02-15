@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "app": {},
+  "auth": {
+    "issuer": "https://your-issuer.example.com",
+    "clientId": "your-client-id",
+    "redirectUri": "http://127.0.0.1:42813/callback",
+    "scopes": "openid profile email offline_access",
+    "audience": "api.your-domain.example",
+    "sendAudienceInAuthorize": false,
+    "apiBearerTokenSource": "access_token",
+    "allowedSignOutOrigins": "https://app.example.com,https://localhost:4200"
+  },
+  "api": {
+    "secureEndpointUrlTemplate": "https://api.your-domain.example/resources/{{resource_id}}",
+    "secureEndpointClaimMap": {
+      "resource_id": "sub"
+    }
+  }
+}

@@ -57,8 +57,6 @@ TASK.md
 
 # local environment configuration
 .env*
-!.env.example
-!.env.*.example
 runtime-config.env
 runtime-config.json
 
@@ -72,3 +70,7 @@ CONTEXT.md
 build/python-runtime/*
 !build/python-runtime/README.md
 !build/python-runtime/.gitkeep
+
+# Claude Code temporary files and plans
+.claude/
+tmpclaude-*
