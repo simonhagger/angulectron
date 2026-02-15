@@ -596,6 +596,10 @@ const invokeSingleAttempt = async (
 };
 
 const executionProviders: Record<string, ApiExecutionProvider> = {
+  'external-http': {
+    invoke: (request, operation, fetchFn) =>
+      invokeSingleAttempt(request, operation, fetchFn),
+  },
   'bundled-http': {
     invoke: (request, operation, fetchFn) =>
       invokeSingleAttempt(request, operation, fetchFn),
@@ -721,7 +725,7 @@ export const invokeApiOperation = async (
   state.lastStartedAt = Date.now();
 
   try {
-    const providerId = operation.providerId ?? 'bundled-http';
+    const providerId = operation.providerId ?? 'external-http';
     const provider = executionProviders[providerId];
     if (!provider) {
       return asFailure(

@@ -2,7 +2,7 @@ import type { ApiOperationId } from '@electron-foundation/contracts';
 
 const JWT_CLAIM_PATH_PATTERN = /^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*$/;
 
-export type ApiOperationProviderId = 'bundled-http';
+export type ApiOperationProviderId = 'external-http' | 'bundled-http';
 
 export type ApiOperationDefinition = {
   providerId?: ApiOperationProviderId;
@@ -81,7 +81,7 @@ export const resolveApiOperationRegistryFromEnv = (): ApiOperationRegistry => {
 
   return {
     'status.github': {
-      providerId: 'bundled-http',
+      providerId: 'external-http',
       method: 'GET',
       url: 'https://api.github.com/rate_limit',
       timeoutMs: 8_000,
@@ -93,7 +93,7 @@ export const resolveApiOperationRegistryFromEnv = (): ApiOperationRegistry => {
     ...(configuredSecureEndpointUrl
       ? {
           'call.secure-endpoint': {
-            providerId: 'bundled-http',
+            providerId: 'external-http',
             method: 'GET',
             url: configuredSecureEndpointUrl,
             timeoutMs: 10_000,
