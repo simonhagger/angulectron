@@ -37,8 +37,8 @@ Increase security and runtime determinism in privileged execution paths before a
 
 ## Delivery Status (Current Sprint Scope)
 
-- `BL-033` Centralized policy in active use across privileged file ingress handlers (`fs`, `python`, `settings import`) with shared rejection logging surface.
-- `BL-028` Parity improved with explicit fail-closed settings import enforcement (`.json` only) and uniform reject diagnostics (`security.file_ingress_rejected`).
+- `BL-033` completed: parity audit for renderer-initiated privileged ingress paths closed and standardized policy telemetry verified.
+- `BL-028` completed: fail-closed extension/signature enforcement now consistent across `fs` text read, python PDF inspect, and settings import flows.
 - `BL-029` remains in progress (`BL-029A` implemented; `BL-029B` CI reproducibility path still pending completion proof).
   - Update (2026-02-15): Windows artifact-publish path now enforces `python-runtime:prepare-local` + `python-runtime:assert` prior to packaging via `forge:make:ci:windows`; GitHub run confirmation pending next push.
 - `BL-032` completed: validated handler normalization and preload-main integration assertions now verify `IPC/HANDLER_FAILED` envelope + correlation preservation.
@@ -97,7 +97,7 @@ Increase security and runtime determinism in privileged execution paths before a
 
 ## Exit Criteria
 
-- `BL-028` and `BL-033` moved to `Done` once remaining parity audit confirms no uncovered privileged ingress routes.
+- `BL-028` and `BL-033` moved to `Done` with parity audit closure and shared reject-telemetry proof.
 - `BL-029` moved to `Done` or `In Progress` with artifact/checksum path merged and CI proof complete.
 - `BL-032` moved to `Done` with integration test coverage proving envelope consistency.
 - CI remains green on PR and post-merge paths.
@@ -116,3 +116,5 @@ Increase security and runtime determinism in privileged execution paths before a
 - 2026-02-15: Local validation for `BL-029B` path completed: `pnpm run python-runtime:prepare-local`, `pnpm run python-runtime:assert`, `pnpm run build-desktop-main`, `pnpm docs-lint`.
 - 2026-02-15: Closed `BL-032` integration gap by adding real-handler exception propagation assertion in `register-ipc-handlers.spec.ts` and preload invoke preservation assertion for `IPC/HANDLER_FAILED` in `invoke-client.spec.ts`.
 - 2026-02-15: Validation completed for `BL-032` closure: `pnpm nx run desktop-main:test`, `pnpm nx run desktop-preload:test`.
+- 2026-02-15: Marked `BL-028` and `BL-033` complete after parity audit closure and uniform `security.file_ingress_rejected` smoke verification across `settings`, `fs`, and `python` channels.
+- 2026-02-15: Expanded Playwright smoke coverage with stable UI behavior checks (labs toggle/nav visibility persistence, settings route panel navigation, and console-clean navigation path); validated via `pnpm e2e-smoke`.
