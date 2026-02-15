@@ -1,4 +1,4 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname, relative } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -11,21 +11,54 @@ const fail = (message) => {
 
 const normalizePath = (value) => value.replaceAll('\\', '/');
 
-const getDocsFiles = () => {
-  const output = execSync('rg --files docs -g "*.md"', {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }).trim();
-
-  if (!output) {
+const walkMarkdownFiles = (dir) => {
+  const absoluteDir = resolve(repoRoot, dir);
+  if (!existsSync(absoluteDir)) {
     return [];
   }
 
-  return output
-    .split(/\r?\n/)
-    .map((value) => normalizePath(value.trim()))
-    .filter(Boolean)
-    .sort();
+  const files = [];
+  const stack = [absoluteDir];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = resolve(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
+
+      if (entry.isFile() && entry.name.endsWith('.md')) {
+        files.push(normalizePath(relative(repoRoot, fullPath)));
+      }
+    }
+  }
+
+  return files.sort();
+};
+
+const getDocsFiles = () => {
+  try {
+    const output = execSync('rg --files docs -g "*.md"', {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+
+    if (!output) {
+      return [];
+    }
+
+    return output
+      .split(/\r?\n/)
+      .map((value) => normalizePath(value.trim()))
+      .filter(Boolean)
+      .sort();
+  } catch {
+    return walkMarkdownFiles('docs');
+  }
 };
 
 const readText = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
