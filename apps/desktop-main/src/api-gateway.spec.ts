@@ -73,6 +73,23 @@ describe('invokeApiOperation', () => {
     expect(error.correlationId).toBe('corr-test');
   });
 
+  it('rejects operations mapped to unknown providers', async () => {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations: {
+        'status.github': {
+          providerId: 'external-unknown' as 'bundled-http',
+          method: 'GET',
+          url: 'https://example.test/health',
+          auth: { type: 'none' },
+        },
+      },
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/OPERATION_NOT_ALLOWED');
+    expect(error.correlationId).toBe('corr-test');
+  });
+
   it('returns operation-not-configured when BYO endpoint is not provided', async () => {
     const original = process.env.API_SECURE_ENDPOINT_URL_TEMPLATE;
     delete process.env.API_SECURE_ENDPOINT_URL_TEMPLATE;

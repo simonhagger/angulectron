@@ -5,6 +5,12 @@ import {
   type ApiInvokeRequest,
   type DesktopResult,
 } from '@electron-foundation/contracts';
+import {
+  getApiOperationConfigurationHint,
+  resolveApiOperationRegistryFromEnv,
+  type ApiOperationDefinition,
+  type ApiOperationRegistry,
+} from './api-operation-registry';
 
 const API_DEFAULT_TIMEOUT_MS = 8_000;
 const API_DEFAULT_MAX_RESPONSE_BYTES = 1_000_000;
@@ -12,123 +18,25 @@ const API_DEFAULT_CONCURRENCY_LIMIT = 4;
 const API_DEFAULT_RETRY_ATTEMPTS = 2;
 const API_DEFAULT_RETRY_BASE_DELAY_MS = 200;
 
-export type ApiOperation = {
-  method: 'GET' | 'POST';
-  url: string;
-  timeoutMs?: number;
-  maxResponseBytes?: number;
-  concurrencyLimit?: number;
-  minIntervalMs?: number;
-  claimMap?: Record<string, string>;
-  auth?:
-    | {
-        type: 'bearer';
-        tokenEnvVar: string;
-      }
-    | {
-        type: 'oidc';
-      }
-    | {
-        type: 'none';
-      };
-  retry?: {
-    maxAttempts?: number;
-    baseDelayMs?: number;
-  };
-};
+export type ApiOperation = ApiOperationDefinition;
 
 const SAFE_HEADER_NAME_PATTERN = /^x-[a-z0-9-]+$/i;
 const JWT_CLAIM_PATH_PATTERN = /^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*$/;
 
-const resolveConfiguredSecureEndpointUrl = (): string | null => {
-  const configured = process.env.API_SECURE_ENDPOINT_URL_TEMPLATE?.trim();
-  return configured && configured.length > 0 ? configured : null;
-};
-
-const resolveConfiguredSecureEndpointClaimMap = (): Record<string, string> => {
-  const raw = process.env.API_SECURE_ENDPOINT_CLAIM_MAP?.trim();
-  if (!raw) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
-    }
-
-    const normalized: Record<string, string> = {};
-    for (const [placeholder, claimPath] of Object.entries(parsed)) {
-      if (
-        typeof placeholder !== 'string' ||
-        typeof claimPath !== 'string' ||
-        !JWT_CLAIM_PATH_PATTERN.test(claimPath)
-      ) {
-        continue;
-      }
-      normalized[placeholder] = claimPath;
-    }
-
-    return normalized;
-  } catch {
-    return {};
-  }
-};
-
-const operationConfigurationIssues: Partial<Record<ApiOperationId, string>> = {
-  'call.secure-endpoint':
-    'Set API secure endpoint configuration in Settings or runtime-config.json to enable this operation.',
-};
-
-const resolveDefaultApiOperations = (): Partial<
-  Record<ApiOperationId, ApiOperation>
-> => {
-  const configuredSecureEndpointUrl = resolveConfiguredSecureEndpointUrl();
-  const configuredSecureEndpointClaimMap =
-    resolveConfiguredSecureEndpointClaimMap();
-
-  return {
-    'status.github': {
-      method: 'GET',
-      url: 'https://api.github.com/rate_limit',
-      timeoutMs: 8_000,
-      maxResponseBytes: 256_000,
-      concurrencyLimit: 2,
-      minIntervalMs: 300,
-      auth: { type: 'none' },
-    },
-    ...(configuredSecureEndpointUrl
-      ? {
-          'call.secure-endpoint': {
-            method: 'GET',
-            url: configuredSecureEndpointUrl,
-            timeoutMs: 10_000,
-            maxResponseBytes: 1_000_000,
-            concurrencyLimit: 2,
-            minIntervalMs: 300,
-            claimMap: configuredSecureEndpointClaimMap,
-            auth: { type: 'oidc' },
-            retry: { maxAttempts: 2, baseDelayMs: 200 },
-          },
-        }
-      : {}),
-  };
-};
-
-export let defaultApiOperations: Partial<Record<ApiOperationId, ApiOperation>> =
-  resolveDefaultApiOperations();
+export let defaultApiOperations: ApiOperationRegistry =
+  resolveApiOperationRegistryFromEnv();
 
 export const refreshDefaultApiOperationsFromEnv = () => {
-  defaultApiOperations = resolveDefaultApiOperations();
+  defaultApiOperations = resolveApiOperationRegistryFromEnv();
 };
 
 type InvokeApiDeps = {
   fetchFn?: typeof fetch;
-  operations?: Partial<Record<ApiOperationId, ApiOperation>>;
+  operations?: ApiOperationRegistry;
 };
 
 type GetApiOperationDiagnosticsDeps = {
-  operations?: Partial<Record<ApiOperationId, ApiOperation>>;
+  operations?: ApiOperationRegistry;
 };
 
 type ApiSuccess = {
@@ -324,6 +232,14 @@ const isRetryableFailure = (code: string) =>
     'API/SERVER_ERROR',
     'API/RATE_LIMITED',
   ].includes(code);
+
+type ApiExecutionProvider = {
+  invoke: (
+    request: ApiInvokeRequest,
+    operation: ApiOperation,
+    fetchFn: typeof fetch,
+  ) => Promise<DesktopResult<ApiSuccess>>;
+};
 
 const invokeSingleAttempt = async (
   request: ApiInvokeRequest,
@@ -679,6 +595,13 @@ const invokeSingleAttempt = async (
   }
 };
 
+const executionProviders: Record<string, ApiExecutionProvider> = {
+  'bundled-http': {
+    invoke: (request, operation, fetchFn) =>
+      invokeSingleAttempt(request, operation, fetchFn),
+  },
+};
+
 const getOperationState = (operationId: string): OperationRuntimeState => {
   const existing = operationRuntimeState.get(operationId);
   if (existing) {
@@ -709,7 +632,7 @@ export const getApiOperationDiagnostics = (
   const operation = operations[operationId];
 
   if (!operation) {
-    const configurationHint = operationConfigurationIssues[operationId];
+    const configurationHint = getApiOperationConfigurationHint(operationId);
     return asSuccess({
       operationId,
       configured: false,
@@ -740,8 +663,9 @@ export const invokeApiOperation = async (
 
   const operation = operations[request.payload.operationId];
   if (!operation) {
-    const configIssue =
-      operationConfigurationIssues[request.payload.operationId];
+    const configIssue = getApiOperationConfigurationHint(
+      request.payload.operationId,
+    );
     if (configIssue) {
       return asFailure(
         'API/OPERATION_NOT_CONFIGURED',
@@ -797,6 +721,21 @@ export const invokeApiOperation = async (
   state.lastStartedAt = Date.now();
 
   try {
+    const providerId = operation.providerId ?? 'bundled-http';
+    const provider = executionProviders[providerId];
+    if (!provider) {
+      return asFailure(
+        'API/OPERATION_NOT_ALLOWED',
+        'Requested API operation is not allowed.',
+        {
+          operationId: request.payload.operationId,
+          providerId,
+        },
+        false,
+        correlationId,
+      );
+    }
+
     const retryAttempts =
       operation.method === 'GET'
         ? Math.max(
@@ -809,7 +748,7 @@ export const invokeApiOperation = async (
       operation.retry?.baseDelayMs ?? API_DEFAULT_RETRY_BASE_DELAY_MS;
 
     for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
-      const result = await invokeSingleAttempt(request, operation, fetchFn);
+      const result = await provider.invoke(request, operation, fetchFn);
       if (!result.ok) {
         const failure = result as Extract<typeof result, { ok: false }>;
         const errorCode = failure.error.code;
