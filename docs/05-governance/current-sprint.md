@@ -73,3 +73,5 @@ Complete deterministic runtime packaging, close governance ownership gaps, and l
 
 - 2026-02-15: Sprint 4 closed and merged via PR #13 with all required checks passing.
 - 2026-02-15: Sprint 5 initialized with deterministic packaging closure, governance ownership hardening, and external execution gateway foundations.
+- 2026-02-15: Started `BL-046`/`BL-047` baseline implementation by introducing a dedicated API operation registry module and provider-routed gateway invocation path in `desktop-main` while preserving existing renderer contract behavior.
+- 2026-02-15: Started `BL-039` by replacing placeholder CODEOWNERS entries with concrete maintainer ownership (`@simonhagger`); local proof checks completed (`desktop-main:test`, `contracts:test`, `integration-test`, `docs-lint`).
