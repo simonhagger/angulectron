@@ -40,6 +40,7 @@ Increase security and runtime determinism in privileged execution paths before a
 - `BL-033` Centralized policy in active use across privileged file ingress handlers (`fs`, `python`, `settings import`) with shared rejection logging surface.
 - `BL-028` Parity improved with explicit fail-closed settings import enforcement (`.json` only) and uniform reject diagnostics (`security.file_ingress_rejected`).
 - `BL-029` remains in progress (`BL-029A` implemented; `BL-029B` CI reproducibility path still pending completion proof).
+  - Update (2026-02-15): Windows artifact-publish path now enforces `python-runtime:prepare-local` + `python-runtime:assert` prior to packaging via `forge:make:ci:windows`; GitHub run confirmation pending next push.
 - `BL-032` remains in progress (validated handler normalization delivered; remaining preload-main integration assertion closure pending).
 
 ## Explicitly Completed (Do Not Re-Scope)
@@ -111,3 +112,5 @@ Increase security and runtime determinism in privileged execution paths before a
 - 2026-02-15: Implemented centralized ingress rejection telemetry across `fs`, `python`, and `settings import` handlers (`security.file_ingress_rejected`) with correlation IDs and normalized policy/reason details.
 - 2026-02-15: Added fail-closed settings import ingress enforcement via shared policy (`settingsJsonImport`, `.json` only) and test coverage for feature/runtime import rejection paths.
 - 2026-02-15: Validation completed for this slice: `pnpm nx run desktop-main:test`, `pnpm nx run desktop-preload:build`, plus manual smoke logs confirming uniform reject-event shape across handlers.
+- 2026-02-15: Implemented `BL-029B` CI packaging hardening by adding explicit Windows artifact pipeline runtime preparation and assertion (`forge:make:ci:windows` with `PYTHON_RUNTIME_TARGET=win32-x64`) before packaging.
+- 2026-02-15: Local validation for `BL-029B` path completed: `pnpm run python-runtime:prepare-local`, `pnpm run python-runtime:assert`, `pnpm run build-desktop-main`, `pnpm docs-lint`.
