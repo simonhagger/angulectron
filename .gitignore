@@ -70,3 +70,7 @@ CONTEXT.md
 build/python-runtime/*
 !build/python-runtime/README.md
 !build/python-runtime/.gitkeep
+
+# Claude Code temporary files and plans
+.claude/
+tmpclaude-*
