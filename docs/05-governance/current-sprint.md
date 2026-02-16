@@ -25,9 +25,10 @@ Complete deterministic runtime packaging, close governance ownership gaps, and l
 
 ## Delivery Status (Starting Point)
 
-- `BL-029` in progress and partially delivered; local and CI packaging hardening landed, now requires consistent proof path and documentation closure for deterministic runtime assembly.
-- `BL-039` planned and unblocked.
-- `BL-046` and `BL-047` proposed; architecture direction agreed, implementation not yet started.
+- `BL-029` completed: deterministic runtime preparation/assertion and staging packaging proof validated locally end-to-end.
+- `BL-039` completed: placeholder CODEOWNERS entries replaced with concrete maintainer ownership.
+- `BL-046` completed: provider-agnostic gateway execution baseline landed with stable renderer-facing contract behavior.
+- `BL-047` completed: typed operation registry and fail-closed operation policy enforcement landed with targeted coverage.
 
 ## Execution Plan (Coherent + Testable)
 
@@ -66,7 +67,7 @@ Complete deterministic runtime packaging, close governance ownership gaps, and l
 
 - `BL-029` moved to `Done` with reproducible packaging evidence in CI and local staging build validation.
 - `BL-039` moved to `Done` with placeholder owners removed and no policy regression.
-- `BL-046` and `BL-047` moved to `In Progress` (minimum) with merged baseline contracts/tests, or to `Done` if full slice completes.
+- `BL-046` and `BL-047` moved to `Done` with merged baseline implementation and proof tests.
 - CI remains green on PR and post-merge checks.
 
 ## Progress Log
@@ -76,3 +77,5 @@ Complete deterministic runtime packaging, close governance ownership gaps, and l
 - 2026-02-15: Started `BL-046`/`BL-047` baseline implementation by introducing a dedicated API operation registry module and provider-routed gateway invocation path in `desktop-main` while preserving existing renderer contract behavior.
 - 2026-02-15: Started `BL-039` by replacing placeholder CODEOWNERS entries with concrete maintainer ownership (`@simonhagger`); local proof checks completed (`desktop-main:test`, `contracts:test`, `integration-test`, `docs-lint`).
 - 2026-02-16: Advanced `BL-047` with operation-level request policy enforcement in the API gateway (`maxParamEntries`, `maxHeaderEntries`, value length limits) and fail-closed error behavior (`API/INVALID_PARAMS`, `API/INVALID_HEADERS`) backed by new unit tests.
+- 2026-02-16: Completed `BL-029` reproducibility proof path locally: `python-runtime:prepare-local`, `python-runtime:assert`, `build-desktop-main`, and `forge:make:staging` all passed.
+- 2026-02-16: Completed `BL-046` proof by adding parity coverage that confirms provider selection (`external-http` vs `bundled-http`) preserves response contract shape.
