@@ -562,6 +562,66 @@ describe('invokeApiOperation', () => {
     expect(error.code).toBe('API/INVALID_HEADERS');
   });
 
+  it('rejects requests that exceed operation param-entry policy', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'call.secure-endpoint': {
+        method: 'GET',
+        url: 'https://api.example.com/{{user_id}}',
+        requestPolicy: { maxParamEntries: 1 },
+      },
+    };
+
+    const result = await invokeApiOperation(
+      {
+        contractVersion: '1.0.0',
+        correlationId: 'corr-test',
+        payload: {
+          operationId: 'call.secure-endpoint',
+          params: {
+            user_id: 'user-1',
+            include: 'positions',
+          },
+        },
+      },
+      {
+        operations,
+      },
+    );
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/INVALID_PARAMS');
+  });
+
+  it('rejects requests that exceed operation header-value policy', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'call.secure-endpoint': {
+        method: 'GET',
+        url: 'https://api.example.com/{{user_id}}',
+        requestPolicy: { maxHeaderValueChars: 4 },
+      },
+    };
+
+    const result = await invokeApiOperation(
+      {
+        contractVersion: '1.0.0',
+        correlationId: 'corr-test',
+        payload: {
+          operationId: 'call.secure-endpoint',
+          params: { user_id: 'user-1' },
+          headers: {
+            'x-client-trace': 'too-long',
+          },
+        },
+      },
+      {
+        operations,
+      },
+    );
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/INVALID_HEADERS');
+  });
+
   it('retries GET requests for retryable errors', async () => {
     const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
       'status.github': {

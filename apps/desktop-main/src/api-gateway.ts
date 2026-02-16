@@ -9,6 +9,7 @@ import {
   getApiOperationConfigurationHint,
   resolveApiOperationRegistryFromEnv,
   type ApiOperationDefinition,
+  type ApiOperationRequestPolicy,
   type ApiOperationRegistry,
 } from './api-operation-registry';
 
@@ -232,6 +233,101 @@ const isRetryableFailure = (code: string) =>
     'API/SERVER_ERROR',
     'API/RATE_LIMITED',
   ].includes(code);
+
+const validateRequestPolicy = (
+  request: ApiInvokeRequest,
+  operation: ApiOperation,
+): DesktopResult<null> => {
+  const policy: ApiOperationRequestPolicy | undefined = operation.requestPolicy;
+  if (!policy) {
+    return asSuccess(null);
+  }
+
+  const correlationId = request.correlationId;
+  const operationId = request.payload.operationId;
+  const params = request.payload.params
+    ? Object.entries(request.payload.params)
+    : [];
+  const headers = request.payload.headers
+    ? Object.entries(request.payload.headers)
+    : [];
+
+  if (
+    typeof policy.maxParamEntries === 'number' &&
+    params.length > policy.maxParamEntries
+  ) {
+    return asFailure(
+      'API/INVALID_PARAMS',
+      'Request parameters exceed operation policy limits.',
+      {
+        operationId,
+        maxParamEntries: policy.maxParamEntries,
+        receivedParamEntries: params.length,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  if (
+    typeof policy.maxHeaderEntries === 'number' &&
+    headers.length > policy.maxHeaderEntries
+  ) {
+    return asFailure(
+      'API/INVALID_HEADERS',
+      'Request headers exceed operation policy limits.',
+      {
+        operationId,
+        maxHeaderEntries: policy.maxHeaderEntries,
+        receivedHeaderEntries: headers.length,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  if (typeof policy.maxParamValueChars === 'number') {
+    for (const [key, value] of params) {
+      const valueLength = String(value).length;
+      if (valueLength > policy.maxParamValueChars) {
+        return asFailure(
+          'API/INVALID_PARAMS',
+          'Request parameters exceed operation policy limits.',
+          {
+            operationId,
+            key,
+            maxParamValueChars: policy.maxParamValueChars,
+            receivedParamValueChars: valueLength,
+          },
+          false,
+          correlationId,
+        );
+      }
+    }
+  }
+
+  if (typeof policy.maxHeaderValueChars === 'number') {
+    for (const [key, value] of headers) {
+      const valueLength = value.length;
+      if (valueLength > policy.maxHeaderValueChars) {
+        return asFailure(
+          'API/INVALID_HEADERS',
+          'Request headers exceed operation policy limits.',
+          {
+            operationId,
+            key,
+            maxHeaderValueChars: policy.maxHeaderValueChars,
+            receivedHeaderValueChars: valueLength,
+          },
+          false,
+          correlationId,
+        );
+      }
+    }
+  }
+
+  return asSuccess(null);
+};
 
 type ApiExecutionProvider = {
   invoke: (
@@ -690,6 +786,11 @@ export const invokeApiOperation = async (
       false,
       correlationId,
     );
+  }
+
+  const requestPolicyResult = validateRequestPolicy(request, operation);
+  if (!requestPolicyResult.ok) {
+    return requestPolicyResult;
   }
 
   const state = getOperationState(request.payload.operationId);

@@ -4,6 +4,13 @@ const JWT_CLAIM_PATH_PATTERN = /^[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*$/;
 
 export type ApiOperationProviderId = 'external-http' | 'bundled-http';
 
+export type ApiOperationRequestPolicy = {
+  maxParamEntries?: number;
+  maxHeaderEntries?: number;
+  maxParamValueChars?: number;
+  maxHeaderValueChars?: number;
+};
+
 export type ApiOperationDefinition = {
   providerId?: ApiOperationProviderId;
   method: 'GET' | 'POST';
@@ -28,6 +35,7 @@ export type ApiOperationDefinition = {
     maxAttempts?: number;
     baseDelayMs?: number;
   };
+  requestPolicy?: ApiOperationRequestPolicy;
 };
 
 export type ApiOperationRegistry = Partial<
@@ -89,6 +97,12 @@ export const resolveApiOperationRegistryFromEnv = (): ApiOperationRegistry => {
       concurrencyLimit: 2,
       minIntervalMs: 300,
       auth: { type: 'none' },
+      requestPolicy: {
+        maxParamEntries: 8,
+        maxHeaderEntries: 4,
+        maxParamValueChars: 256,
+        maxHeaderValueChars: 256,
+      },
     },
     ...(configuredSecureEndpointUrl
       ? {
@@ -103,6 +117,12 @@ export const resolveApiOperationRegistryFromEnv = (): ApiOperationRegistry => {
             claimMap: configuredSecureEndpointClaimMap,
             auth: { type: 'oidc' },
             retry: { maxAttempts: 2, baseDelayMs: 200 },
+            requestPolicy: {
+              maxParamEntries: 16,
+              maxHeaderEntries: 8,
+              maxParamValueChars: 256,
+              maxHeaderValueChars: 256,
+            },
           },
         }
       : {}),
