@@ -4,6 +4,7 @@ import {
   type IpcMain,
   type IpcMainInvokeEvent,
   type OpenDialogOptions,
+  type SaveDialogOptions,
 } from 'electron';
 import {
   asFailure,
@@ -36,6 +37,26 @@ const settingsImportDialogOptions: OpenDialogOptions = {
 
 const getSenderWindow = (event: IpcMainInvokeEvent) =>
   BrowserWindow.fromWebContents(event.sender) ?? undefined;
+
+const showOpenDialogForEvent = (
+  event: IpcMainInvokeEvent,
+  options: OpenDialogOptions,
+) => {
+  const senderWindow = getSenderWindow(event);
+  return senderWindow
+    ? dialog.showOpenDialog(senderWindow, options)
+    : dialog.showOpenDialog(options);
+};
+
+const showSaveDialogForEvent = (
+  event: IpcMainInvokeEvent,
+  options: SaveDialogOptions,
+) => {
+  const senderWindow = getSenderWindow(event);
+  return senderWindow
+    ? dialog.showSaveDialog(senderWindow, options)
+    : dialog.showSaveDialog(options);
+};
 
 export const registerSettingsIpcHandlers = (
   ipcMain: IpcMain,
@@ -92,8 +113,8 @@ export const registerSettingsIpcHandlers = (
     schema: settingsImportFeatureConfigRequestSchema,
     context,
     handler: async (event, request) => {
-      const openResult = await dialog.showOpenDialog(
-        getSenderWindow(event),
+      const openResult = await showOpenDialogForEvent(
+        event,
         settingsImportDialogOptions,
       );
 
@@ -187,7 +208,7 @@ export const registerSettingsIpcHandlers = (
     schema: settingsExportFeatureConfigRequestSchema,
     context,
     handler: async (event, request) => {
-      const saveResult = await dialog.showSaveDialog(getSenderWindow(event), {
+      const saveResult = await showSaveDialogForEvent(event, {
         title: `Export ${request.payload.feature} settings`,
         defaultPath: `runtime-config.${request.payload.feature}.json`,
         filters: [
@@ -242,8 +263,8 @@ export const registerSettingsIpcHandlers = (
     schema: settingsImportRuntimeConfigRequestSchema,
     context,
     handler: async (event, request) => {
-      const openResult = await dialog.showOpenDialog(
-        getSenderWindow(event),
+      const openResult = await showOpenDialogForEvent(
+        event,
         settingsImportDialogOptions,
       );
 
@@ -334,7 +355,7 @@ export const registerSettingsIpcHandlers = (
     schema: settingsExportRuntimeConfigRequestSchema,
     context,
     handler: async (event, request) => {
-      const saveResult = await dialog.showSaveDialog(getSenderWindow(event), {
+      const saveResult = await showSaveDialogForEvent(event, {
         title: 'Export runtime settings',
         defaultPath: 'runtime-config.backup.json',
         filters: [

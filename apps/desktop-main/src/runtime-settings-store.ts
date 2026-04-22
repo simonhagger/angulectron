@@ -87,11 +87,11 @@ const normalizeRuntimeConfigDocument = (
   if (
     !next.api &&
     next.app &&
-    (legacyApp.secureEndpointUrlTemplate || legacyApp.secureEndpointClaimMap)
+    (legacyApp?.secureEndpointUrlTemplate || legacyApp?.secureEndpointClaimMap)
   ) {
     next.api = {
       secureEndpointUrlTemplate: next.app.secureEndpointUrlTemplate,
-      secureEndpointClaimMap: legacyApp.secureEndpointClaimMap,
+      secureEndpointClaimMap: legacyApp?.secureEndpointClaimMap,
     };
     next.app = {};
     migrated = true;

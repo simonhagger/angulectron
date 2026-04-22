@@ -1,7 +1,22 @@
-import { TestBed } from '@angular/core/testing';
+import { getTestBed, TestBed } from '@angular/core/testing';
+import {
+  BrowserDynamicTestingModule,
+  platformBrowserDynamicTesting,
+} from '@angular/platform-browser-dynamic/testing';
 import { UiPrimaryButtonComponent } from './material';
 
 describe('UiPrimaryButtonComponent', () => {
+  beforeAll(() => {
+    try {
+      getTestBed().initTestEnvironment(
+        BrowserDynamicTestingModule,
+        platformBrowserDynamicTesting(),
+      );
+    } catch {
+      // Ignore duplicate initialization when the test environment is already configured.
+    }
+  });
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [UiPrimaryButtonComponent],

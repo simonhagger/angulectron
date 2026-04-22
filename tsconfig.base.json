@@ -12,6 +12,7 @@
     "lib": ["es2022", "dom"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@electron-foundation/material": ["./libs/ui/material/src/index.ts"],
