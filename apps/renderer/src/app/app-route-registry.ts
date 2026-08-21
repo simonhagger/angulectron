@@ -73,23 +73,23 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
             {
               path: 'app',
               loadComponent: () =>
-                import(
-                  './features/settings/settings-app/settings-app-page'
-                ).then((m) => m.SettingsAppPage),
+                import('./features/settings/settings-app/settings-app-page').then(
+                  (m) => m.SettingsAppPage,
+                ),
             },
             {
               path: 'api',
               loadComponent: () =>
-                import(
-                  './features/settings/settings-api/settings-api-page'
-                ).then((m) => m.SettingsApiPage),
+                import('./features/settings/settings-api/settings-api-page').then(
+                  (m) => m.SettingsApiPage,
+                ),
             },
             {
               path: 'auth',
               loadComponent: () =>
-                import(
-                  './features/settings/settings-auth/settings-auth-page'
-                ).then((m) => m.SettingsAuthPage),
+                import('./features/settings/settings-auth/settings-auth-page').then(
+                  (m) => m.SettingsAuthPage,
+                ),
             },
           ],
         },
@@ -175,9 +175,9 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     toRoute: () => ({
       path: 'async-validation-lab',
       loadComponent: () =>
-        import(
-          './features/async-validation-lab/async-validation-lab-page'
-        ).then((m) => m.AsyncValidationLabPage),
+        import('./features/async-validation-lab/async-validation-lab-page').then(
+          (m) => m.AsyncValidationLabPage,
+        ),
     }),
   },
   {
@@ -189,9 +189,9 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     toRoute: () => ({
       path: 'data-table-workbench',
       loadComponent: () =>
-        import(
-          './features/data-table-workbench/data-table-workbench-page'
-        ).then((m) => m.DataTableWorkbenchPage),
+        import('./features/data-table-workbench/data-table-workbench-page').then(
+          (m) => m.DataTableWorkbenchPage,
+        ),
     }),
   },
   {
@@ -203,9 +203,9 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     toRoute: () => ({
       path: 'theme-tokens-playground',
       loadComponent: () =>
-        import(
-          './features/theme-tokens-playground/theme-tokens-playground-page'
-        ).then((m) => m.ThemeTokensPlaygroundPage),
+        import('./features/theme-tokens-playground/theme-tokens-playground-page').then(
+          (m) => m.ThemeTokensPlaygroundPage,
+        ),
     }),
   },
   {
@@ -217,9 +217,9 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     toRoute: () => ({
       path: 'offline-retry-simulator',
       loadComponent: () =>
-        import(
-          './features/offline-retry-simulator/offline-retry-simulator-page'
-        ).then((m) => m.OfflineRetrySimulatorPage),
+        import('./features/offline-retry-simulator/offline-retry-simulator-page').then(
+          (m) => m.OfflineRetrySimulatorPage,
+        ),
     }),
   },
   {
@@ -231,9 +231,9 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     toRoute: () => ({
       path: 'file-workflow-studio',
       loadComponent: () =>
-        import(
-          './features/file-workflow-studio/file-workflow-studio-page'
-        ).then((m) => m.FileWorkflowStudioPage),
+        import('./features/file-workflow-studio/file-workflow-studio-page').then(
+          (m) => m.FileWorkflowStudioPage,
+        ),
     }),
   },
   {

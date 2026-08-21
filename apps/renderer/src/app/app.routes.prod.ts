@@ -45,9 +45,9 @@ export const appRoutes: Route[] = [
           {
             path: 'auth',
             loadComponent: () =>
-              import(
-                './features/settings/settings-auth/settings-auth-page'
-              ).then((m) => m.SettingsAuthPage),
+              import('./features/settings/settings-auth/settings-auth-page').then(
+                (m) => m.SettingsAuthPage,
+              ),
           },
         ],
       },
