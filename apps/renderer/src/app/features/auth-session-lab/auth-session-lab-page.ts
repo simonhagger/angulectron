@@ -13,7 +13,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import type {
-  AuthGetTokenDiagnosticsResponse,
   AuthSignOutMode,
   AuthSessionSummary,
 } from '@electron-foundation/contracts';

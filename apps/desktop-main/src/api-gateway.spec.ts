@@ -73,6 +73,62 @@ describe('invokeApiOperation', () => {
     expect(error.correlationId).toBe('corr-test');
   });
 
+  it('rejects operations mapped to unknown providers', async () => {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations: {
+        'status.github': {
+          providerId: 'external-unknown' as 'bundled-http',
+          method: 'GET',
+          url: 'https://example.test/health',
+          auth: { type: 'none' },
+        },
+      },
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/OPERATION_NOT_ALLOWED');
+    expect(error.correlationId).toBe('corr-test');
+  });
+
+  it('preserves response contract across external-http and bundled-http providers', async () => {
+    const request = baseRequest('status.github');
+    const fetchFn: typeof fetch = async () =>
+      new Response(JSON.stringify({ ok: true, source: 'provider-test' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+
+    const externalResult = await invokeApiOperation(request, {
+      operations: {
+        'status.github': {
+          providerId: 'external-http',
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          auth: { type: 'none' },
+        },
+      },
+      fetchFn,
+    });
+
+    const bundledResult = await invokeApiOperation(request, {
+      operations: {
+        'status.github': {
+          providerId: 'bundled-http',
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          auth: { type: 'none' },
+        },
+      },
+      fetchFn,
+    });
+
+    expect(externalResult.ok).toBe(true);
+    expect(bundledResult.ok).toBe(true);
+    if (externalResult.ok && bundledResult.ok) {
+      expect(bundledResult.data).toEqual(externalResult.data);
+    }
+  });
+
   it('returns operation-not-configured when BYO endpoint is not provided', async () => {
     const original = process.env.API_SECURE_ENDPOINT_URL_TEMPLATE;
     delete process.env.API_SECURE_ENDPOINT_URL_TEMPLATE;
@@ -533,6 +589,66 @@ describe('invokeApiOperation', () => {
           params: { user_id: 'user-1' },
           headers: {
             authorization: 'bad-override',
+          },
+        },
+      },
+      {
+        operations,
+      },
+    );
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/INVALID_HEADERS');
+  });
+
+  it('rejects requests that exceed operation param-entry policy', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'call.secure-endpoint': {
+        method: 'GET',
+        url: 'https://api.example.com/{{user_id}}',
+        requestPolicy: { maxParamEntries: 1 },
+      },
+    };
+
+    const result = await invokeApiOperation(
+      {
+        contractVersion: '1.0.0',
+        correlationId: 'corr-test',
+        payload: {
+          operationId: 'call.secure-endpoint',
+          params: {
+            user_id: 'user-1',
+            include: 'positions',
+          },
+        },
+      },
+      {
+        operations,
+      },
+    );
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/INVALID_PARAMS');
+  });
+
+  it('rejects requests that exceed operation header-value policy', async () => {
+    const operations: Partial<Record<ApiOperationId, ApiOperation>> = {
+      'call.secure-endpoint': {
+        method: 'GET',
+        url: 'https://api.example.com/{{user_id}}',
+        requestPolicy: { maxHeaderValueChars: 4 },
+      },
+    };
+
+    const result = await invokeApiOperation(
+      {
+        contractVersion: '1.0.0',
+        correlationId: 'corr-test',
+        payload: {
+          operationId: 'call.secure-endpoint',
+          params: { user_id: 'user-1' },
+          headers: {
+            'x-client-trace': 'too-long',
           },
         },
       },
