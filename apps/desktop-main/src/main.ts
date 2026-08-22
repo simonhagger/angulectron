@@ -471,7 +471,11 @@ const bootstrap = async () => {
     assertAuthorizedSender,
     getOidcService: () => oidcService,
     getStorageGateway,
-    invokeApiOperation: (request) => invokeApiOperation(request),
+    invokeApiOperation: (request) =>
+      invokeApiOperation(request, {
+        log: (level, event, details) =>
+          logEvent(level, event, undefined, details),
+      }),
     getApiOperationDiagnostics: (operationId) =>
       getApiOperationDiagnostics(operationId),
     getDemoUpdater: () => demoUpdater,
