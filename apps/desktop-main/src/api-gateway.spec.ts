@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   ApiInvokeRequest,
   ApiOperationId,
@@ -696,7 +696,7 @@ describe('invokeApiOperation', () => {
       'status.github': {
         method: 'POST',
         url: 'https://api.example.com/write',
-        retry: { maxAttempts: 3, baseDelayMs: 1 },
+        retry: { maxAttempts: 2, baseDelayMs: 1 },
       },
     };
     let attempts = 0;
@@ -749,5 +749,122 @@ describe('getApiOperationDiagnostics', () => {
       expect(result.data.configurationHint).toContain('Settings');
       expect(result.data.configurationHint).toContain('runtime-config.json');
     }
+  });
+});
+
+describe('trust tier policy enforcement', () => {
+  const okFetch: typeof fetch = async () =>
+    new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+
+  it('blocks operations whose declared policy exceeds the provider trust tier', async () => {
+    const logEvents: Array<{
+      level: string;
+      event: string;
+      details?: Record<string, unknown>;
+    }> = [];
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations: {
+        'status.github': {
+          providerId: 'external-http',
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          auth: { type: 'none' },
+          timeoutMs: 45_000,
+        },
+      },
+      fetchFn: okFetch,
+      log: (level, event, details) => logEvents.push({ level, event, details }),
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/POLICY_VIOLATION');
+    expect(error.retryable).toBe(false);
+    expect(error.correlationId).toBe('corr-test');
+    if (!result.ok) {
+      const details = result.error.details as {
+        trustTier?: string;
+        violations?: Array<{
+          dimension: string;
+          declared: number;
+          ceiling: number;
+        }>;
+      };
+      expect(details.trustTier).toBe('remote-low');
+      expect(details.violations).toEqual([
+        { dimension: 'maxTimeoutMs', declared: 45_000, ceiling: 10_000 },
+      ]);
+    }
+    expect(logEvents).toHaveLength(1);
+    expect(logEvents[0]?.event).toBe('api.trust_policy.violation');
+    expect(logEvents[0]?.details?.correlationId).toBe('corr-test');
+  });
+
+  it('retries GET operations up to the provider trust tier ceiling', async () => {
+    let fetchCalls = 0;
+    const alwaysServerError: typeof fetch = async () => {
+      fetchCalls += 1;
+      return new Response(JSON.stringify({ error: 'server boom' }), {
+        status: 500,
+        headers: { 'content-type': 'application/json' },
+      });
+    };
+
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations: {
+        'status.github': {
+          providerId: 'bundled-http',
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          auth: { type: 'none' },
+          retry: { maxAttempts: 3, baseDelayMs: 1 },
+        },
+      },
+      fetchFn: alwaysServerError,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('API/SERVER_ERROR');
+    }
+    expect(fetchCalls).toBe(3);
+  });
+
+  it('grants bundled-http operations the local-medium ceilings', async () => {
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations: {
+        'status.github': {
+          providerId: 'bundled-http',
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          auth: { type: 'none' },
+          timeoutMs: 14_000,
+        },
+      },
+      fetchFn: okFetch,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it('blocks operations on providers without an assigned trust tier before any network call', async () => {
+    const fetchSpy = vi.fn(okFetch);
+    const result = await invokeApiOperation(baseRequest('status.github'), {
+      operations: {
+        'status.github': {
+          providerId: 'docker-local' as 'bundled-http',
+          method: 'GET',
+          url: 'https://api.example.com/health',
+          auth: { type: 'none' },
+        },
+      },
+      fetchFn: fetchSpy as unknown as typeof fetch,
+    });
+
+    const error = expectFailure(result);
+    expect(error.code).toBe('API/OPERATION_NOT_ALLOWED');
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,12 @@ import {
   type ApiOperationRequestPolicy,
   type ApiOperationRegistry,
 } from './api-operation-registry';
+import {
+  API_TRUST_TIER_POLICIES,
+  clampApiOperationToTier,
+  evaluateApiTrustTier,
+  resolveApiTrustTier,
+} from './api-trust-policy';
 
 const API_DEFAULT_TIMEOUT_MS = 8_000;
 const API_DEFAULT_MAX_RESPONSE_BYTES = 1_000_000;
@@ -34,6 +40,11 @@ export const refreshDefaultApiOperationsFromEnv = () => {
 type InvokeApiDeps = {
   fetchFn?: typeof fetch;
   operations?: ApiOperationRegistry;
+  log?: (
+    level: 'debug' | 'info' | 'warn' | 'error',
+    event: string,
+    details?: Record<string, unknown>,
+  ) => void;
 };
 
 type GetApiOperationDiagnosticsDeps = {
@@ -759,6 +770,7 @@ export const invokeApiOperation = async (
 ): Promise<DesktopResult<ApiSuccess>> => {
   const operations = deps.operations ?? defaultApiOperations;
   const fetchFn = deps.fetchFn ?? fetch;
+  const log = deps.log;
   const correlationId = request.correlationId;
 
   const operation = operations[request.payload.operationId];
@@ -788,7 +800,70 @@ export const invokeApiOperation = async (
     );
   }
 
-  const requestPolicyResult = validateRequestPolicy(request, operation);
+  const providerId = operation.providerId ?? 'external-http';
+  const provider = executionProviders[providerId];
+  if (!provider) {
+    return asFailure(
+      'API/OPERATION_NOT_ALLOWED',
+      'Requested API operation is not allowed.',
+      {
+        operationId: request.payload.operationId,
+        providerId,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  const trustTier = resolveApiTrustTier(providerId);
+  if (!trustTier) {
+    log?.('warn', 'api.trust_policy.violation', {
+      operationId: request.payload.operationId,
+      correlationId,
+      providerId,
+      reason: 'provider_has_no_trust_tier',
+    });
+    return asFailure(
+      'API/POLICY_VIOLATION',
+      'API operation provider has no assigned trust tier.',
+      {
+        operationId: request.payload.operationId,
+        providerId,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  const tierEvaluation = evaluateApiTrustTier(operation, trustTier);
+  if (!tierEvaluation.ok) {
+    log?.('warn', 'api.trust_policy.violation', {
+      operationId: request.payload.operationId,
+      correlationId,
+      providerId,
+      trustTier,
+      violations: tierEvaluation.violations,
+    });
+    return asFailure(
+      'API/POLICY_VIOLATION',
+      'API operation configuration exceeds its provider trust tier.',
+      {
+        operationId: request.payload.operationId,
+        providerId,
+        trustTier,
+        violations: tierEvaluation.violations,
+      },
+      false,
+      correlationId,
+    );
+  }
+
+  const effectiveOperation = clampApiOperationToTier(operation, trustTier);
+
+  const requestPolicyResult = validateRequestPolicy(
+    request,
+    effectiveOperation,
+  );
   if (!requestPolicyResult.ok) {
     return requestPolicyResult;
   }
@@ -826,34 +901,26 @@ export const invokeApiOperation = async (
   state.lastStartedAt = Date.now();
 
   try {
-    const providerId = operation.providerId ?? 'external-http';
-    const provider = executionProviders[providerId];
-    if (!provider) {
-      return asFailure(
-        'API/OPERATION_NOT_ALLOWED',
-        'Requested API operation is not allowed.',
-        {
-          operationId: request.payload.operationId,
-          providerId,
-        },
-        false,
-        correlationId,
-      );
-    }
-
+    const tierPolicy = API_TRUST_TIER_POLICIES[trustTier];
+    const declaredRetryAttempts =
+      effectiveOperation.retry?.maxAttempts ?? API_DEFAULT_RETRY_ATTEMPTS;
     const retryAttempts =
-      operation.method === 'GET'
-        ? Math.max(
-            1,
-            operation.retry?.maxAttempts ?? API_DEFAULT_RETRY_ATTEMPTS,
+      effectiveOperation.method === 'GET'
+        ? Math.min(
+            Math.max(1, declaredRetryAttempts),
+            tierPolicy.maxRetryAttempts,
           )
         : 1;
 
     const retryBaseDelayMs =
-      operation.retry?.baseDelayMs ?? API_DEFAULT_RETRY_BASE_DELAY_MS;
+      effectiveOperation.retry?.baseDelayMs ?? API_DEFAULT_RETRY_BASE_DELAY_MS;
 
     for (let attempt = 1; attempt <= retryAttempts; attempt += 1) {
-      const result = await provider.invoke(request, operation, fetchFn);
+      const result = await provider.invoke(
+        request,
+        effectiveOperation,
+        fetchFn,
+      );
       if (!result.ok) {
         const failure = result as Extract<typeof result, { ok: false }>;
         const errorCode = failure.error.code;
