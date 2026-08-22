@@ -33,6 +33,10 @@ import { createRefreshTokenStore } from './secure-token-store';
 import { StorageGateway } from './storage-gateway';
 import { DemoUpdater } from './demo-updater';
 import { PythonSidecar } from './python-sidecar';
+import {
+  PythonSidecarHealthMonitor,
+  type SidecarHealthLogger,
+} from './python-sidecar-health';
 import { asFailure } from '@electron-foundation/contracts';
 import { toStructuredLogLine } from '@electron-foundation/common';
 import { RuntimeSettingsStore } from './runtime-settings-store';
@@ -55,6 +59,7 @@ let oidcService: OidcService | null = null;
 let mainWindow: BrowserWindow | null = null;
 let demoUpdater: DemoUpdater | null = null;
 let pythonSidecar: PythonSidecar | null = null;
+let pythonSidecarHealthMonitor: PythonSidecarHealthMonitor | null = null;
 let runtimeSettingsStore: RuntimeSettingsStore | null = null;
 const APP_VERSION = resolveAppMetadataVersion();
 
@@ -410,6 +415,22 @@ const bootstrap = async () => {
       logEvent(level, event, undefined, details),
   });
 
+  const activeSidecar = pythonSidecar;
+  const healthLogger: SidecarHealthLogger = (level, event, details) =>
+    logEvent(level, event, undefined, details);
+  pythonSidecarHealthMonitor = new PythonSidecarHealthMonitor({
+    sidecar: activeSidecar,
+    log: healthLogger,
+  });
+  if (app.isPackaged) {
+    healthLogger(
+      'info',
+      'python.sidecar.health.monitor.disabled_packaged_build',
+    );
+  } else {
+    pythonSidecarHealthMonitor.start();
+  }
+
   if (oidcConfig) {
     const refreshTokenStore = await createRefreshTokenStore({
       userDataPath: app.getPath('userData'),
@@ -472,6 +493,7 @@ const bootstrap = async () => {
 app.on('window-all-closed', () => {
   selectedFileTokens.clear();
   stopFileTokenCleanup();
+  pythonSidecarHealthMonitor?.dispose();
   oidcService?.dispose();
   pythonSidecar?.dispose();
   storageGateway?.close();

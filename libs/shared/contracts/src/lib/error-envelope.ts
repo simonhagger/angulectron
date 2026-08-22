@@ -38,3 +38,52 @@ export const asFailure = (
     correlationId,
   },
 });
+
+export const isSuccess = <T>(
+  result: unknown,
+): result is Extract<DesktopResult<T>, { ok: true }> =>
+  typeof result === 'object' &&
+  result !== null &&
+  'ok' in result &&
+  result.ok === true &&
+  'data' in result;
+
+export const isFailure = (
+  result: unknown,
+): result is Extract<DesktopResult<unknown>, { ok: false }> =>
+  typeof result === 'object' &&
+  result !== null &&
+  'ok' in result &&
+  result.ok === false &&
+  'error' in result &&
+  typeof (result as { error?: unknown }).error === 'object' &&
+  (result as { error?: unknown }).error !== null;
+
+export const unwrapSuccessData = <T>(
+  result: DesktopResult<T>,
+): T | undefined => (isSuccess<T>(result) ? result.data : undefined);
+
+export const unwrapFailureError = (
+  result: DesktopResult<unknown>,
+): ErrorEnvelope | null => (isFailure(result) ? result.error : null);
+
+export const validateResponseEnvelope = <TData>(
+  data: unknown,
+  schema: z.ZodType<TData>,
+): DesktopResult<TData> => {
+  if (!schema) {
+    return asSuccess(data as TData);
+  }
+
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) {
+    return asFailure(
+      'IPC/RESPONSE_VALIDATION_FAILED',
+      'Response data failed envelope validation.',
+      parsed.error.flatten(),
+      false,
+    );
+  }
+
+  return asSuccess(parsed.data);
+};
