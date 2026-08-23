@@ -75,6 +75,9 @@ export const resolveAppMetadataVersion = (electronApp: App = app): string => {
   return electronApp.getVersion();
 };
 
+export const DEV_RENDERER_PORT = 4210;
+export const DEV_RENDERER_URL = `http://localhost:${DEV_RENDERER_PORT}`;
+
 export const resolveRuntimeFlags = (electronApp: App = app) => {
   const runtimeSmokeEnabled = process.env.RUNTIME_SMOKE === '1';
   const isDevelopment = !electronApp.isPackaged && !runtimeSmokeEnabled;
@@ -91,6 +94,6 @@ export const resolveRuntimeFlags = (electronApp: App = app) => {
     appEnvironment,
     shouldOpenDevTools:
       !runtimeSmokeEnabled && (isDevelopment || allowPackagedDevTools),
-    rendererDevUrl: process.env.RENDERER_DEV_URL ?? 'http://localhost:4200',
+    rendererDevUrl: DEV_RENDERER_URL,
   };
 };
