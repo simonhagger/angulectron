@@ -1,0 +1,151 @@
+<section class="canvas-lab">
+  <mat-card class="intro-card">
+    <mat-card-header>
+      <mat-icon matCardAvatar>animation</mat-icon>
+      <mat-card-title>Canvas Lab</mat-card-title>
+      <mat-card-subtitle>
+        Dependency-free 2D canvas and WebGL2 rendering driven by Angular signals
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        Both panes render outside Angular's change detection through a single
+        requestAnimationFrame loop. Controls below update signals that the
+        render loop reads every frame.
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <div class="pane-grid">
+    <mat-card class="pane-card">
+      <mat-card-header>
+        <mat-card-title>2D Canvas — Signal Wave Field</mat-card-title>
+        <mat-card-subtitle>CanvasRenderingContext2D</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-frame">
+          <canvas
+            #waveCanvas
+            class="lab-canvas"
+            aria-label="Animated particle wave field"
+          ></canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="pane-card">
+      <mat-card-header>
+        <mat-card-title>WebGL2 — Shader Quad</mat-card-title>
+        <mat-card-subtitle>
+          {{ webglAvailable() ? 'Live fragment shader' : 'WebGL2 unavailable' }}
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="canvas-frame">
+          <canvas
+            #glCanvas
+            class="lab-canvas"
+            aria-label="Animated WebGL shader pattern"
+          ></canvas>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <mat-card class="controls-card">
+    <mat-card-header>
+      <mat-card-title>Controls</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="control-row">
+        <label for="density">Density: {{ density() }}</label>
+        <input
+          id="density"
+          type="range"
+          min="16"
+          max="120"
+          step="4"
+          [value]="density()"
+          (input)="setDensity($any($event.target).valueAsNumber)"
+        />
+      </div>
+
+      <div class="control-row">
+        <label for="speed">Speed: {{ speed() / 10 }}x</label>
+        <input
+          id="speed"
+          type="range"
+          min="1"
+          max="40"
+          step="1"
+          [value]="speed()"
+          (input)="setSpeed($any($event.target).valueAsNumber)"
+        />
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">Accent</span>
+        <div class="swatch-row">
+          <button
+            type="button"
+            class="swatch"
+            [class.swatch-active]="accent() === '#38bdf8'"
+            style="background: #38bdf8"
+            aria-label="Sky accent"
+            (click)="setAccent('#38bdf8')"
+          ></button>
+          <button
+            type="button"
+            class="swatch"
+            [class.swatch-active]="accent() === '#f59e0b'"
+            style="background: #f59e0b"
+            aria-label="Amber accent"
+            (click)="setAccent('#f59e0b')"
+          ></button>
+          <button
+            type="button"
+            class="swatch"
+            [class.swatch-active]="accent() === '#2dd4bf'"
+            style="background: #2dd4bf"
+            aria-label="Teal accent"
+            (click)="setAccent('#2dd4bf')"
+          ></button>
+          <button
+            type="button"
+            class="swatch"
+            [class.swatch-active]="accent() === '#e879f9'"
+            style="background: #e879f9"
+            aria-label="Fuchsia accent"
+            (click)="setAccent('#e879f9')"
+          ></button>
+        </div>
+      </div>
+
+      <button mat-stroked-button type="button" (click)="toggleRunning()">
+        <mat-icon>{{ running() ? 'pause' : 'play_arrow' }}</mat-icon>
+        {{ running() ? 'Pause' : 'Resume' }}
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="diagnostics-card">
+    <mat-card-header>
+      <mat-card-title>Diagnostics</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <dl class="diag-grid">
+        <dt>FPS</dt>
+        <dd>{{ fps() }}</dd>
+
+        <dt>Renderer</dt>
+        <dd>{{ gpuRenderer() }}</dd>
+
+        <dt>Max texture size</dt>
+        <dd>{{ maxTextureSize() }}</dd>
+
+        <dt>WebGPU</dt>
+        <dd>{{ webgpuAvailable() ? 'Available' : 'Not exposed' }}</dd>
+      </dl>
+    </mat-card-content>
+  </mat-card>
+</section>

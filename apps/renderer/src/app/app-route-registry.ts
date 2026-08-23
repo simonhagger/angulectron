@@ -153,6 +153,20 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     }),
   },
   {
+    path: 'canvas-lab',
+    label: 'Canvas Lab',
+    icon: 'animation',
+    lab: true,
+    nav: true,
+    toRoute: () => ({
+      path: 'canvas-lab',
+      loadComponent: () =>
+        import('./features/canvas-lab/canvas-lab-page').then(
+          (m) => m.CanvasLabPage,
+        ),
+    }),
+  },
+  {
     path: 'form-validation-lab',
     label: 'Form Validation Lab',
     icon: 'fact_check',
