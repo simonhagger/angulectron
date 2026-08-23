@@ -1,0 +1,87 @@
+.canvas-lab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.intro-card p {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.pane-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.canvas-frame {
+  height: 240px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #080b12;
+}
+
+.lab-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.controls-card .control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.controls-card label,
+.controls-card .control-label {
+  min-width: 110px;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.control-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--mat-sys-primary, #38bdf8);
+}
+
+.swatch-row {
+  display: flex;
+  gap: 8px;
+}
+
+.swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.swatch-active {
+  border-color: #ffffffcc;
+}
+
+.diag-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 0;
+}
+
+.diag-grid dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.diag-grid dd {
+  margin: 0;
+  font-size: 13px;
+  word-break: break-all;
+}
