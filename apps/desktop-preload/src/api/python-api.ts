@@ -8,6 +8,8 @@ import {
   pythonProbeResponseSchema,
   pythonStopRequestSchema,
   pythonStopResponseSchema,
+  pythonWaveformRequestSchema,
+  pythonWaveformResponseSchema,
 } from '@electron-foundation/contracts';
 import { createCorrelationId, invokeIpc } from '../invoke-client';
 
@@ -43,6 +45,23 @@ export const createPythonApi = (): DesktopPythonApi => ({
       correlationId,
       pythonInspectPdfResponseSchema,
       15_000,
+    );
+  },
+
+  async waveform(points: number) {
+    const correlationId = createCorrelationId();
+    const request = pythonWaveformRequestSchema.parse({
+      contractVersion: CONTRACT_VERSION,
+      correlationId,
+      payload: { points },
+    });
+
+    return invokeIpc(
+      IPC_CHANNELS.pythonWaveform,
+      request,
+      correlationId,
+      pythonWaveformResponseSchema,
+      5_000,
     );
   },
 

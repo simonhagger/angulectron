@@ -6,6 +6,7 @@ import {
   pythonInspectPdfRequestSchema,
   pythonProbeRequestSchema,
   pythonStopRequestSchema,
+  pythonWaveformRequestSchema,
 } from '@electron-foundation/contracts';
 import type { MainIpcContext } from './handler-context';
 import { consumeSelectedFileToken } from './consume-selected-file-token';
@@ -124,6 +125,40 @@ export const registerPythonIpcHandlers = (
           'Python sidecar failed to inspect selected PDF.',
           {
             fileName: consumed.data.fileName,
+            message: error instanceof Error ? error.message : String(error),
+          },
+          false,
+          request.correlationId,
+        );
+      }
+    },
+  });
+
+  registerValidatedHandler({
+    ipcMain,
+    channel: IPC_CHANNELS.pythonWaveform,
+    schema: pythonWaveformRequestSchema,
+    context,
+    handler: async (_event, request) => {
+      const sidecar = context.getPythonSidecar();
+      if (!sidecar) {
+        return asFailure(
+          'PYTHON/UNAVAILABLE',
+          'Python sidecar is not configured.',
+          undefined,
+          false,
+          request.correlationId,
+        );
+      }
+
+      try {
+        const waveform = await sidecar.waveform(request.payload.points);
+        return asSuccess(waveform);
+      } catch (error) {
+        return asFailure(
+          'PYTHON/WAVEFORM_FAILED',
+          'Python sidecar failed to generate waveform.',
+          {
             message: error instanceof Error ? error.message : String(error),
           },
           false,

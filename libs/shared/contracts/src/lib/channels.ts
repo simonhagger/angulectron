@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
   pythonProbe: 'python:probe',
   pythonInspectPdf: 'python:inspect-pdf',
   pythonStop: 'python:stop',
+  pythonWaveform: 'python:waveform',
   settingsGetRuntimeConfig: 'settings:get-runtime-config',
   settingsSaveFeatureConfig: 'settings:save-feature-config',
   settingsResetFeatureConfig: 'settings:reset-feature-config',

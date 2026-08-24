@@ -1,4 +1,12 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  ElementRef,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -13,6 +21,11 @@ import { getDesktopApi } from '@electron-foundation/desktop-api';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PythonSidecarLabPage {
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly signalCanvas =
+    viewChild.required<ElementRef<HTMLCanvasElement>>('signalCanvas');
+
   readonly desktopAvailable = signal(!!getDesktopApi());
   readonly status = signal('Idle.');
   readonly running = signal(false);
@@ -31,6 +44,14 @@ export class PythonSidecarLabPage {
   readonly inspectedFileSize = signal('N/A');
   readonly inspectedHeaderHex = signal('N/A');
   readonly inspectedAccepted = signal('N/A');
+  readonly streaming = signal(false);
+  readonly streamStatus = signal('Stream idle.');
+
+  private streamTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => this.stopStreaming());
+  }
 
   async probeSidecar() {
     const desktop = getDesktopApi();
@@ -146,5 +167,112 @@ export class PythonSidecarLabPage {
     this.started.set(false);
     this.pid.set('N/A');
     this.status.set(result.data.message ?? 'Python sidecar stopped.');
+  }
+
+  toggleStreaming() {
+    if (this.streaming()) {
+      this.stopStreaming();
+      return;
+    }
+
+    const ctx = this.signalCanvas().nativeElement.getContext('2d');
+    if (!ctx) {
+      this.streamStatus.set('Canvas unavailable.');
+      return;
+    }
+
+    this.streaming.set(true);
+    this.streamStatus.set('Streaming waveform from Python sidecar…');
+    void this.pollWaveform();
+    this.streamTimer = setInterval(() => void this.pollWaveform(), 150);
+  }
+
+  stopStreaming() {
+    if (this.streamTimer !== null) {
+      clearInterval(this.streamTimer);
+      this.streamTimer = null;
+    }
+    if (this.streaming()) {
+      this.streaming.set(false);
+      this.streamStatus.set('Stream stopped.');
+    }
+  }
+
+  private async pollWaveform() {
+    const desktop = getDesktopApi();
+    if (!desktop) {
+      this.stopStreaming();
+      return;
+    }
+
+    const startedAt = performance.now();
+    const result = await desktop.python.waveform(256);
+    if (!result.ok) {
+      this.streamStatus.set(`Stream error: ${result.error.message}`);
+      this.stopStreaming();
+      return;
+    }
+
+    const latencyMs = Math.round(performance.now() - startedAt);
+    this.drawSignal(result.data.samples, result.data.spectrum);
+    this.streamStatus.set(
+      `${result.data.samples.length} samples · ${result.data.spectrum.length} bins · ${latencyMs} ms round-trip`,
+    );
+  }
+
+  private drawSignal(samples: number[], spectrum: number[]) {
+    const canvas = this.signalCanvas().nativeElement;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+    const height = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+
+    ctx.fillStyle = '#080b12';
+    ctx.fillRect(0, 0, width, height);
+
+    const traceHeight = height * 0.58;
+    const baseline = traceHeight / 2;
+
+    ctx.strokeStyle = '#1d2635';
+    ctx.beginPath();
+    ctx.moveTo(0, baseline);
+    ctx.lineTo(width, baseline);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = Math.max(1.25, 1.5 * dpr);
+    ctx.beginPath();
+    samples.forEach((sample, index) => {
+      const x = (index / (samples.length - 1 || 1)) * width;
+      const y = baseline - sample * baseline * 0.9;
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+    ctx.stroke();
+
+    const spectrumTop = traceHeight + height * 0.06;
+    const spectrumHeight = height - spectrumTop - 4;
+    const binWidth = width / spectrum.length;
+    ctx.fillStyle = '#2dd4bf';
+    spectrum.forEach((magnitude, index) => {
+      const barHeight = Math.min(1, magnitude * 8) * spectrumHeight;
+      ctx.fillRect(
+        index * binWidth + binWidth * 0.15,
+        height - 4 - barHeight,
+        binWidth * 0.7,
+        barHeight,
+      );
+    });
   }
 }

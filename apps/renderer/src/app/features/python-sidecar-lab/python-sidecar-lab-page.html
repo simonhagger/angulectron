@@ -50,6 +50,30 @@
       </p>
       <p class="status">{{ inspectStatus() }}</p>
 
+      <h3>Signal Pipeline (sidecar → IPC → canvas)</h3>
+      <div class="actions">
+        <button
+          mat-flat-button
+          type="button"
+          [color]="streaming() ? 'warn' : 'primary'"
+          [disabled]="!desktopAvailable()"
+          (click)="toggleStreaming()"
+        >
+          <mat-icon aria-hidden="true"
+            >{{ streaming() ? "stop_circle" : "play_circle" }}</mat-icon
+          >
+          {{ streaming() ? "Stop Stream" : "Start Stream" }}
+        </button>
+        <span class="status">{{ streamStatus() }}</span>
+      </div>
+      <div class="signal-frame">
+        <canvas
+          #signalCanvas
+          class="signal-canvas"
+          aria-label="Waveform and spectrum streamed from the Python sidecar"
+        ></canvas>
+      </div>
+
       <div class="meta-grid">
         <p><strong>Running:</strong> {{ running() }}</p>
         <p><strong>Started In Probe:</strong> {{ started() }}</p>

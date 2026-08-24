@@ -10,6 +10,13 @@ export const pythonInspectPdfRequestSchema = requestEnvelope(
     .strict(),
 );
 export const pythonStopRequestSchema = requestEnvelope(emptyPayloadSchema);
+export const pythonWaveformRequestSchema = requestEnvelope(
+  z
+    .object({
+      points: z.number().int().min(64).max(1024),
+    })
+    .strict(),
+);
 
 export const pythonProbeHealthSchema = z.object({
   status: z.string(),
@@ -49,6 +56,19 @@ export const pythonInspectPdfResponseSchema = z.object({
   pymupdfVersion: z.string().optional(),
   message: z.string().optional(),
 });
+
+export const pythonWaveformResponseSchema = z.object({
+  samples: z.array(z.number()),
+  spectrum: z.array(z.number().nonnegative()),
+  sampleRate: z.number().positive(),
+  generatedAt: z.number(),
+  message: z.string().optional(),
+});
+
+export type PythonWaveformRequest = z.infer<typeof pythonWaveformRequestSchema>;
+export type PythonWaveformResponse = z.infer<
+  typeof pythonWaveformResponseSchema
+>;
 
 export type PythonProbeRequest = z.infer<typeof pythonProbeRequestSchema>;
 export type PythonProbeResponse = z.infer<typeof pythonProbeResponseSchema>;
