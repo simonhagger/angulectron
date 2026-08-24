@@ -273,6 +273,42 @@ export interface DesktopAiApi {
       error?: { code: number; message: string; data?: unknown };
     }>
   >;
+  providerConfigGet: () => Promise<
+    DesktopResult<{
+      configured: boolean;
+      baseUrl?: string;
+      model?: string;
+      apiKeyPresent: boolean;
+    }>
+  >;
+  providerConfigSave: (config: {
+    baseUrl: string;
+    model: string;
+    apiKey?: string;
+  }) => Promise<DesktopResult<{ saved: boolean }>>;
+  cliDetect: () => Promise<
+    DesktopResult<{
+      agents: Array<{
+        id: 'claude' | 'codex' | 'opencode';
+        available: boolean;
+        detail?: string;
+      }>;
+    }>
+  >;
+  remoteGenerate: (
+    source: 'openai-compatible' | 'cli',
+    prompt: string,
+    options?: {
+      maxTokens?: number;
+      cliAgent?: 'claude' | 'codex' | 'opencode';
+    },
+  ) => Promise<
+    DesktopResult<{
+      via: string;
+      text: string;
+      elapsedMs: number;
+    }>
+  >;
 }
 
 export interface DesktopApi {

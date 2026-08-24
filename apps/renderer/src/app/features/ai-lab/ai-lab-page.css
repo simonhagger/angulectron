@@ -106,3 +106,25 @@ h3 {
 .tool-chip {
   font-size: 13px;
 }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 14px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.form-grid label {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.text-input {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid rgb(128 128 128 / 40%);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}

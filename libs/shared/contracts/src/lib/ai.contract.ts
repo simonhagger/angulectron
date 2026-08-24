@@ -78,6 +78,81 @@ export const aiMcpInvokeResponseSchema = z.object({
     .optional(),
 });
 
+export const aiProviderConfigGetRequestSchema =
+  requestEnvelope(emptyPayloadSchema);
+
+export const aiProviderConfigGetResponseSchema = z.object({
+  configured: z.boolean(),
+  baseUrl: z.string().optional(),
+  model: z.string().optional(),
+  apiKeyPresent: z.boolean(),
+});
+
+export const aiProviderConfigSaveRequestSchema = requestEnvelope(
+  z
+    .object({
+      baseUrl: z.string().min(1).max(500),
+      model: z.string().min(1).max(200),
+      apiKey: z.string().max(400).optional(),
+    })
+    .strict(),
+);
+
+export const aiProviderConfigSaveResponseSchema = z.object({
+  saved: z.boolean(),
+});
+
+export const aiCliAgentSchema = z.object({
+  id: z.enum(['claude', 'codex', 'opencode']),
+  available: z.boolean(),
+  detail: z.string().optional(),
+});
+
+export const aiCliDetectRequestSchema = requestEnvelope(emptyPayloadSchema);
+
+export const aiCliDetectResponseSchema = z.object({
+  agents: z.array(aiCliAgentSchema),
+});
+
+export const aiRemoteGenerateRequestSchema = requestEnvelope(
+  z
+    .object({
+      source: z.enum(['openai-compatible', 'cli']),
+      prompt: z.string().min(1).max(4000),
+      maxTokens: z.number().int().min(1).max(1024).optional(),
+      cliAgent: z.enum(['claude', 'codex', 'opencode']).optional(),
+    })
+    .strict(),
+);
+
+export const aiRemoteGenerateResponseSchema = z.object({
+  via: z.string(),
+  text: z.string(),
+  elapsedMs: z.number().int().nonnegative(),
+});
+
+export type AiCliAgent = z.infer<typeof aiCliAgentSchema>;
+export type AiProviderConfigGetRequest = z.infer<
+  typeof aiProviderConfigGetRequestSchema
+>;
+export type AiProviderConfigGetResponse = z.infer<
+  typeof aiProviderConfigGetResponseSchema
+>;
+export type AiProviderConfigSaveRequest = z.infer<
+  typeof aiProviderConfigSaveRequestSchema
+>;
+export type AiProviderConfigSaveResponse = z.infer<
+  typeof aiProviderConfigSaveResponseSchema
+>;
+export type AiCliDetectRequest = z.infer<typeof aiCliDetectRequestSchema>;
+export type AiCliDetectResponse = z.infer<typeof aiCliDetectResponseSchema>;
+export type AiRemoteGenerateRequest = z.infer<
+  typeof aiRemoteGenerateRequestSchema
+>;
+export type AiRemoteGenerateResponse = z.infer<
+  typeof aiRemoteGenerateResponseSchema
+>;
+
 export type AiGpu = z.infer<typeof aiGpuSchema>;
 export type AiCapabilitiesRequest = z.infer<typeof aiCapabilitiesRequestSchema>;
 export type AiCapabilitiesResponse = z.infer<
