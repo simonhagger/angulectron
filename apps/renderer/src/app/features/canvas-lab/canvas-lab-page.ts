@@ -4,6 +4,7 @@ import {
   DestroyRef,
   ElementRef,
   afterNextRender,
+  effect,
   inject,
   signal,
   viewChild,
@@ -57,6 +58,11 @@ export class CanvasLabPage {
     viewChild.required<ElementRef<HTMLCanvasElement>>('waveCanvas');
   readonly glCanvas =
     viewChild.required<ElementRef<HTMLCanvasElement>>('glCanvas');
+  readonly offscreenCanvas =
+    viewChild.required<ElementRef<HTMLCanvasElement>>('offscreenCanvas');
+
+  readonly offscreenSupported = signal(false);
+  readonly workerStatus = signal('Probing…');
 
   readonly density = signal(48);
   readonly speed = signal(10);
@@ -85,10 +91,26 @@ export class CanvasLabPage {
   private lastFpsTimestamp = performance.now();
   private resizeObserver: ResizeObserver | null = null;
   private startTime = performance.now();
+  private renderWorker: Worker | null = null;
+  private workerCanvas: OffscreenCanvas | null = null;
 
   constructor() {
     afterNextRender(() => this.initialize());
     this.destroyRef.onDestroy(() => this.teardown());
+
+    effect(() => {
+      const worker = this.renderWorker;
+      if (!worker) {
+        return;
+      }
+      worker.postMessage({
+        type: 'params',
+        density: this.density(),
+        speed: this.speed(),
+        accent: this.accent(),
+        running: this.running(),
+      });
+    });
   }
 
   setDensity(value: number): void {
@@ -116,12 +138,54 @@ export class CanvasLabPage {
   private initialize(): void {
     this.initParticleField();
     this.initWebGl();
+    this.initOffscreenWorker();
     this.observeResize();
     this.scheduleFrame();
 
     this.destroyRef.onDestroy(() => {
       this.resizeObserver?.disconnect();
     });
+  }
+
+  private initOffscreenWorker(): void {
+    const canvas = this.offscreenCanvas().nativeElement;
+    if (typeof canvas.transferControlToOffscreen !== 'function') {
+      this.workerStatus.set('OffscreenCanvas not supported here.');
+      return;
+    }
+    if (typeof Worker === 'undefined') {
+      this.workerStatus.set('Workers unavailable in this environment.');
+      return;
+    }
+
+    try {
+      this.workerCanvas = canvas.transferControlToOffscreen();
+      this.renderWorker = new Worker(
+        new URL('./render.worker.ts', import.meta.url),
+        { type: 'module' },
+      );
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      this.renderWorker.postMessage(
+        {
+          type: 'init',
+          canvas: this.workerCanvas,
+          width: Math.max(1, Math.floor(canvas.clientWidth * dpr)),
+          height: Math.max(1, Math.floor(canvas.clientHeight * dpr)),
+          density: this.density(),
+          speed: this.speed(),
+          accent: this.accent(),
+          running: this.running(),
+        },
+        [this.workerCanvas],
+      );
+      this.offscreenSupported.set(true);
+      this.workerStatus.set('Rendering in Web Worker via OffscreenCanvas.');
+    } catch {
+      this.workerStatus.set('Failed to start worker rendering.');
+      this.renderWorker?.terminate();
+      this.renderWorker = null;
+      this.workerCanvas = null;
+    }
   }
 
   private initParticleField(): void {
@@ -245,9 +309,19 @@ export class CanvasLabPage {
           this.gl.drawingBufferHeight,
         );
       }
+      const offscreenHost = this.offscreenCanvas().nativeElement;
+      if (this.renderWorker && this.workerCanvas) {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.renderWorker.postMessage({
+          type: 'resize',
+          width: Math.max(1, Math.floor(offscreenHost.clientWidth * dpr)),
+          height: Math.max(1, Math.floor(offscreenHost.clientHeight * dpr)),
+        });
+      }
     });
     this.resizeObserver.observe(this.waveCanvas().nativeElement);
     this.resizeObserver.observe(this.glCanvas().nativeElement);
+    this.resizeObserver.observe(this.offscreenCanvas().nativeElement);
   }
 
   private resizeCanvas(canvas: HTMLCanvasElement): void {
@@ -358,6 +432,9 @@ export class CanvasLabPage {
     if (this.gl) {
       this.gl.getExtension('WEBGL_lose_context')?.loseContext();
     }
+    this.renderWorker?.terminate();
+    this.renderWorker = null;
+    this.workerCanvas = null;
     this.gl = null;
     this.glProgram = null;
     this.glUniforms = null;
