@@ -153,6 +153,20 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     }),
   },
   {
+    path: 'scene-lab',
+    label: 'Scene Lab',
+    icon: 'view_in_ar',
+    lab: true,
+    nav: true,
+    toRoute: () => ({
+      path: 'scene-lab',
+      loadComponent: () =>
+        import('./features/scene-lab/scene-lab-page').then(
+          (m) => m.SceneLabPage,
+        ),
+    }),
+  },
+  {
     path: 'canvas-lab',
     label: 'Canvas Lab',
     icon: 'animation',
