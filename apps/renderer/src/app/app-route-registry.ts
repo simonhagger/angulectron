@@ -153,6 +153,18 @@ const routeRegistry: ReadonlyArray<RouteRegistryEntry> = [
     }),
   },
   {
+    path: 'ai-lab',
+    label: 'AI Lab',
+    icon: 'psychology',
+    lab: true,
+    nav: true,
+    toRoute: () => ({
+      path: 'ai-lab',
+      loadComponent: () =>
+        import('./features/ai-lab/ai-lab-page').then((m) => m.AiLabPage),
+    }),
+  },
+  {
     path: 'scene-lab',
     label: 'Scene Lab',
     icon: 'view_in_ar',

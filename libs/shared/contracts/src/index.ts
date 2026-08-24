@@ -13,3 +13,4 @@ export * from './lib/settings.contract';
 export * from './lib/storage.contract';
 export * from './lib/telemetry.contract';
 export * from './lib/updates.contract';
+export * from './lib/ai.contract';

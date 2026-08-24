@@ -49,6 +49,47 @@ type PythonWaveformResult = {
   message?: string;
 };
 
+export type AiCapabilitiesResult = {
+  pythonVersion: string;
+  platform: string;
+  cpuCount: number;
+  totalMemoryBytes: number | null;
+  nvidiaDriverPresent: boolean;
+  gpus: Array<{
+    name: string;
+    vramMb: number | null;
+    driverVersion: string | null;
+  }>;
+  gpuProbeError?: string | null;
+  backends: {
+    llamaCpp: boolean;
+    torch: boolean;
+    onnxRuntime: boolean;
+    transformers: boolean;
+  };
+  modelsDir: string;
+  models: Array<{ fileName: string; sizeBytes: number }>;
+  canRunLocalLlm: boolean;
+  recommendedBackend: 'none' | 'llama-cpp';
+  notes: string[];
+};
+
+export type AiGenerateResult = {
+  available: boolean;
+  model?: string;
+  text?: string;
+  elapsedMs?: number;
+  reason?: string;
+  guidance?: string[];
+};
+
+export type AiMcpInvokeResult = {
+  jsonrpc: '2.0';
+  id: number | string | null;
+  result?: unknown;
+  error?: { code: number; message: string; data?: unknown };
+};
+
 type CommandCandidate = {
   command: string;
   args: string[];
@@ -228,6 +269,66 @@ export class PythonSidecar {
     }
 
     return (await response.json()) as PythonWaveformResult;
+  }
+
+  async aiCapabilities(): Promise<AiCapabilitiesResult> {
+    const response = await fetch(
+      `${this.endpoint.replace('/health', '/ai/capabilities')}`,
+      { signal: AbortSignal.timeout(5_000) },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `AI capabilities endpoint returned ${response.status} ${response.statusText}`,
+      );
+    }
+    return (await response.json()) as AiCapabilitiesResult;
+  }
+
+  async aiGenerate(
+    prompt: string,
+    maxTokens: number,
+  ): Promise<AiGenerateResult> {
+    const response = await fetch(
+      `${this.endpoint.replace('/health', '/ai/generate')}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt, maxTokens }),
+        signal: AbortSignal.timeout(120_000),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `AI generate endpoint returned ${response.status} ${response.statusText}`,
+      );
+    }
+    return (await response.json()) as AiGenerateResult;
+  }
+
+  async aiMcpInvoke(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<AiMcpInvokeResult> {
+    const response = await fetch(
+      `${this.endpoint.replace('/health', '/mcp')}`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method,
+          ...(params ? { params } : {}),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `MCP endpoint returned ${response.status} ${response.statusText}`,
+      );
+    }
+    return (await response.json()) as AiMcpInvokeResult;
   }
 
   dispose() {
