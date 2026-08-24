@@ -57,6 +57,30 @@ export const pythonInspectPdfResponseSchema = z.object({
   message: z.string().optional(),
 });
 
+export const pythonExtractTextRequestSchema = requestEnvelope(
+  z.object({ fileToken: z.string().min(1) }).strict(),
+);
+export const pythonExtractTextResponseSchema = z.object({
+  accepted: z.boolean(),
+  fileName: z.string(),
+  fileSizeBytes: z.number().int().nonnegative(),
+  pageCount: z.number().int().nonnegative(),
+  textByPage: z.array(
+    z.object({
+      page: z.number().int().nonnegative(),
+      text: z.string(),
+    }),
+  ),
+  message: z.string().optional(),
+});
+
+export type PythonExtractTextRequest = z.infer<
+  typeof pythonExtractTextRequestSchema
+>;
+export type PythonExtractTextResponse = z.infer<
+  typeof pythonExtractTextResponseSchema
+>;
+
 export const pythonWaveformResponseSchema = z.object({
   samples: z.array(z.number()),
   spectrum: z.array(z.number().nonnegative()),

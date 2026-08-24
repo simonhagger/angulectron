@@ -4,6 +4,8 @@ import {
   IPC_CHANNELS,
   pythonInspectPdfRequestSchema,
   pythonInspectPdfResponseSchema,
+  pythonExtractTextRequestSchema,
+  pythonExtractTextResponseSchema,
   pythonProbeRequestSchema,
   pythonProbeResponseSchema,
   pythonStopRequestSchema,
@@ -45,6 +47,23 @@ export const createPythonApi = (): DesktopPythonApi => ({
       correlationId,
       pythonInspectPdfResponseSchema,
       15_000,
+    );
+  },
+
+  async extractText(fileToken: string) {
+    const correlationId = createCorrelationId();
+    const request = pythonExtractTextRequestSchema.parse({
+      contractVersion: CONTRACT_VERSION,
+      correlationId,
+      payload: { fileToken },
+    });
+
+    return invokeIpc(
+      IPC_CHANNELS.pythonExtractText,
+      request,
+      correlationId,
+      pythonExtractTextResponseSchema,
+      30_000,
     );
   },
 

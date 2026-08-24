@@ -122,6 +122,16 @@ export interface DesktopPythonApi {
       message?: string;
     }>
   >;
+  extractText: (fileToken: string) => Promise<
+    DesktopResult<{
+      accepted: boolean;
+      fileName: string;
+      fileSizeBytes: number;
+      pageCount: number;
+      textByPage: Array<{ page: number; text: string }>;
+      message?: string;
+    }>
+  >;
   waveform: (points: number) => Promise<
     DesktopResult<{
       samples: number[];
