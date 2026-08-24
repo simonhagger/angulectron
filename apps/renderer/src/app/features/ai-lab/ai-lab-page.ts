@@ -66,8 +66,116 @@ export class AiLabPage {
     'Local generation output will appear here.',
   );
 
+  readonly providerConfigured = signal(false);
+  readonly providerApiKeyPresent = signal(false);
+  readonly providerBaseUrl = signal('https://openrouter.ai/api/v1');
+  readonly providerModel = signal('');
+  readonly providerKeyInput = signal('');
+  readonly providerStatus = signal('Provider config not loaded yet.');
+
+  readonly cliAgents = signal<
+    Array<{
+      id: 'claude' | 'codex' | 'opencode';
+      available: boolean;
+      detail?: string;
+    }>
+  >([]);
+  readonly selectedAgent = signal<'claude' | 'codex' | 'opencode'>('claude');
+  readonly remoteRunning = signal(false);
+
   constructor() {
     this.destroyRef.onDestroy(() => this.generating.set(false));
+  }
+
+  async loadProviderState() {
+    const desktop = getDesktopApi();
+    if (!desktop) {
+      return;
+    }
+
+    const config = await desktop.ai.providerConfigGet();
+    if (config.ok) {
+      this.providerConfigured.set(config.data.configured);
+      this.providerApiKeyPresent.set(config.data.apiKeyPresent);
+      if (config.data.baseUrl) {
+        this.providerBaseUrl.set(config.data.baseUrl);
+      }
+      if (config.data.model) {
+        this.providerModel.set(config.data.model);
+      }
+      this.providerStatus.set(
+        config.data.configured
+          ? `Configured for ${config.data.baseUrl}${
+              config.data.apiKeyPresent ? ' (key stored)' : ' (no key)'
+            }`
+          : 'No provider configured — fill the form and save.',
+      );
+    }
+
+    const agents = await desktop.ai.cliDetect();
+    if (agents.ok) {
+      this.cliAgents.set(agents.data.agents);
+      const firstAvailable = agents.data.agents.find((a) => a.available);
+      if (firstAvailable) {
+        this.selectedAgent.set(firstAvailable.id as 'claude');
+      }
+    }
+  }
+
+  async saveProviderConfig() {
+    const desktop = getDesktopApi();
+    if (!desktop) {
+      return;
+    }
+
+    const result = await desktop.ai.providerConfigSave({
+      baseUrl: this.providerBaseUrl().trim(),
+      model: this.providerModel().trim(),
+      ...(this.providerKeyInput().trim()
+        ? { apiKey: this.providerKeyInput().trim() }
+        : {}),
+    });
+
+    if (result.ok) {
+      this.providerKeyInput.set('');
+      await this.loadProviderState();
+    } else {
+      this.providerStatus.set(`Save failed: ${result.error.message}`);
+    }
+  }
+
+  async runRemote(source: 'openai-compatible' | 'cli') {
+    const desktop = getDesktopApi();
+    if (!desktop || this.remoteRunning()) {
+      return;
+    }
+    const text = this.prompt().trim();
+    if (!text) {
+      this.generationOutput.set('Enter a prompt first.');
+      return;
+    }
+
+    this.remoteRunning.set(true);
+    this.generationOutput.set(
+      source === 'cli'
+        ? `Running ${this.selectedAgent()}…`
+        : 'Calling provider…',
+    );
+
+    const result = await desktop.ai.remoteGenerate(source, text, {
+      maxTokens: 512,
+      ...(source === 'cli' ? { cliAgent: this.selectedAgent() } : {}),
+    });
+    this.remoteRunning.set(false);
+
+    if (!result.ok) {
+      this.generationOutput.set(`Error: ${result.error.message}`);
+      return;
+    }
+
+    this.generationOutput.set(
+      `[${result.data.via} · ${result.data.elapsedMs} ms]\n${result.data.text}`,
+    );
   }
 
   async probeCapabilities() {
@@ -90,6 +198,7 @@ export class AiLabPage {
         ? 'Local LLM ready.'
         : 'Local LLM not configured — see setup notes below.',
     );
+    await this.loadProviderState();
   }
 
   async connectMcp() {

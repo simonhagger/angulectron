@@ -159,5 +159,98 @@
       }
     </mat-card-content>
   </mat-card>
+
+  <mat-card class="section-card">
+    <mat-card-header>
+      <mat-card-title>Bring-Your-Own Inference</mat-card-title>
+      <mat-card-subtitle>{{ providerStatus() }}</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <h3>OpenAI-compatible endpoint</h3>
+      <p class="muted">
+        Works with OpenRouter, OpenAI, LM Studio, or any compatible gateway. The
+        key is stored encrypted on this machine and is never exposed to the
+        renderer.
+      </p>
+      <div class="form-grid">
+        <label for="baseUrl">Base URL</label>
+        <input
+          id="baseUrl"
+          class="text-input"
+          placeholder="https://openrouter.ai/api/v1"
+          [value]="providerBaseUrl()"
+          (input)="providerBaseUrl.set($any($event.target).value)"
+        />
+
+        <label for="model">Model</label>
+        <input
+          id="model"
+          class="text-input"
+          placeholder="e.g. openai/gpt-4o-mini"
+          [value]="providerModel()"
+          (input)="providerModel.set($any($event.target).value)"
+        />
+
+        <label for="apiKey">API key</label>
+        <input
+          id="apiKey"
+          class="text-input"
+          type="password"
+          [placeholder]="
+            providerApiKeyPresent() ? 'Stored — leave blank to keep' : 'Paste key'
+          "
+          [value]="providerKeyInput()"
+          (input)="providerKeyInput.set($any($event.target).value)"
+        />
+      </div>
+      <div class="actions">
+        <button mat-stroked-button type="button" (click)="saveProviderConfig()">
+          <mat-icon aria-hidden="true">save</mat-icon>
+          Save Provider
+        </button>
+        <button
+          mat-flat-button
+          type="button"
+          color="primary"
+          [disabled]="remoteRunning()"
+          (click)="runRemote('openai-compatible')"
+        >
+          Run prompt via provider
+        </button>
+      </div>
+
+      <h3>CLI agents (own OIDC login)</h3>
+      <div class="backend-grid">
+        @for (agent of cliAgents(); track agent.id) {
+        <button
+          mat-stroked-button
+          type="button"
+          class="tool-chip"
+          [class.badge-on]="selectedAgent() === agent.id"
+          [disabled]="!agent.available"
+          [title]="agent.detail ?? 'Not found on PATH'"
+          (click)="selectedAgent.set(agent.id)"
+        >
+          {{ agent.id }}{{ agent.available ? "" : " (absent)" }}
+        </button>
+        } @if (cliAgents().length === 0) {
+        <span class="muted">Run Probe Capabilities to detect CLI agents.</span>
+        }
+      </div>
+      <div class="actions">
+        <button
+          mat-flat-button
+          type="button"
+          color="primary"
+          [disabled]="remoteRunning()"
+          (click)="runRemote('cli')"
+        >
+          Run prompt via {{ selectedAgent() }}
+        </button>
+      </div>
+
+      <pre class="output-box">{{ generationOutput() }}</pre>
+    </mat-card-content>
+  </mat-card>
   }
 </section>
