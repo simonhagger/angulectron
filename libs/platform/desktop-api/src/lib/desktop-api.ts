@@ -222,6 +222,59 @@ export interface DesktopSettingsApi {
   >;
 }
 
+export interface DesktopAiApi {
+  capabilities: () => Promise<
+    DesktopResult<{
+      pythonVersion: string;
+      platform: string;
+      cpuCount: number;
+      totalMemoryBytes: number | null;
+      nvidiaDriverPresent: boolean;
+      gpus: Array<{
+        name: string;
+        vramMb: number | null;
+        driverVersion: string | null;
+      }>;
+      gpuProbeError?: string | null;
+      backends: {
+        llamaCpp: boolean;
+        torch: boolean;
+        onnxRuntime: boolean;
+        transformers: boolean;
+      };
+      modelsDir: string;
+      models: Array<{ fileName: string; sizeBytes: number }>;
+      canRunLocalLlm: boolean;
+      recommendedBackend: 'none' | 'llama-cpp';
+      notes: string[];
+    }>
+  >;
+  generate: (
+    prompt: string,
+    maxTokens?: number,
+  ) => Promise<
+    DesktopResult<{
+      available: boolean;
+      model?: string;
+      text?: string;
+      elapsedMs?: number;
+      reason?: string;
+      guidance?: string[];
+    }>
+  >;
+  mcpInvoke: (
+    method: string,
+    params?: Record<string, unknown>,
+  ) => Promise<
+    DesktopResult<{
+      jsonrpc: '2.0';
+      id: number | string | null;
+      result?: unknown;
+      error?: { code: number; message: string; data?: unknown };
+    }>
+  >;
+}
+
 export interface DesktopApi {
   app: DesktopAppApi;
   auth: DesktopAuthApi;
@@ -231,6 +284,7 @@ export interface DesktopApi {
   api: DesktopExternalApi;
   updates: DesktopUpdatesApi;
   python: DesktopPythonApi;
+  ai: DesktopAiApi;
   telemetry: DesktopTelemetryApi;
   settings: DesktopSettingsApi;
 }

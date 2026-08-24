@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import threading
 from http.client import HTTPConnection
@@ -154,6 +156,409 @@ def test_waveform_endpoint_defaults_points_when_invalid():
     assert service._parse_points_from_path("/waveform?points=abc") == 256
 
 
+def test_ai_capabilities_returns_structured_report():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1], "GET", "/ai/capabilities"
+        )
+        assert status == 200
+        assert isinstance(payload, dict)
+        assert isinstance(payload["nvidiaDriverPresent"], bool)
+        assert set(payload["backends"].keys()) == {
+            "llamaCpp",
+            "torch",
+            "onnxRuntime",
+            "transformers",
+        }
+        assert all(isinstance(v, bool) for v in payload["backends"].values())
+        assert isinstance(payload["models"], list)
+        assert isinstance(payload["canRunLocalLlm"], bool)
+        assert payload["recommendedBackend"] in ("none", "llama-cpp")
+        assert isinstance(payload["notes"], list)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_ai_generate_without_setup_reports_unavailable():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1],
+            "POST",
+            "/ai/generate",
+            {"prompt": "hello", "maxTokens": 16},
+        )
+        assert status == 200
+        assert isinstance(payload, dict)
+        assert isinstance(payload["available"], bool)
+        if not payload["available"]:
+            assert isinstance(payload["reason"], str)
+            assert isinstance(payload["guidance"], list)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_mcp_initialize_tools_list_and_call():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        status, init = _request(
+            port,
+            "POST",
+            "/mcp",
+            {"jsonrpc": "2.0", "id": 1, "method": "initialize"},
+        )
+        assert status == 200
+        assert init["result"]["serverInfo"]["name"] == "angulectron-sidecar"
+
+        status, tools = _request(
+            port, "POST", "/mcp", {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+        )
+        names = {tool["name"] for tool in tools["result"]["tools"]}
+        assert {"echo", "system_info", "time_now"} <= names
+
+        status, call = _request(
+            port,
+            "POST",
+            "/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "echo", "arguments": {"text": "ping"}},
+            },
+        )
+        assert call["result"]["content"][0]["text"] == "ping"
+
+        status, missing = _request(
+            port, "POST", "/mcp", {"jsonrpc": "2.0", "id": 4, "method": "bogus"}
+        )
+        assert missing["error"]["code"] == -32601
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_mcp_unknown_tool_and_bad_args_return_errors():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        status, unknown_tool = _request(
+            port,
+            "POST",
+            "/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "tools/call",
+                "params": {"name": "nope", "arguments": {}},
+            },
+        )
+        assert unknown_tool["error"]["code"] == -32602
+
+        status, bad_args = _request(
+            port,
+            "POST",
+            "/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "tools/call",
+                "params": {"name": "echo", "arguments": {}},
+            },
+        )
+        assert bad_args["error"]["code"] == -32602
+
+        status, now = _request(
+            port,
+            "POST",
+            "/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "tools/call",
+                "params": {"name": "time_now", "arguments": {}},
+            },
+        )
+        text = now["result"]["content"][0]["text"]
+        assert "T" in text and text.endswith("Z")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_generate_happy_path_with_stubbed_llama_cpp(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    models_dir = tmp_path / "models"
+    models_dir.mkdir()
+    (models_dir / "tiny.gguf").write_bytes(b"GGUF-fake")
+
+    instantiations = {"count": 0}
+
+    class _StubLlama:
+        def __init__(self, **_kwargs):
+            instantiations["count"] += 1
+
+        def __call__(self, prompt, max_tokens=None, echo=False):
+            return {"choices": [{"text": f"echo:{prompt}:{max_tokens}"}]}
+
+    stub_dir = tmp_path / "stubpkg"
+    stub_dir.mkdir()
+    # Real stub injected directly into sys.modules instead of on-disk trickery.
+    import types
+
+    stub_module = types.ModuleType("llama_cpp")
+    stub_module.Llama = _StubLlama
+    monkeypatch.setitem(sys.modules, "llama_cpp", stub_module)
+    monkeypatch.setattr(service, "_module_available", lambda name: True)
+    monkeypatch.setattr(service, "AI_MODELS_DIR", str(models_dir))
+    monkeypatch.setattr(service, "_LLM_CACHE", {})
+    monkeypatch.setattr(service, "nvidia_detected", lambda: True)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        status, first = _request(
+            port,
+            "POST",
+            "/ai/generate",
+            {"prompt": "hi", "maxTokens": 8},
+        )
+        assert status == 200
+        assert first["available"] is True
+        assert first["model"] == "tiny.gguf"
+        assert first["text"] == "echo:hi:8"
+
+        status, second = _request(
+            port,
+            "POST",
+            "/ai/generate",
+            {"prompt": "again", "maxTokens": 4},
+        )
+        assert second["available"] is True
+        # Cached instance must be reused across requests.
+        assert instantiations["count"] == 1
+
+        status, explicit = _request(
+            port,
+            "POST",
+            "/ai/generate",
+            {"prompt": "select", "model": "tiny.gguf"},
+        )
+        assert explicit["available"] is True
+
+        status, missing_model = _request(
+            port,
+            "POST",
+            "/ai/generate",
+            {"prompt": "x", "model": "does-not-exist.gguf"},
+        )
+        assert missing_model["available"] is False
+        assert "No .gguf model found" in missing_model["reason"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_generate_reports_failure_when_model_load_raises(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    models_dir = tmp_path / "models"
+    models_dir.mkdir()
+    (models_dir / "broken.gguf").write_bytes(b"GGUF-fake")
+
+    import types
+
+    class _BrokenLlama:
+        def __init__(self, **_kwargs):
+            raise OSError("model file corrupt")
+
+    stub_module = types.ModuleType("llama_cpp")
+    stub_module.Llama = _BrokenLlama
+    monkeypatch.setitem(sys.modules, "llama_cpp", stub_module)
+    monkeypatch.setattr(service, "_module_available", lambda name: True)
+    monkeypatch.setattr(service, "AI_MODELS_DIR", str(models_dir))
+    monkeypatch.setattr(service, "_LLM_CACHE", {})
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1],
+            "POST",
+            "/ai/generate",
+            {"prompt": "hello"},
+        )
+        assert status == 200
+        assert payload["available"] is False
+        assert payload["reason"].startswith("Generation failed:")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_list_local_models_scans_configured_dir(tmp_path):
+    service = _load_service_module()
+    models_dir = tmp_path / "m"
+    models_dir.mkdir()
+    (models_dir / "a.gguf").write_bytes(b"x" * 10)
+    (models_dir / "b.txt").write_text("ignored")
+
+    original = service.AI_MODELS_DIR
+    service.AI_MODELS_DIR = str(models_dir)
+    try:
+        models = service._list_local_models()
+    finally:
+        service.AI_MODELS_DIR = original
+
+    assert len(models) == 1
+    assert models[0]["fileName"] == "a.gguf"
+    assert models[0]["sizeBytes"] == 10
+
+
+def test_detect_gpus_handles_errors_and_malformed_rows(monkeypatch):
+    service = _load_service_module()
+
+    class _Boom:
+        TimeoutExpired = subprocess.TimeoutExpired
+        SubprocessError = subprocess.SubprocessError
+
+        def run(self, *args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd="nvidia-smi", timeout=3)
+
+    monkeypatch.setattr(service, "subprocess", _Boom())
+    present, gpus, error = service._detect_gpus()
+    assert present is False
+    assert gpus == []
+    assert error is not None
+
+    class _Row:
+        def __init__(self, stdout):
+            self.stdout = stdout.encode("utf-8")
+
+    def _fake_run(*_args, **_kwargs):
+        return _Row("GPU Only Row\nWeird GPU, not-a-number, 999\n")
+
+    monkeypatch.setattr(service.subprocess, "run", _fake_run)
+    present, gpus, error = service._detect_gpus()
+    assert present is True
+    assert len(gpus) == 1
+    assert gpus[0]["name"] == "Weird GPU"
+    assert gpus[0]["vramMb"] is None
+    assert error is None
+
+
+def test_module_available_false_for_missing_and_invalid_names():
+    service = _load_service_module()
+    assert service._module_available("angulectron_definitely_missing_pkg") is False
+    assert service._module_available("") is False
+
+
+def test_capabilities_notes_cover_unconfigured_environment(monkeypatch, tmp_path):
+    service = _load_service_module()
+    empty_dir = tmp_path / "no-models"
+    empty_dir.mkdir()
+    monkeypatch.setattr(service, "_module_available", lambda name: False)
+    monkeypatch.setattr(service, "AI_MODELS_DIR", str(empty_dir))
+
+    payload = service._build_ai_capabilities_payload()
+
+    assert payload["canRunLocalLlm"] is False
+    assert payload["recommendedBackend"] == "none"
+    assert any("llama-cpp-python" in note for note in payload["notes"])
+    assert any(".gguf model file" in note for note in payload["notes"])
+
+
+def test_generate_validation_errors_return_400():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        status, missing_prompt = _request(port, "POST", "/ai/generate", {})
+        assert status == 400
+        assert "prompt is required" in missing_prompt["message"]
+
+        status, bad_tokens = _request(
+            port,
+            "POST",
+            "/ai/generate",
+            {"prompt": "hi", "maxTokens": 100000},
+        )
+        assert status == 400
+        assert "maxTokens" in bad_tokens["message"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_mcp_initialized_notification_and_system_info_tool():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    port = server.server_address[1]
+    try:
+        status, initialized = _request(
+            port,
+            "POST",
+            "/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "method": "notifications/initialized",
+            },
+        )
+        assert status == 200
+        assert initialized == {}
+
+        status, info = _request(
+            port,
+            "POST",
+            "/mcp",
+            {
+                "jsonrpc": "2.0",
+                "id": 9,
+                "method": "tools/call",
+                "params": {"name": "system_info", "arguments": {}},
+            },
+        )
+        text = json.loads(info["result"]["content"][0]["text"])
+        assert "pythonVersion" in text
+        assert "cpuCount" in text
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
 def test_unknown_paths_return_404():
     service = _load_service_module()
     server = TCPServer(("127.0.0.1", 0), service._Handler)
@@ -204,7 +609,7 @@ def test_main_initializes_server_and_closes_on_shutdown(monkeypatch):
             return _Args()
 
     monkeypatch.setattr(service.argparse, "ArgumentParser", lambda: _FakeParser())
-    monkeypatch.setattr(service, "HTTPServer", _fake_http_server)
+    monkeypatch.setattr(service, "ThreadingHTTPServer", _fake_http_server)
 
     try:
         service.main()

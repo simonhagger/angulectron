@@ -1,0 +1,108 @@
+.ai-lab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-inline {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.diag-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 0;
+}
+
+.diag-grid dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.diag-grid dd {
+  margin: 0;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.gpu-list,
+.notes-list {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.notes-list li {
+  margin-bottom: 4px;
+}
+
+.backend-grid {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgb(128 128 128 / 35%);
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.badge-on {
+  border-color: #2dd4bf88;
+  color: #2dd4bf;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+  word-break: break-all;
+}
+
+h3 {
+  margin: 14px 0 6px;
+}
+
+.prompt-box {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgb(128 128 128 / 40%);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.output-box {
+  margin: 10px 0 0;
+  padding: 12px;
+  min-height: 72px;
+  overflow: auto;
+  white-space: pre-wrap;
+  background: #080b12;
+  color: #cfe3f5;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.tool-chip {
+  font-size: 13px;
+}

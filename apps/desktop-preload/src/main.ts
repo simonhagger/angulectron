@@ -9,6 +9,7 @@ import { createStorageApi } from './api/storage-api';
 import { createTelemetryApi } from './api/telemetry-api';
 import { createUpdatesApi } from './api/updates-api';
 import { createPythonApi } from './api/python-api';
+import { createAiApi } from './api/ai-api';
 import { createSettingsApi } from './api/settings-api';
 
 const desktopApi: DesktopApi = {
@@ -20,6 +21,7 @@ const desktopApi: DesktopApi = {
   api: createExternalApi(),
   updates: createUpdatesApi(),
   python: createPythonApi(),
+  ai: createAiApi(),
   telemetry: createTelemetryApi(),
   settings: createSettingsApi(),
 };

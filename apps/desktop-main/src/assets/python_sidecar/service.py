@@ -1,12 +1,315 @@
 #!/usr/bin/env python3
 import argparse
+import importlib.util
 import json
 import math
 import os
 import platform
+import subprocess
 import sys
 import time
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+AI_MODELS_DIR = os.environ.get(
+    "AI_MODELS_DIR",
+    os.path.join(os.path.expanduser("~"), ".angulectron", "ai-models"),
+)
+
+_MCP_SERVER_INFO = {
+    "name": "angulectron-sidecar",
+    "version": "1.0.0",
+}
+
+_LLM_CACHE = {}
+
+
+def _detect_gpus():
+    try:
+        raw = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total,driver_version",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            timeout=3,
+            check=True,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        return False, [], str(error)
+
+    gpus = []
+    for line in raw.stdout.decode("utf-8", "replace").strip().splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) < 3:
+            continue
+        try:
+            vram_mb = int(parts[1])
+        except ValueError:
+            vram_mb = None
+        gpus.append(
+            {
+                "name": parts[0],
+                "vramMb": vram_mb,
+                "driverVersion": parts[2],
+            }
+        )
+    return len(gpus) > 0, gpus, None
+
+
+def _total_memory_bytes():
+    if sys.platform == "win32":
+        import ctypes
+
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = [
+                ("dwLength", ctypes.c_ulong),
+                ("dwMemoryLoad", ctypes.c_ulong),
+                ("ullTotalPhys", ctypes.c_ulonglong),
+                ("ullAvailPhys", ctypes.c_ulonglong),
+                ("ullTotalPageFile", ctypes.c_ulonglong),
+                ("ullAvailPageFile", ctypes.c_ulonglong),
+                ("ullTotalVirtual", ctypes.c_ulonglong),
+                ("ullAvailVirtual", ctypes.c_ulonglong),
+                ("ullAvailExtendedVirtual", ctypes.c_ulonglong),
+            ]
+
+        stat = MEMORYSTATUSEX()
+        stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        try:
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+            return int(stat.ullTotalPhys)
+        except Exception:  # pragma: no cover - diagnostics only
+            return None
+    try:  # pragma: no cover - posix only
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (ValueError, OSError, AttributeError):
+        return None
+
+
+def _module_available(name):
+    try:
+        return importlib.util.find_spec(name) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _list_local_models():
+    models = []
+    try:
+        for entry in sorted(os.listdir(AI_MODELS_DIR)):
+            if entry.lower().endswith(".gguf"):
+                path = os.path.join(AI_MODELS_DIR, entry)
+                try:
+                    size = os.path.getsize(path)
+                except OSError:
+                    size = 0
+                models.append({"fileName": entry, "sizeBytes": size})
+    except OSError:
+        pass
+    return models[:10]
+
+
+def _build_ai_capabilities_payload():
+    nvidia_present, gpus, gpu_error = _detect_gpus()
+    backends = {
+        "llamaCpp": _module_available("llama_cpp"),
+        "torch": _module_available("torch"),
+        "onnxRuntime": _module_available("onnxruntime"),
+        "transformers": _module_available("transformers"),
+    }
+    models = _list_local_models()
+    can_run = backends["llamaCpp"] and len(models) > 0
+
+    notes = []
+    if not nvidia_present:
+        notes.append(
+            "No NVIDIA driver detected via nvidia-smi; local inference would be CPU-only."
+        )
+    else:
+        notes.append("NVIDIA driver detected; CUDA-capable inference builds can use GPU layers.")
+    if not backends["llamaCpp"]:
+        notes.append("Install llama-cpp-python to enable local GGUF inference.")
+    if not models:
+        notes.append(
+            "Place a .gguf model file in %s to enable generation." % AI_MODELS_DIR
+        )
+
+    return {
+        "pythonVersion": platform.python_version(),
+        "platform": platform.platform(),
+        "cpuCount": os.cpu_count() or 0,
+        "totalMemoryBytes": _total_memory_bytes(),
+        "nvidiaDriverPresent": nvidia_present,
+        "gpus": gpus,
+        "gpuProbeError": gpu_error,
+        "backends": backends,
+        "modelsDir": AI_MODELS_DIR,
+        "models": models,
+        "canRunLocalLlm": can_run,
+        "recommendedBackend": "llama-cpp" if can_run else "none",
+        "notes": notes,
+    }
+
+
+def _run_generation(payload):
+    prompt = payload.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("prompt is required")
+
+    max_tokens = payload.get("maxTokens", 128)
+    if not isinstance(max_tokens, int) or max_tokens < 1 or max_tokens > 256:
+        raise ValueError("maxTokens must be an integer between 1 and 256")
+
+    if not _module_available("llama_cpp"):
+        return {
+            "available": False,
+            "reason": "llama-cpp-python is not installed in the sidecar environment.",
+            "guidance": [
+                "Install with: pip install llama-cpp-python",
+                "For NVIDIA GPUs use a CUDA build, e.g.: "
+                "CMAKE_ARGS=\"-DGGML_CUDA=on\" pip install llama-cpp-python",
+            ],
+        }
+
+    models = _list_local_models()
+    requested_model = payload.get("model")
+    model_entry = None
+    if isinstance(requested_model, str):
+        for candidate in models:
+            if candidate["fileName"] == requested_model:
+                model_entry = candidate
+                break
+    elif models:
+        model_entry = models[0]
+
+    if model_entry is None:
+        return {
+            "available": False,
+            "reason": "No .gguf model found.",
+            "guidance": [
+                "Place a .gguf model into %s and retry." % AI_MODELS_DIR
+            ],
+        }
+
+    started = time.time()
+    try:
+        from llama_cpp import Llama  # type: ignore
+
+        cache_key = model_entry["fileName"]
+        llm = _LLM_CACHE.get(cache_key)
+        if llm is None:
+            llm = Llama(
+                model_path=os.path.join(AI_MODELS_DIR, model_entry["fileName"]),
+                n_ctx=2048,
+                n_gpu_layers=-1 if nvidia_detected() else 0,
+                verbose=False,
+            )
+            _LLM_CACHE[cache_key] = llm
+
+        output = llm(prompt, max_tokens=max_tokens, echo=False)
+        text = output.get("choices", [{}])[0].get("text", "")
+        return {
+            "available": True,
+            "model": model_entry["fileName"],
+            "text": text,
+            "elapsedMs": int((time.time() - started) * 1000),
+        }
+    except Exception as error:
+        return {
+            "available": False,
+            "reason": "Generation failed: %s" % error,
+            "guidance": [],
+        }
+
+
+def nvidia_detected():
+    present, _, _ = _detect_gpus()
+    return present
+
+
+_MCP_TOOLS = [
+    {
+        "name": "echo",
+        "description": "Echoes the provided text back to the caller.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"text": {"type": "string"}},
+            "required": ["text"],
+        },
+    },
+    {
+        "name": "system_info",
+        "description": "Returns basic host system information from the Python sidecar.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "time_now",
+        "description": "Returns the current UTC time in ISO-8601 format.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+]
+
+
+def _mcp_call_tool(name, arguments):
+    if name == "echo":
+        text = arguments.get("text") if isinstance(arguments, dict) else None
+        if not isinstance(text, str):
+            raise ValueError("text must be a string")
+        return text
+    if name == "system_info":
+        return json.dumps(
+            {
+                "pythonVersion": platform.python_version(),
+                "platform": platform.platform(),
+                "cpuCount": os.cpu_count() or 0,
+            }
+        )
+    if name == "time_now":
+        return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    raise KeyError(name)
+
+
+def _handle_mcp_request(payload):
+    method = payload.get("method")
+    request_id = payload.get("id")
+
+    def result(value):
+        return {"jsonrpc": "2.0", "id": request_id, "result": value}
+
+    def error(code, message):
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {"code": code, "message": message},
+        }
+
+    if method == "initialize":
+        return result(
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {"tools": {}},
+                "serverInfo": _MCP_SERVER_INFO,
+            }
+        )
+    if method == "notifications/initialized":
+        return {}
+    if method == "tools/list":
+        return result({"tools": _MCP_TOOLS})
+    if method == "tools/call":
+        params = payload.get("params") or {}
+        tool_name = params.get("name")
+        arguments = params.get("arguments") or {}
+        try:
+            text = _mcp_call_tool(tool_name, arguments)
+        except KeyError:
+            return error(-32602, "Unknown tool: %s" % tool_name)
+        except ValueError as value_error:
+            return error(-32602, str(value_error))
+        return result(
+            {"content": [{"type": "text", "text": text}], "isError": False}
+        )
+    return error(-32601, "Method not found: %s" % method)
 
 
 def _build_health_payload():
@@ -18,10 +321,12 @@ def _build_health_payload():
         "pymupdfAvailable": False,
     }
     try:
-        import fitz  # type: ignore
+        import fitz  # type: ignore  # pragma: no cover - optional dependency
 
-        payload["pymupdfAvailable"] = True
-        payload["pymupdfVersion"] = getattr(fitz, "VersionBind", None)
+        payload["pymupdfAvailable"] = True  # pragma: no cover - optional
+        payload["pymupdfVersion"] = getattr(  # pragma: no cover - optional
+            fitz, "VersionBind", None
+        )
     except Exception as error:  # pragma: no cover - diagnostics only
         payload["pymupdfError"] = str(error)
 
@@ -82,6 +387,8 @@ class _Handler(BaseHTTPRequestHandler):
         elif self.path.split("?")[0] == "/waveform":
             points = _parse_points_from_path(self.path)
             payload = _build_waveform_payload(points, time.time() % math.tau)
+        elif self.path == "/ai/capabilities":
+            payload = _build_ai_capabilities_payload()
         else:
             self.send_response(404)
             self.end_headers()
@@ -95,6 +402,28 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(encoded)
 
     def do_POST(self):
+        if self.path in ("/ai/generate", "/mcp"):
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+                request_body = self.rfile.read(content_length).decode("utf-8")
+                payload = json.loads(request_body) if request_body else {}
+                if self.path == "/ai/generate":
+                    status, body = 200, _run_generation(payload)
+                else:
+                    status, body = 200, _handle_mcp_request(payload)
+            except ValueError as error:
+                status, body = 400, {"message": str(error)}
+            except Exception as error:  # pragma: no cover - safety net
+                status, body = 500, {"message": str(error)}
+
+            encoded = json.dumps(body).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(encoded)))
+            self.end_headers()
+            self.wfile.write(encoded)
+            return
+
         if self.path != "/inspect-pdf":
             self.send_response(404)
             self.end_headers()
@@ -146,12 +475,12 @@ def main():
     parser.add_argument("--port", type=int, default=43124)
     args = parser.parse_args()
 
-    server = HTTPServer((args.host, args.port), _Handler)
+    server = ThreadingHTTPServer((args.host, args.port), _Handler)
     try:
         server.serve_forever()
     finally:
         server.server_close()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

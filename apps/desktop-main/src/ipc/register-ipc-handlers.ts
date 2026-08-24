@@ -9,6 +9,7 @@ import { registerSettingsIpcHandlers } from './settings-handlers';
 import { registerTelemetryIpcHandlers } from './telemetry-handlers';
 import { registerUpdatesIpcHandlers } from './updates-handlers';
 import { registerPythonIpcHandlers } from './python-handlers';
+import { registerAiIpcHandlers } from './ai-handlers';
 
 export const registerIpcHandlers = (
   ipcMain: IpcMain,
@@ -22,5 +23,6 @@ export const registerIpcHandlers = (
   registerSettingsIpcHandlers(ipcMain, context);
   registerUpdatesIpcHandlers(ipcMain, context);
   registerPythonIpcHandlers(ipcMain, context);
+  registerAiIpcHandlers(ipcMain, context);
   registerTelemetryIpcHandlers(ipcMain, context);
 };
