@@ -1,0 +1,3 @@
+# Mirrors the CI 'typecheck' quality gate (nx build --all).
+# Blocks the push when this would fail on the pull request.
+pnpm typecheck

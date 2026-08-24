@@ -91,7 +91,18 @@ jobs:
           node-version: 24.13.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile=false
-      - run: pnpm typecheck
+      - name: typecheck (retry once on runner crash)
+        shell: bash
+        run: |
+          if ! out=$(pnpm typecheck 2>&1); then
+            if echo "$out" | grep -qE "SIGSEGV|Segmentation fault|Command was killed"; then
+              echo "::warning::nx process crashed on the runner; retrying once"
+              pnpm typecheck
+            else
+              printf '%s\n' "$out"
+              exit 1
+            fi
+          fi
 
   unit-test:
     name: unit-test
