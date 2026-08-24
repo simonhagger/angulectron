@@ -439,7 +439,18 @@ class _Handler(BaseHTTPRequestHandler):
             if self.path == "/extract-text":
                 if not isinstance(file_path, str) or not file_path:
                     raise ValueError("filePath is required")
-                import fitz  # type: ignore  # optional dependency
+                fitz_available = False
+                try:
+                    import fitz  # type: ignore  # optional dependency
+                    fitz_available = True
+                except Exception:
+                    pass
+                if not fitz_available:
+                    raise ImportError(
+                        "PDF text extraction not available: PyMuPDF (fitz) is not installed. "
+                        "Install with: pip install PyMuPDF"
+                    )
+                import fitz  # type: ignore  # now safe
                 text_parts = []
                 with fitz.open(file_path) as doc:
                     for page_num in range(doc.page_count):
