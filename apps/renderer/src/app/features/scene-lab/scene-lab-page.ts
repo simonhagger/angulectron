@@ -59,14 +59,7 @@ export class SceneLabPage {
     this.destroyRef.onDestroy(() => this.teardown());
 
     effect(() => {
-      const material = this.knot?.material;
-      if (material) {
-        material.color.set(this.accent());
-        material.wireframe = this.wireframe();
-      }
-      if (this.stars) {
-        this.stars.material.color.set(this.accent());
-      }
+      this.applyMaterialState();
     });
   }
 
@@ -109,7 +102,7 @@ export class SceneLabPage {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
 
-    const knotGeometry = new THREE.TorusKnotGeometry(1.5, 0.42, 220, 28);
+    const knotGeometry = new THREE.TorusKnotGeometry(1.6, 0.5, 128, 16);
     const knotMaterial = new THREE.MeshStandardMaterial({
       color: new THREE.Color(this.accent()),
       wireframe: this.wireframe(),
@@ -146,9 +139,22 @@ export class SceneLabPage {
     this.scene.add(rimLight);
 
     this.webglReady.set(true);
+    this.applyMaterialState();
     this.resizeToHost();
     this.observeResize();
     this.scheduleFrame();
+  }
+
+  private applyMaterialState(): void {
+    const material = this.knot?.material;
+    if (material) {
+      material.color.set(this.accent());
+      material.wireframe = this.wireframe();
+    }
+    if (this.stars) {
+      this.stars.material.color.set(this.accent());
+      this.stars.material.needsUpdate = true;
+    }
   }
 
   private observeResize(): void {
