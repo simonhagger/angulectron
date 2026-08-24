@@ -672,6 +672,91 @@ def test_extract_text_endpoint_rejects_missing_filepath():
         thread.join(timeout=1)
 
 
+def test_extract_text_endpoint_succeeds_with_stubbed_fitz(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    import types
+
+    class StubPage:
+        def get_text(self, _mode):
+            return "extracted text from page"
+
+    class StubDoc:
+        def __init__(self, _path):
+            self._pages = [StubPage(), StubPage()]
+            self.page_count = len(self._pages)
+
+        def __getitem__(self, idx):
+            return self._pages[idx]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    stub_fitz = types.ModuleType("fitz")
+    stub_fitz.open = lambda _path: StubDoc(_path)
+    monkeypatch.setitem(sys.modules, "fitz", stub_fitz)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "text.pdf"
+            pdf_path.write_bytes(b"%PDF-1.7\n% text content\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/extract-text",
+                {"filePath": str(pdf_path)},
+            )
+
+        assert status == 200
+        assert payload["accepted"] is True
+        assert payload["pageCount"] == 2
+        assert len(payload["textByPage"]) == 2
+        assert payload["textByPage"][0]["text"] == "extracted text from page"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_extract_text_endpoint_handles_fitz_error(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    import types
+
+    stub_fitz = types.ModuleType("fitz")
+    stub_fitz.open = lambda _path: (_ for _ in ()).throw(RuntimeError("corrupt PDF"))
+    monkeypatch.setitem(sys.modules, "fitz", stub_fitz)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "bad.pdf"
+            pdf_path.write_bytes(b"%PDF-1.7\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/extract-text",
+                {"filePath": str(pdf_path)},
+            )
+
+        assert status == 400
+        assert "message" in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
 def test_ocr_endpoint_reports_unavailable_without_deps():
     service = _load_service_module()
     server = TCPServer(("127.0.0.1", 0), service._Handler)
