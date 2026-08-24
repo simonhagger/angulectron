@@ -4,6 +4,7 @@ import {
   asSuccess,
   IPC_CHANNELS,
   pythonInspectPdfRequestSchema,
+  pythonExtractTextRequestSchema,
   pythonProbeRequestSchema,
   pythonStopRequestSchema,
   pythonWaveformRequestSchema,
@@ -123,6 +124,102 @@ export const registerPythonIpcHandlers = (
         return asFailure(
           'PYTHON/INSPECT_FAILED',
           'Python sidecar failed to inspect selected PDF.',
+          {
+            fileName: consumed.data.fileName,
+            message: error instanceof Error ? error.message : String(error),
+          },
+          false,
+          request.correlationId,
+        );
+      }
+    },
+  });
+
+  registerValidatedHandler({
+    ipcMain,
+    channel: IPC_CHANNELS.pythonExtractText,
+    schema: pythonExtractTextRequestSchema,
+    context,
+    handler: async (event, request) => {
+      const sidecar = context.getPythonSidecar();
+      if (!sidecar) {
+        return asFailure(
+          'PYTHON/UNAVAILABLE',
+          'Python sidecar is not configured.',
+          undefined,
+          false,
+          request.correlationId,
+        );
+      }
+
+      const consumed = consumeSelectedFileToken(
+        event,
+        request.payload.fileToken,
+        context,
+        request.correlationId,
+      );
+      if (!consumed.ok) {
+        return consumed;
+      }
+
+      const policy = await evaluateFileIngressPolicy(
+        consumed.data.filePath,
+        'pdfExtract',
+      );
+      if (policy.kind !== 'ok') {
+        context.logEvent(
+          'warn',
+          'security.file_ingress_rejected',
+          request.correlationId,
+          {
+            channel: IPC_CHANNELS.pythonExtractText,
+            policy: 'pdfExtract',
+            reason: policy.kind,
+            fileName: policy.fileName,
+            ...(policy.kind === 'unsupported-extension'
+              ? {
+                  extension: policy.extension,
+                  allowedExtensions: policy.allowedExtensions,
+                }
+              : {
+                  headerHex: policy.headerHex,
+                  expectedHex: policy.expectedHex,
+                }),
+          },
+        );
+        if (policy.kind === 'unsupported-extension') {
+          return asFailure(
+            'PYTHON/UNSUPPORTED_FILE_TYPE',
+            'Only PDF files are supported for text extraction.',
+            {
+              fileName: policy.fileName,
+              extension: policy.extension,
+            },
+            false,
+            request.correlationId,
+          );
+        }
+
+        return asFailure(
+          'PYTHON/FILE_SIGNATURE_MISMATCH',
+          'Selected file does not match expected PDF signature.',
+          {
+            fileName: policy.fileName,
+            headerHex: policy.headerHex,
+            expectedHex: policy.expectedHex,
+          },
+          false,
+          request.correlationId,
+        );
+      }
+
+      try {
+        const text = await sidecar.extractText(consumed.data.filePath);
+        return asSuccess(text);
+      } catch (error) {
+        return asFailure(
+          'PYTHON/EXTRACT_FAILED',
+          'Python sidecar failed to extract text from selected PDF.',
           {
             fileName: consumed.data.fileName,
             message: error instanceof Error ? error.message : String(error),

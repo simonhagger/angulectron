@@ -256,6 +256,40 @@ export class PythonSidecar {
     return (await response.json()) as PythonInspectPdfResult;
   }
 
+  async extractText(fileToken: string): Promise<{
+    accepted: boolean;
+    fileName: string;
+    fileSizeBytes: number;
+    pageCount: number;
+    textByPage: Array<{ page: number; text: string }>;
+    message?: string;
+  }> {
+    const response = await fetch(
+      this.endpoint.replace('/health', '/extract-text'),
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ fileToken }),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Python extract-text endpoint returned ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as {
+      accepted: boolean;
+      fileName: string;
+      fileSizeBytes: number;
+      pageCount: number;
+      textByPage: Array<{ page: number; text: string }>;
+      message?: string;
+    };
+  }
+
   async waveform(points: number): Promise<PythonWaveformResult> {
     const response = await fetch(
       `${this.endpoint.replace('/health', '/waveform')}?points=${points}`,

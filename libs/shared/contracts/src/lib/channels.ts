@@ -18,6 +18,7 @@ export const IPC_CHANNELS = {
   updatesApplyDemoPatch: 'updates:apply-demo-patch',
   pythonProbe: 'python:probe',
   pythonInspectPdf: 'python:inspect-pdf',
+  pythonExtractText: 'python:extract-text',
   pythonStop: 'python:stop',
   pythonWaveform: 'python:waveform',
   aiCapabilities: 'ai:capabilities',

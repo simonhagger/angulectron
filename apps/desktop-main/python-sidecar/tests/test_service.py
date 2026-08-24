@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -620,3 +621,352 @@ def test_main_initializes_server_and_closes_on_shutdown(monkeypatch):
     assert fake_server.address == ("127.0.0.1", 43124)
     assert fake_server.handler is service._Handler
     assert fake_server.closed is True
+
+
+def test_extract_text_endpoint_returns_page_text():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "text.pdf"
+            pdf_path.write_bytes(b"%PDF-1.7\n% text content\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/extract-text",
+                {"filePath": str(pdf_path)},
+            )
+
+        if status == 200:
+            assert payload["accepted"] is True
+            assert payload["fileName"] == "text.pdf"
+            assert "pageCount" in payload
+            assert "textByPage" in payload
+            assert isinstance(payload["textByPage"], list)
+        else:
+            assert status == 400
+            assert "message" in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_extract_text_endpoint_rejects_missing_filepath():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1], "POST", "/extract-text", {}
+        )
+        assert status == 400
+        assert "filePath is required" in payload["message"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_extract_text_endpoint_succeeds_with_stubbed_fitz(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    import types
+
+    class StubPage:
+        def get_text(self, _mode):
+            return "extracted text from page"
+
+    class StubDoc:
+        def __init__(self, _path):
+            self._pages = [StubPage(), StubPage()]
+            self.page_count = len(self._pages)
+
+        def __getitem__(self, idx):
+            return self._pages[idx]
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    stub_fitz = types.ModuleType("fitz")
+    stub_fitz.open = lambda _path: StubDoc(_path)
+    monkeypatch.setitem(sys.modules, "fitz", stub_fitz)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "text.pdf"
+            pdf_path.write_bytes(b"%PDF-1.7\n% text content\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/extract-text",
+                {"filePath": str(pdf_path)},
+            )
+
+        assert status == 200
+        assert payload["accepted"] is True
+        assert payload["pageCount"] == 2
+        assert len(payload["textByPage"]) == 2
+        assert payload["textByPage"][0]["text"] == "extracted text from page"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_extract_text_endpoint_handles_fitz_error(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    import types
+
+    stub_fitz = types.ModuleType("fitz")
+    stub_fitz.open = lambda _path: (_ for _ in ()).throw(RuntimeError("corrupt PDF"))
+    monkeypatch.setitem(sys.modules, "fitz", stub_fitz)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            pdf_path = Path(temp_dir) / "bad.pdf"
+            pdf_path.write_bytes(b"%PDF-1.7\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/extract-text",
+                {"filePath": str(pdf_path)},
+            )
+
+        assert status == 400
+        assert "message" in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_ocr_endpoint_reports_unavailable_without_deps():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            img_path = Path(temp_dir) / "sample.png"
+            img_path.write_bytes(b"\x89PNG\r\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/ocr",
+                {"filePath": str(img_path)},
+            )
+
+        assert status == 400
+        assert "OCR not available" in payload["message"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_ocr_endpoint_rejects_missing_filepath():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1], "POST", "/ocr", {}
+        )
+        assert status == 400
+        assert "filePath is required" in payload["message"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_ocr_endpoint_succeeds_with_stubbed_deps(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    import types
+
+    stub_cv2 = types.ModuleType("cv2")
+    stub_cv2.imread = lambda path: [[1, 2, 3]]
+    stub_cv2.cvtColor = lambda img, code: img
+    stub_cv2.COLOR_BGR2GRAY = 0
+    monkeypatch.setitem(sys.modules, "cv2", stub_cv2)
+
+    stub_pytesseract = types.ModuleType("pytesseract")
+    stub_pytesseract.Output = type("Output", (), {"DICT": "dict"})
+    stub_pytesseract.image_to_data = lambda img, output_type=None: {
+        "text": ["  Hello ", "  World "],
+        "left": [0, 50],
+        "top": [0, 0],
+        "width": [40, 50],
+        "height": [10, 10],
+    }
+    monkeypatch.setitem(sys.modules, "pytesseract", stub_pytesseract)
+
+    original_exists = os.path.exists
+    monkeypatch.setattr(
+        os.path,
+        "exists",
+        lambda path: True if "tesseract" in str(path) else original_exists(path),
+    )
+
+    original_run = subprocess.run
+    def _fake_run(cmd, **kwargs):
+        if isinstance(cmd, list) and "tesseract" in cmd:
+            return type("result", (), {"returncode": 0, "stdout": "/usr/bin/tesseract"})()
+        return original_run(cmd, **kwargs)
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            img_path = Path(temp_dir) / "ocr.png"
+            img_path.write_bytes(b"\x89PNG\r\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/ocr",
+                {"filePath": str(img_path)},
+            )
+
+        if status == 200:
+            assert payload["accepted"] is True
+            assert payload["pageCount"] == 1
+            assert len(payload["textByPage"][0]["blocks"]) == 2
+        else:
+            assert status == 400
+            assert "message" in payload
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_ocr_endpoint_reports_cv2_unavailable(monkeypatch, tmp_path):
+    service = _load_service_module()
+
+    import types
+
+    stub_pytesseract = types.ModuleType("pytesseract")
+    stub_pytesseract.Output = type("Output", (), {"DICT": "dict"})
+    monkeypatch.setitem(sys.modules, "pytesseract", stub_pytesseract)
+
+    original_exists = os.path.exists
+    monkeypatch.setattr(
+        os.path,
+        "exists",
+        lambda path: True if "tesseract" in str(path) else original_exists(path),
+    )
+
+    monkeypatch.delitem(sys.modules, "cv2", raising=False)
+
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            img_path = Path(temp_dir) / "ocr.png"
+            img_path.write_bytes(b"\x89PNG\r\n")
+
+            status, payload = _request(
+                server.server_address[1],
+                "POST",
+                "/ocr",
+                {"filePath": str(img_path)},
+            )
+
+        assert status == 400
+        assert "OCR not available" in payload["message"] or "OpenCV" in payload["message"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_analyze_text_endpoint_returns_word_and_paragraph_counts():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1],
+            "POST",
+            "/analyze-text",
+            {"text": "Hello world. This is a test."},
+        )
+
+        assert status == 200
+        assert isinstance(payload, dict)
+        assert payload["accepted"] is True
+        assert payload["fileName"] == "analyzed"
+        assert "textByPage" in payload
+        page = payload["textByPage"][0]
+        assert page["wordCount"] == 6
+        assert page["paragraphCount"] == 1
+        assert "normalizedWhitespace" in page
+        assert page["languageDetection"] in ("en", "unknown")
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_analyze_text_endpoint_rejects_empty_text():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1], "POST", "/analyze-text", {"text": ""}
+        )
+        assert status == 400
+        assert "text is required" in payload["message"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_analyze_text_endpoint_handles_paragraphs():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1],
+            "POST",
+            "/analyze-text",
+            {"text": "First paragraph.\n\nSecond paragraph."},
+        )
+        assert status == 200
+        page = payload["textByPage"][0]
+        assert page["paragraphCount"] == 2
+        assert page["wordCount"] == 4
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)

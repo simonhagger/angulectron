@@ -3,6 +3,7 @@ import argparse
 import importlib.util
 import json
 import math
+import re
 import os
 import platform
 import subprocess
@@ -424,7 +425,7 @@ class _Handler(BaseHTTPRequestHandler):
             self.wfile.write(encoded)
             return
 
-        if self.path != "/inspect-pdf":
+        if self.path not in ("/inspect-pdf", "/extract-text", "/ocr", "/analyze-text"):
             self.send_response(404)
             self.end_headers()
             return
@@ -434,6 +435,118 @@ class _Handler(BaseHTTPRequestHandler):
             request_body = self.rfile.read(content_length).decode("utf-8")
             payload = json.loads(request_body) if request_body else {}
             file_path = payload.get("filePath")
+
+            if self.path == "/extract-text":
+                if not isinstance(file_path, str) or not file_path:
+                    raise ValueError("filePath is required")
+                fitz_available = False
+                try:
+                    import fitz  # type: ignore  # optional dependency
+                    fitz_available = True
+                except Exception:
+                    pass
+                if not fitz_available:
+                    raise ImportError(
+                        "PDF text extraction not available: PyMuPDF (fitz) is not installed. "
+                        "Install with: pip install PyMuPDF"
+                    )
+                import fitz  # type: ignore  # now safe
+                text_parts = []
+                with fitz.open(file_path) as doc:
+                    for page_num in range(doc.page_count):
+                        page = doc[page_num]
+                        text = page.get_text("text") or ""
+                        text_parts.append({"page": page_num + 1, "text": text})
+                result = {
+                    "accepted": True,
+                    "fileName": os.path.basename(file_path),
+                    "fileSizeBytes": os.path.getsize(file_path),
+                    "pageCount": doc.page_count,
+                    "textByPage": text_parts,
+                    "message": "PDF text extracted by python sidecar.",
+                }
+                encoded = json.dumps(result).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                return
+
+            if self.path == "/ocr":
+                if not isinstance(file_path, str) or not file_path:
+                    raise ValueError("filePath is required")
+                pytesseract_available = False
+                try:
+                    import pytesseract  # type: ignore  # optional dependency
+                    pytesseract_available = True
+                except Exception:
+                    pass
+                cv2_available = False
+                try:
+                    import cv2  # type: ignore  # optional dependency
+                    cv2_available = True
+                except Exception:
+                    pass
+                tesseract_cmd = None
+                if sys.platform == "win32":
+                    candidate = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+                    if os.path.exists(candidate):
+                        tesseract_cmd = candidate
+                else:
+                    probe = subprocess.run(["which", "tesseract"], capture_output=True, text=True, timeout=2)
+                    if probe.returncode == 0:
+                        tesseract_cmd = probe.stdout.strip()
+                if not pytesseract_available or not tesseract_cmd:
+                    raise ImportError(
+                        "OCR not available: pytesseract and/or tesseract binary not installed. "
+                        "Install with: pip install pytesseract and apt-get install tesseract-ocr"
+                    )
+                if not cv2_available:
+                    raise ImportError(
+                        "OCR not available: OpenCV (cv2) is required but not installed. "
+                        "Install with: pip install opencv-python"
+                    )
+                import pytesseract  # type: ignore  # now safe
+                import cv2  # type: ignore  # now safe
+                image = cv2.imread(file_path)
+                if image is None:
+                    raise ImportError("OpenCV (cv2) is required for OCR but not installed.")
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+                data = pytesseract.image_to_data(gray, output_type=pytesseract.Output.DICT)
+                text_by_block = []
+                for i in range(len(data["text"])):
+                    if data["text"][i].strip():
+                        text_by_block.append({"page": 1, "left": data["left"][i], "top": data["top"][i], "width": data["width"][i], "height": data["height"][i], "text": data["text"][i]})
+                result = {"accepted": True, "fileName": os.path.basename(file_path), "fileSizeBytes": os.path.getsize(file_path), "pageCount": 1, "textByPage": [{"page": 1, "blocks": text_by_block}], "message": "OCR completed by python sidecar."}
+                encoded = json.dumps(result).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                return
+
+            if self.path == "/analyze-text":
+                text = payload.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    raise ValueError("text is required")
+                result = {
+                    "accepted": True,
+                    "fileName": "analyzed",
+                    "fileSizeBytes": len(text.encode("utf-8")),
+                    "pageCount": 1,
+                    "textByPage": [{"page": 1, "text": text, "wordCount": len(text.split()), "paragraphCount": len([p for p in text.split("\n\n") if p.strip()]), "normalizedWhitespace": " ".join(text.split()), "languageDetection": "en" if re.search(r"\b(the|and|or|but|if|then|else|for|while|return)\b", text, re.IGNORECASE) else "unknown"}],
+                    "message": "Text analyzed by python sidecar.",
+                }
+                encoded = json.dumps(result).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+                return
+
             if not isinstance(file_path, str) or not file_path:
                 raise ValueError("filePath is required")
 
