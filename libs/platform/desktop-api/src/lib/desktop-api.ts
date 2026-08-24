@@ -122,6 +122,15 @@ export interface DesktopPythonApi {
       message?: string;
     }>
   >;
+  waveform: (points: number) => Promise<
+    DesktopResult<{
+      samples: number[];
+      spectrum: number[];
+      sampleRate: number;
+      generatedAt: number;
+      message?: string;
+    }>
+  >;
   stop: () => Promise<
     DesktopResult<{
       stopped: boolean;

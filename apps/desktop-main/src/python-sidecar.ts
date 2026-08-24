@@ -41,6 +41,14 @@ type PythonInspectPdfResult = {
   message?: string;
 };
 
+type PythonWaveformResult = {
+  samples: number[];
+  spectrum: number[];
+  sampleRate: number;
+  generatedAt: number;
+  message?: string;
+};
+
 type CommandCandidate = {
   command: string;
   args: string[];
@@ -205,6 +213,21 @@ export class PythonSidecar {
     }
 
     return (await response.json()) as PythonInspectPdfResult;
+  }
+
+  async waveform(points: number): Promise<PythonWaveformResult> {
+    const response = await fetch(
+      `${this.endpoint.replace('/health', '/waveform')}?points=${points}`,
+      { signal: AbortSignal.timeout(3_000) },
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Python waveform endpoint returned ${response.status} ${response.statusText}`,
+      );
+    }
+
+    return (await response.json()) as PythonWaveformResult;
   }
 
   dispose() {

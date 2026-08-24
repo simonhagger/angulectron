@@ -122,6 +122,38 @@ def test_inspect_pdf_endpoint_rejects_missing_filepath():
         thread.join(timeout=1)
 
 
+def test_waveform_endpoint_returns_samples_and_spectrum():
+    service = _load_service_module()
+    server = TCPServer(("127.0.0.1", 0), service._Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        status, payload = _request(
+            server.server_address[1], "GET", "/waveform?points=64"
+        )
+        assert status == 200
+        assert isinstance(payload, dict)
+        assert len(payload["samples"]) == 64
+        assert len(payload["spectrum"]) == 32
+        assert all(m >= 0 for m in payload["spectrum"])
+        assert payload["sampleRate"] > 0
+        assert "pythonVersion" not in payload or isinstance(
+            payload["pythonVersion"], str
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=1)
+
+
+def test_waveform_endpoint_defaults_points_when_invalid():
+    service = _load_service_module()
+
+    assert service._parse_points_from_path("/waveform") == 256
+    assert service._parse_points_from_path("/waveform?points=999999") == 1024
+    assert service._parse_points_from_path("/waveform?points=abc") == 256
+
+
 def test_unknown_paths_return_404():
     service = _load_service_module()
     server = TCPServer(("127.0.0.1", 0), service._Handler)
