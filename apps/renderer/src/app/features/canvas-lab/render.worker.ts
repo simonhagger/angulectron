@@ -41,7 +41,6 @@ let speed = 10;
 let accent = '#38bdf8';
 let accentRgb: [number, number, number] = [0.22, 0.74, 0.97];
 let running = true;
-let rafHandle = 0;
 let lastTimestamp = 0;
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -67,7 +66,7 @@ function seedStars(width: number, height: number): void {
 
 function drawStarfield(timestamp: number): void {
   if (!ctx || !canvas || !running) {
-    rafHandle = requestAnimationFrame(drawStarfield);
+    requestAnimationFrame(drawStarfield);
     return;
   }
 
@@ -112,7 +111,7 @@ function drawStarfield(timestamp: number): void {
     ctx.stroke();
   }
 
-  rafHandle = requestAnimationFrame(drawStarfield);
+  requestAnimationFrame(drawStarfield);
 }
 
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
@@ -133,7 +132,7 @@ self.onmessage = (event: MessageEvent<WorkerMessage>) => {
     running = message.running;
     seedStars(canvas.width, canvas.height);
     lastTimestamp = performance.now();
-    rafHandle = requestAnimationFrame(drawStarfield);
+    requestAnimationFrame(drawStarfield);
     return;
   }
 
