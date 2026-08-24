@@ -828,6 +828,13 @@ def test_ocr_endpoint_succeeds_with_stubbed_deps(monkeypatch, tmp_path):
         lambda path: True if "tesseract" in str(path) else original_exists(path),
     )
 
+    original_run = subprocess.run
+    def _fake_run(cmd, **kwargs):
+        if isinstance(cmd, list) and "tesseract" in cmd:
+            return type("result", (), {"returncode": 0, "stdout": "/usr/bin/tesseract"})()
+        return original_run(cmd, **kwargs)
+    monkeypatch.setattr(subprocess, "run", _fake_run)
+
     server = TCPServer(("127.0.0.1", 0), service._Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
