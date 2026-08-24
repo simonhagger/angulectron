@@ -1,0 +1,62 @@
+.scene-lab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+.intro-card p {
+  margin: 0;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.scene-frame {
+  height: 420px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #080b12;
+}
+
+.scene-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.control-row label {
+  min-width: 90px;
+  font-size: 13px;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.control-row input[type='range'] {
+  flex: 1;
+  accent-color: var(--mat-sys-primary, #38bdf8);
+}
+
+.diag-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 20px;
+  margin: 0;
+}
+
+.diag-grid dt {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mat-sys-on-surface-variant, #9aa4b2);
+}
+
+.diag-grid dd {
+  margin: 0;
+  font-size: 13px;
+}

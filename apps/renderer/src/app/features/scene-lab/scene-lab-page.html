@@ -1,0 +1,68 @@
+<section class="scene-lab">
+  <mat-card class="intro-card">
+    <mat-card-header>
+      <mat-icon matCardAvatar>view_in_ar</mat-icon>
+      <mat-card-title>Scene Lab</mat-card-title>
+      <mat-card-subtitle>
+        three.js WebGL scene — drag to orbit, scroll to zoom
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <p>
+        A wireframe torus knot inside a star field, rendered by a lazy-loaded
+        three.js chunk. The render loop runs outside Angular change detection;
+        the controls below update signals read every frame.
+      </p>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="stage-card">
+    <mat-card-content>
+      <div class="scene-frame">
+        <canvas
+          #sceneCanvas
+          class="scene-canvas"
+          aria-label="Interactive 3D torus knot scene"
+        ></canvas>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card class="controls-card">
+    <mat-card-header>
+      <mat-card-title>Controls</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="control-row">
+        <label for="rotation">Spin: {{ rotationSpeed() / 10 }}x</label>
+        <input
+          id="rotation"
+          type="range"
+          min="0"
+          max="40"
+          step="1"
+          [value]="rotationSpeed()"
+          (input)="setRotationSpeed($any($event.target).valueAsNumber)"
+        />
+      </div>
+
+      <div class="control-row">
+        <button mat-stroked-button type="button" (click)="toggleWireframe()">
+          <mat-icon>grid_4x4</mat-icon>
+          {{ wireframe() ? "Wireframe: on" : "Wireframe: off" }}
+        </button>
+        <button mat-stroked-button type="button" (click)="toggleRunning()">
+          <mat-icon>{{ running() ? "pause" : "play_arrow" }}</mat-icon>
+          {{ running() ? "Pause" : "Resume" }}
+        </button>
+      </div>
+
+      <dl class="diag-grid">
+        <dt>FPS</dt>
+        <dd>{{ fps() }}</dd>
+        <dt>Status</dt>
+        <dd>{{ webglReady() ? "Rendering" : "Initializing…" }}</dd>
+      </dl>
+    </mat-card-content>
+  </mat-card>
+</section>
